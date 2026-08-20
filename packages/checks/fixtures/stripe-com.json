@@ -1,0 +1,32 @@
+{
+  "name": "stripe.com — the clean-report fixture: every Phase 0 check must stay silent",
+  "recorded": "trimmed live snapshot, 2026-08-20",
+  "url": "https://stripe.com/",
+  "finalUrl": "https://stripe.com/",
+  "status": 200,
+  "headers": {
+    "content-type": "text/html; charset=utf-8",
+    "content-security-policy": "default-src 'self'; script-src 'self' 'nonce-x9k2m' js.stripe.com; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()"
+  },
+  "tls": { "daysFromNow": 88, "protocol": "TLSv1.3", "issuer": "Cloudflare, Inc." },
+  "httpProbe": { "status": 301, "location": "https://stripe.com/" },
+  "expect": {
+    "clean": true,
+    "mustFlag": [],
+    "mustNotFlag": [
+      "security.headers.csp",
+      "security.headers.hsts",
+      "security.headers.x-frame-options",
+      "security.headers.x-content-type-options",
+      "security.headers.referrer-policy",
+      "security.headers.permissions-policy",
+      "security.tls.cert-expiry",
+      "security.tls.protocol-version",
+      "security.tls.https-redirect"
+    ]
+  }
+}
