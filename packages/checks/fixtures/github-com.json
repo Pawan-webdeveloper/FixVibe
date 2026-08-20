@@ -1,0 +1,30 @@
+{
+  "name": "github.com — hardened headers, only the Permissions-Policy nudge remains",
+  "recorded": "trimmed live snapshot, 2026-08-20",
+  "url": "https://github.com/",
+  "finalUrl": "https://github.com/",
+  "status": 200,
+  "headers": {
+    "content-type": "text/html; charset=utf-8",
+    "content-security-policy": "default-src 'none'; base-uri 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: github.githubassets.com; script-src github.githubassets.com; style-src 'unsafe-inline' github.githubassets.com",
+    "strict-transport-security": "max-age=31536000; includeSubdomains; preload",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "deny",
+    "referrer-policy": "origin-when-cross-origin, strict-origin-when-cross-origin"
+  },
+  "tls": { "daysFromNow": 45, "protocol": "TLSv1.3", "issuer": "Sectigo Limited" },
+  "httpProbe": { "status": 301, "location": "https://github.com/" },
+  "expect": {
+    "mustFlag": ["security.headers.permissions-policy"],
+    "mustNotFlag": [
+      "security.headers.csp",
+      "security.headers.hsts",
+      "security.headers.x-frame-options",
+      "security.headers.x-content-type-options",
+      "security.headers.referrer-policy",
+      "security.tls.cert-expiry",
+      "security.tls.protocol-version",
+      "security.tls.https-redirect"
+    ]
+  }
+}

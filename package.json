@@ -1,0 +1,19 @@
+{
+  "name": "darvin",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "scan": "pnpm --filter @darvin/cli exec tsx src/index.ts",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "turbo": "^2.10.11",
+    "typescript": "^7.0.2"
+  }
+}

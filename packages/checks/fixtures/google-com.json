@@ -1,0 +1,31 @@
+{
+  "name": "google.com — report-only CSP and sparse headers (relies on preload lists)",
+  "recorded": "trimmed live snapshot, 2026-08-20",
+  "url": "https://google.com/",
+  "finalUrl": "https://www.google.com/",
+  "redirectChain": ["https://google.com/"],
+  "status": 200,
+  "headers": {
+    "content-type": "text/html; charset=ISO-8859-1",
+    "content-security-policy-report-only": "object-src 'none';base-uri 'self';script-src 'nonce-8SkJz' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp",
+    "x-frame-options": "SAMEORIGIN",
+    "x-xss-protection": "0"
+  },
+  "tls": { "daysFromNow": 70, "protocol": "TLSv1.3", "issuer": "Google Trust Services" },
+  "httpProbe": { "status": 301, "location": "https://www.google.com/" },
+  "expect": {
+    "mustFlag": [
+      "security.headers.csp",
+      "security.headers.hsts",
+      "security.headers.x-content-type-options",
+      "security.headers.referrer-policy",
+      "security.headers.permissions-policy"
+    ],
+    "mustNotFlag": [
+      "security.headers.x-frame-options",
+      "security.tls.cert-expiry",
+      "security.tls.protocol-version",
+      "security.tls.https-redirect"
+    ]
+  }
+}

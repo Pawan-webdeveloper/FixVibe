@@ -1,0 +1,25 @@
+{
+  // Shared compiler baseline for every workspace package.
+  // We never emit JS from tsc — tsx (dev/CLI) and Next.js (web) handle execution,
+  // so tsc's only job here is strict type-checking.
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    // Source files are imported with their real ".ts" extension (Node-ESM style).
+    // Requires noEmit, which is what we want anyway.
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+
+    "types": ["node"],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
