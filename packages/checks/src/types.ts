@@ -46,7 +46,12 @@ export interface CheckContext {
   /** Peer-certificate summary; null for plain-HTTP targets or when the handshake failed. */
   tls: { validTo: Date; protocol: string; issuer: string } | null
   dns: { txt: string[]; caa: string[]; mx: string[]; dnssec: boolean }
-  robots: { raw: string; allows: (userAgent: string, path: string) => boolean } | null
+  robots: {
+    raw: string
+    allows: (userAgent: string, path: string) => boolean
+    /** Absolute URLs from `Sitemap:` lines, in file order (unparseable ones dropped). */
+    sitemaps: string[]
+  } | null
   /**
    * First response of `http://<host>/`, captured only when the scan itself never
    * observed plain HTTP (i.e. the user gave us an https URL). Lets the
