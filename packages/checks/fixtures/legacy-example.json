@@ -24,6 +24,11 @@
     "status": 302,
     "location": "http://legacy.example/login"
   },
+  "dns": {
+    "emailDomain": "legacy.example",
+    "spfTxt": [],
+    "dmarcTxt": []
+  },
   "expect": {
     "mustFlag": [
       "security.headers.csp",

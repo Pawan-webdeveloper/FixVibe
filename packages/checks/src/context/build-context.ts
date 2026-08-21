@@ -25,7 +25,15 @@ export interface BuildContextOptions {
 const MAX_PROBES_PER_SCAN = 24
 const PROBE_MAX_BODY_BYTES = 256 * 1024
 
-const EMPTY_DNS: CheckContext['dns'] = { txt: [], caa: [], mx: [], dnssec: false }
+const EMPTY_DNS: CheckContext['dns'] = {
+  txt: [],
+  caa: [],
+  mx: [],
+  dnssec: false,
+  emailDomain: null,
+  spfTxt: [],
+  dmarcTxt: [],
+}
 
 export async function buildContext(
   target: URL | string,

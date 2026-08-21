@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { allChecks, runChecks } from '../src/registry.ts'
-import type { Category } from '../src/types.ts'
+import type { Category, CheckContext } from '../src/types.ts'
 import { makeContext, probeStub, robotsFrom } from './helpers.ts'
 
 interface Fixture {
@@ -31,6 +31,8 @@ interface Fixture {
   status: number
   headers: Record<string, string>
   html?: string
+  /** Recorded DNS. Absent means the snapshot captured none, so the zone reads as empty. */
+  dns?: Partial<CheckContext['dns']>
   /** robots.txt body; null/absent means the file was missing or non-200. */
   robotsTxt?: string | null
   /** Same-origin paths a check may probe, and what they answered. */
@@ -58,6 +60,7 @@ describe('site fixtures through the registry', () => {
       status: fixture.status,
       headers: fixture.headers,
       html: fixture.html,
+      dns: fixture.dns,
       robots: fixture.robotsTxt ? robotsFrom(fixture.robotsTxt) : null,
       probe: probeStub(fixture.probe ?? {}),
       tls: fixture.tls
