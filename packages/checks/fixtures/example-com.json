@@ -1,6 +1,9 @@
 {
   "name": "example.com — bare IANA demo page, no security headers at all",
   "recorded": "trimmed live snapshot, 2026-08-20",
+  "categories": [
+    "security"
+  ],
   "url": "https://example.com/",
   "finalUrl": "https://example.com/",
   "status": 200,
@@ -9,8 +12,15 @@
     "cache-control": "max-age=86000",
     "etag": "\"84238dfc8092e5d9c0dac8ef93371a07\""
   },
-  "tls": { "daysFromNow": 200, "protocol": "TLSv1.3", "issuer": "DigiCert Inc" },
-  "httpProbe": { "status": 200, "location": null },
+  "tls": {
+    "daysFromNow": 200,
+    "protocol": "TLSv1.3",
+    "issuer": "DigiCert Inc"
+  },
+  "httpProbe": {
+    "status": 200,
+    "location": null
+  },
   "expect": {
     "mustFlag": [
       "security.headers.csp",
@@ -21,6 +31,9 @@
       "security.headers.permissions-policy",
       "security.tls.https-redirect"
     ],
-    "mustNotFlag": ["security.tls.cert-expiry", "security.tls.protocol-version"]
+    "mustNotFlag": [
+      "security.tls.cert-expiry",
+      "security.tls.protocol-version"
+    ]
   }
 }

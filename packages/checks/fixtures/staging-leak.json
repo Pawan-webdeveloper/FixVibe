@@ -1,0 +1,32 @@
+{
+  "name": "staging-leak.example — SYNTHETIC: a staging SEO config shipped to production",
+  "recorded": "hand-authored (the single most common way a live site vanishes from Google)",
+  "categories": ["seo"],
+  "url": "https://staging-leak.example/",
+  "finalUrl": "https://staging-leak.example/",
+  "status": 200,
+  "headers": {
+    "content-type": "text/html; charset=utf-8"
+  },
+  "html": "<!doctype html>\n<html>\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta name=\"robots\" content=\"noindex, nofollow\" />\n    <title>Home</title>\n  </head>\n  <body>\n    <div class=\"hero\">Welcome to Acme</div>\n    <p>Coming soon.</p>\n  </body>\n</html>",
+  "robotsTxt": "User-agent: *\nDisallow: /\n",
+  "probe": {},
+  "tls": null,
+  "httpProbe": null,
+  "expect": {
+    "mustFlag": [
+      "seo.robots-meta",
+      "seo.robots-txt",
+      "seo.sitemap",
+      "seo.title",
+      "seo.meta-description",
+      "seo.h1",
+      "seo.viewport",
+      "seo.canonical",
+      "seo.lang",
+      "seo.open-graph",
+      "seo.structured-data"
+    ],
+    "mustNotFlag": ["seo.twitter-card"]
+  }
+}

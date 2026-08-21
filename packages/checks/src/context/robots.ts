@@ -26,6 +26,7 @@ interface RobotsGroup {
 
 export function parseRobots(raw: string): Robots {
   const groups: RobotsGroup[] = []
+  const sitemaps: string[] = []
   let current: RobotsGroup | null = null
   let previousWasAgent = false
 
@@ -54,10 +55,23 @@ export function parseRobots(raw: string): Robots {
       }
     } else {
       previousWasAgent = false // Sitemap:, Crawl-delay:, … end an agent run too
+      // Sitemap is a group-independent directive and must be an absolute URL
+      // (RFC 9309 §2.2.3); a relative value is meaningless to a crawler, so we
+      // drop it rather than hand checks something they'd have to guess about.
+      if (field === 'sitemap' && isAbsoluteHttpUrl(value)) sitemaps.push(value)
     }
   }
 
-  return { raw, allows: (userAgent, path) => allows(groups, userAgent, path) }
+  return { raw, allows: (userAgent, path) => allows(groups, userAgent, path), sitemaps }
+}
+
+function isAbsoluteHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 function allows(groups: RobotsGroup[], userAgent: string, path: string): boolean {

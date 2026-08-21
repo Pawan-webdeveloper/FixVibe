@@ -83,4 +83,28 @@ describe('parseRobots', () => {
     expect(parseRobots('').allows('x', '/anywhere')).toBe(true)
     expect(parseRobots('Sitemap: https://s.test/sitemap.xml').allows('x', '/page')).toBe(true)
   })
+
+  describe('Sitemap directives', () => {
+    it('collects absolute sitemap URLs in file order, independent of any group', () => {
+      const robots = parseRobots(
+        [
+          'Sitemap: https://s.test/sitemap-index.xml',
+          'User-agent: *',
+          'Disallow: /admin',
+          'sitemap: https://s.test/news-sitemap.xml',
+        ].join('\n'),
+      )
+      expect(robots.sitemaps).toEqual(['https://s.test/sitemap-index.xml', 'https://s.test/news-sitemap.xml'])
+      expect(robots.allows('x', '/admin')).toBe(false) // the Sitemap line must not swallow the group
+    })
+
+    it('drops values a crawler cannot resolve — the directive requires an absolute URL', () => {
+      const robots = parseRobots(['Sitemap: /sitemap.xml', 'Sitemap: not a url', 'Sitemap:'].join('\n'))
+      expect(robots.sitemaps).toEqual([])
+    })
+
+    it('reports no sitemaps when the file declares none', () => {
+      expect(parseRobots('User-agent: *\nAllow: /').sitemaps).toEqual([])
+    })
+  })
 })

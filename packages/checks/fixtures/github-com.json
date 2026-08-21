@@ -1,6 +1,9 @@
 {
   "name": "github.com — hardened headers, only the Permissions-Policy nudge remains",
   "recorded": "trimmed live snapshot, 2026-08-20",
+  "categories": [
+    "security"
+  ],
   "url": "https://github.com/",
   "finalUrl": "https://github.com/",
   "status": 200,
@@ -12,10 +15,19 @@
     "x-frame-options": "deny",
     "referrer-policy": "origin-when-cross-origin, strict-origin-when-cross-origin"
   },
-  "tls": { "daysFromNow": 45, "protocol": "TLSv1.3", "issuer": "Sectigo Limited" },
-  "httpProbe": { "status": 301, "location": "https://github.com/" },
+  "tls": {
+    "daysFromNow": 45,
+    "protocol": "TLSv1.3",
+    "issuer": "Sectigo Limited"
+  },
+  "httpProbe": {
+    "status": 301,
+    "location": "https://github.com/"
+  },
   "expect": {
-    "mustFlag": ["security.headers.permissions-policy"],
+    "mustFlag": [
+      "security.headers.permissions-policy"
+    ],
     "mustNotFlag": [
       "security.headers.csp",
       "security.headers.hsts",
