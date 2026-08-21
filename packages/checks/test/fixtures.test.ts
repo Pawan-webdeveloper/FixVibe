@@ -49,7 +49,7 @@ const fixtures = readdirSync(fixturesDir)
 
 describe('site fixtures through the registry', () => {
   it('has the recorded fixture sites', () => {
-    expect(fixtures.length).toBe(6)
+    expect(fixtures.length).toBe(7)
   })
 
   it.each(fixtures.map((f) => [f.name, f] as const))('%s', async (_, fixture) => {

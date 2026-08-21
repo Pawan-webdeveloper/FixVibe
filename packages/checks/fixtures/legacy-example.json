@@ -1,5 +1,5 @@
 {
-  "name": "legacy.example — SYNTHETIC worst-case profile: all nine checks must fire",
+  "name": "legacy.example — SYNTHETIC worst-case profile: neglected server, no email authentication",
   "recorded": "hand-authored (modelled on a neglected 2010s Apache install)",
   "categories": [
     "security"
@@ -39,8 +39,17 @@
       "security.headers.permissions-policy",
       "security.tls.cert-expiry",
       "security.tls.protocol-version",
-      "security.tls.https-redirect"
+      "security.tls.https-redirect",
+      "security.info-leak.server",
+      "security.info-leak.x-powered-by",
+      "security.email.spf",
+      "security.email.dmarc"
     ],
-    "mustNotFlag": []
+    "mustNotFlag": [
+      "security.cookies.flags",
+      "security.cors.wildcard",
+      "security.mixed-content",
+      "security.security-txt"
+    ]
   }
 }

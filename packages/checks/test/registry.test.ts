@@ -7,7 +7,15 @@
 import { describe, expect, it } from 'vitest'
 import type { Check, Finding } from '../src/types.ts'
 import { allChecks, runChecks } from '../src/registry.ts'
-import { CLEAN_SEO_HTML, makeContext, permissiveRobots, probeStub, SITEMAP_XML } from './helpers.ts'
+import {
+  CLEAN_SEO_HTML,
+  HEALTHY_DNS,
+  makeContext,
+  permissiveRobots,
+  probeStub,
+  securityTxt,
+  SITEMAP_XML,
+} from './helpers.ts'
 
 const finding = (checkId: string, severity: Finding['severity']): Finding => ({
   checkId,
@@ -28,9 +36,9 @@ const emitting = (id: string, severity: Finding['severity']): Check => ({
 
 describe('runChecks', () => {
   it('registers every check under a unique, category-prefixed id', () => {
-    // 9 security (Phase 0) + 12 SEO (Phase 1, first batch).
-    expect(allChecks).toHaveLength(21)
-    expect(allChecks.filter((c) => c.category === 'security')).toHaveLength(9)
+    // 17 security (9 Phase 0 + 8 Phase 1 batch B) + 12 SEO.
+    expect(allChecks).toHaveLength(29)
+    expect(allChecks.filter((c) => c.category === 'security')).toHaveLength(17)
     expect(allChecks.filter((c) => c.category === 'seo')).toHaveLength(12)
 
     // Stable dot-namespaced ids are DB keys later — catch accidental renames.
@@ -80,7 +88,11 @@ describe('runChecks', () => {
       httpProbe: { status: 301, location: 'https://site.test/' },
       html: CLEAN_SEO_HTML,
       robots: permissiveRobots(),
-      probe: probeStub({ '/sitemap.xml': { status: 200, body: SITEMAP_XML } }),
+      dns: HEALTHY_DNS,
+      probe: probeStub({
+        '/sitemap.xml': { status: 200, body: SITEMAP_XML },
+        '/.well-known/security.txt': { status: 200, body: securityTxt() },
+      }),
     })
     const { findings, errors } = await runChecks(ctx)
     expect(errors).toEqual([])

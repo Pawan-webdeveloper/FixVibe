@@ -1,0 +1,44 @@
+{
+  "name": "leaky-app.example — SYNTHETIC: an app shipped with development defaults",
+  "recorded": "hand-authored to exercise the cookie, CORS and mixed-content checks together",
+  "categories": ["security"],
+  "url": "https://leaky-app.example/",
+  "finalUrl": "https://leaky-app.example/",
+  "status": 200,
+  "headers": {
+    "content-type": "text/html; charset=utf-8",
+    "content-security-policy": "default-src 'self'; script-src 'self'; frame-ancestors 'none'",
+    "strict-transport-security": "max-age=31536000; includeSubDomains",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "permissions-policy": "camera=(), microphone=()",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true",
+    "set-cookie": "connect.sid=abc123; Path=/"
+  },
+  "html": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <title>Leaky App</title>\n    <script src=\"http://cdn.leaky-app.example/vendor.js\"></script>\n  </head>\n  <body>\n    <h1>Dashboard</h1>\n    <img src=\"http://cdn.leaky-app.example/logo.png\" alt=\"Logo\" />\n    <a href=\"http://blog.leaky-app.example/\">Blog</a>\n  </body>\n</html>",
+  "probe": { "/.well-known/security.txt": { "status": 404 } },
+  "dns": {
+    "emailDomain": "leaky-app.example",
+    "spfTxt": ["v=spf1 include:_spf.google.com ~all"],
+    "dmarcTxt": ["v=DMARC1; p=none"]
+  },
+  "tls": { "daysFromNow": 120, "protocol": "TLSv1.3", "issuer": "Test CA" },
+  "httpProbe": { "status": 301, "location": "https://leaky-app.example/" },
+  "expect": {
+    "mustFlag": [
+      "security.cookies.flags",
+      "security.cors.wildcard",
+      "security.mixed-content",
+      "security.security-txt",
+      "security.email.dmarc"
+    ],
+    "mustNotFlag": [
+      "security.info-leak.server",
+      "security.info-leak.x-powered-by",
+      "security.email.spf",
+      "security.headers.csp",
+      "security.headers.hsts"
+    ]
+  }
+}
