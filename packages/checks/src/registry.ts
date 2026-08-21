@@ -26,6 +26,18 @@ import { xFrameOptionsCheck } from './security/headers/x-frame-options.ts'
 import { certExpiryCheck } from './security/tls/cert-expiry.ts'
 import { httpsRedirectCheck } from './security/tls/https-redirect.ts'
 import { tlsProtocolVersionCheck } from './security/tls/protocol-version.ts'
+import { canonicalCheck } from './seo/canonical.ts'
+import { h1Check } from './seo/h1.ts'
+import { langCheck } from './seo/lang.ts'
+import { metaDescriptionCheck } from './seo/meta-description.ts'
+import { openGraphCheck } from './seo/open-graph.ts'
+import { robotsMetaCheck } from './seo/robots-meta.ts'
+import { robotsTxtCheck } from './seo/robots-txt.ts'
+import { sitemapCheck } from './seo/sitemap.ts'
+import { structuredDataCheck } from './seo/structured-data.ts'
+import { titleCheck } from './seo/title.ts'
+import { twitterCardCheck } from './seo/twitter-card.ts'
+import { viewportCheck } from './seo/viewport.ts'
 
 export const allChecks: readonly Check[] = [
   cspCheck,
@@ -37,6 +49,20 @@ export const allChecks: readonly Check[] = [
   certExpiryCheck,
   tlsProtocolVersionCheck,
   httpsRedirectCheck,
+  // SEO — order here is cosmetic: checks run concurrently and findings are
+  // sorted by severity before anyone sees them.
+  robotsMetaCheck,
+  robotsTxtCheck,
+  sitemapCheck,
+  titleCheck,
+  metaDescriptionCheck,
+  h1Check,
+  viewportCheck,
+  canonicalCheck,
+  langCheck,
+  openGraphCheck,
+  twitterCardCheck,
+  structuredDataCheck,
 ]
 
 /** A check that crashed or timed out — a bug in US (or a hostile page), not a site finding. */

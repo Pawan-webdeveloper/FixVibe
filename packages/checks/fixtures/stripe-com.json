@@ -1,6 +1,9 @@
 {
   "name": "stripe.com — the clean-report fixture: every Phase 0 check must stay silent",
   "recorded": "trimmed live snapshot, 2026-08-20",
+  "categories": [
+    "security"
+  ],
   "url": "https://stripe.com/",
   "finalUrl": "https://stripe.com/",
   "status": 200,
@@ -12,8 +15,15 @@
     "referrer-policy": "strict-origin-when-cross-origin",
     "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()"
   },
-  "tls": { "daysFromNow": 88, "protocol": "TLSv1.3", "issuer": "Cloudflare, Inc." },
-  "httpProbe": { "status": 301, "location": "https://stripe.com/" },
+  "tls": {
+    "daysFromNow": 88,
+    "protocol": "TLSv1.3",
+    "issuer": "Cloudflare, Inc."
+  },
+  "httpProbe": {
+    "status": 301,
+    "location": "https://stripe.com/"
+  },
   "expect": {
     "clean": true,
     "mustFlag": [],

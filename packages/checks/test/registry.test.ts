@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Check, Finding } from '../src/types.ts'
 import { allChecks, runChecks } from '../src/registry.ts'
-import { makeContext } from './helpers.ts'
+import { CLEAN_SEO_HTML, makeContext, permissiveRobots, probeStub, SITEMAP_XML } from './helpers.ts'
 
 const finding = (checkId: string, severity: Finding['severity']): Finding => ({
   checkId,
@@ -27,11 +27,18 @@ const emitting = (id: string, severity: Finding['severity']): Check => ({
 })
 
 describe('runChecks', () => {
-  it('registers the nine Phase 0 checks', () => {
-    expect(allChecks).toHaveLength(9)
+  it('registers every check under a unique, category-prefixed id', () => {
+    // 9 security (Phase 0) + 12 SEO (Phase 1, first batch).
+    expect(allChecks).toHaveLength(21)
+    expect(allChecks.filter((c) => c.category === 'security')).toHaveLength(9)
+    expect(allChecks.filter((c) => c.category === 'seo')).toHaveLength(12)
+
     // Stable dot-namespaced ids are DB keys later — catch accidental renames.
-    expect(new Set(allChecks.map((c) => c.id)).size).toBe(9)
-    for (const check of allChecks) expect(check.id).toMatch(/^security\.[a-z-]+\.[a-z-]+$/)
+    expect(new Set(allChecks.map((c) => c.id)).size).toBe(allChecks.length)
+    for (const check of allChecks) {
+      expect(check.id, `${check.id} must be dot-namespaced lowercase`).toMatch(/^[a-z]+(\.[a-z0-9-]+)+$/)
+      expect(check.id.startsWith(`${check.category}.`), `${check.id} must start with its category`).toBe(true)
+    }
   })
 
   it('isolates a crashing check instead of failing the scan', async () => {
@@ -60,6 +67,7 @@ describe('runChecks', () => {
 
   it('runs a clean scan with zero findings and zero errors', async () => {
     // A well-configured synthetic site: the full registry must stay silent.
+    // This is the false-positive guard — every new check has to pass it.
     const ctx = makeContext({
       headers: {
         'content-security-policy': "default-src 'self'; script-src 'self'; frame-ancestors 'none'",
@@ -70,6 +78,9 @@ describe('runChecks', () => {
       },
       tls: { validTo: new Date(Date.now() + 60 * 86_400_000), protocol: 'TLSv1.3', issuer: 'Test CA' },
       httpProbe: { status: 301, location: 'https://site.test/' },
+      html: CLEAN_SEO_HTML,
+      robots: permissiveRobots(),
+      probe: probeStub({ '/sitemap.xml': { status: 200, body: SITEMAP_XML } }),
     })
     const { findings, errors } = await runChecks(ctx)
     expect(errors).toEqual([])

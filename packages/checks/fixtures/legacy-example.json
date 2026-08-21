@@ -1,6 +1,9 @@
 {
   "name": "legacy.example — SYNTHETIC worst-case profile: all nine checks must fire",
   "recorded": "hand-authored (modelled on a neglected 2010s Apache install)",
+  "categories": [
+    "security"
+  ],
   "url": "https://legacy.example/",
   "finalUrl": "https://legacy.example/",
   "status": 200,
@@ -12,8 +15,15 @@
     "x-frame-options": "ALLOWALL",
     "referrer-policy": "unsafe-url"
   },
-  "tls": { "daysFromNow": 9, "protocol": "TLSv1.1", "issuer": "Legacy CA" },
-  "httpProbe": { "status": 302, "location": "http://legacy.example/login" },
+  "tls": {
+    "daysFromNow": 9,
+    "protocol": "TLSv1.1",
+    "issuer": "Legacy CA"
+  },
+  "httpProbe": {
+    "status": 302,
+    "location": "http://legacy.example/login"
+  },
   "expect": {
     "mustFlag": [
       "security.headers.csp",

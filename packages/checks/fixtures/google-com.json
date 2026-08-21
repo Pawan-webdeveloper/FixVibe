@@ -1,9 +1,14 @@
 {
   "name": "google.com — report-only CSP and sparse headers (relies on preload lists)",
   "recorded": "trimmed live snapshot, 2026-08-20",
+  "categories": [
+    "security"
+  ],
   "url": "https://google.com/",
   "finalUrl": "https://www.google.com/",
-  "redirectChain": ["https://google.com/"],
+  "redirectChain": [
+    "https://google.com/"
+  ],
   "status": 200,
   "headers": {
     "content-type": "text/html; charset=ISO-8859-1",
@@ -11,8 +16,15 @@
     "x-frame-options": "SAMEORIGIN",
     "x-xss-protection": "0"
   },
-  "tls": { "daysFromNow": 70, "protocol": "TLSv1.3", "issuer": "Google Trust Services" },
-  "httpProbe": { "status": 301, "location": "https://www.google.com/" },
+  "tls": {
+    "daysFromNow": 70,
+    "protocol": "TLSv1.3",
+    "issuer": "Google Trust Services"
+  },
+  "httpProbe": {
+    "status": 301,
+    "location": "https://www.google.com/"
+  },
   "expect": {
     "mustFlag": [
       "security.headers.csp",
