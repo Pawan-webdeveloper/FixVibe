@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // The checks package ships raw .ts (main: src/index.ts); point tsc straight
+    // at the source so cross-package types resolve without a build step.
+    "paths": {
+      "@darvin/checks": ["../checks/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "drizzle.config.ts"]
+}

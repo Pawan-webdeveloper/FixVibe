@@ -2,11 +2,22 @@
   "name": "@darvin/db",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
   "dependencies": {
+    "@darvin/checks": "workspace:*",
+    "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.10"
   }
 }
