@@ -26,6 +26,14 @@ import { xFrameOptionsCheck } from './security/headers/x-frame-options.ts'
 import { certExpiryCheck } from './security/tls/cert-expiry.ts'
 import { httpsRedirectCheck } from './security/tls/https-redirect.ts'
 import { tlsProtocolVersionCheck } from './security/tls/protocol-version.ts'
+import { dmarcCheck } from './email/dmarc.ts'
+import { spfCheck } from './email/spf.ts'
+import { cookieFlagsCheck } from './security/cookies/cookie-flags.ts'
+import { corsWildcardCheck } from './security/cors/cors-wildcard.ts'
+import { serverHeaderCheck } from './security/info-leak/server-header.ts'
+import { xPoweredByCheck } from './security/info-leak/x-powered-by.ts'
+import { mixedContentCheck } from './security/mixed-content.ts'
+import { securityTxtCheck } from './security/security-txt.ts'
 import { canonicalCheck } from './seo/canonical.ts'
 import { h1Check } from './seo/h1.ts'
 import { langCheck } from './seo/lang.ts'
@@ -49,6 +57,14 @@ export const allChecks: readonly Check[] = [
   certExpiryCheck,
   tlsProtocolVersionCheck,
   httpsRedirectCheck,
+  cookieFlagsCheck,
+  corsWildcardCheck,
+  mixedContentCheck,
+  serverHeaderCheck,
+  xPoweredByCheck,
+  securityTxtCheck,
+  spfCheck,
+  dmarcCheck,
   // SEO — order here is cosmetic: checks run concurrently and findings are
   // sorted by severity before anyone sees them.
   robotsMetaCheck,

@@ -24,6 +24,15 @@
     "status": 301,
     "location": "https://stripe.com/"
   },
+  "dns": {
+    "emailDomain": "stripe.com",
+    "spfTxt": [
+      "v=spf1 ip4:198.2.180.60/32 ip4:13.111.2.227/32 include:spf1.stripe.com include:greenhouse-outbound-mail.stripe.com include:_spf.qualtrics.com ~all"
+    ],
+    "dmarcTxt": [
+      "v=DMARC1; p=reject; pct=100; fo=1; rua=mailto:dmarc-reports@stripe.com; ruf=mailto:dmarc-forensics@stripe.com;"
+    ]
+  },
   "expect": {
     "clean": true,
     "mustFlag": [],

@@ -45,7 +45,24 @@ export interface CheckContext {
   cookies: ParsedCookie[]
   /** Peer-certificate summary; null for plain-HTTP targets or when the handshake failed. */
   tls: { validTo: Date; protocol: string; issuer: string } | null
-  dns: { txt: string[]; caa: string[]; mx: string[]; dnssec: boolean }
+  dns: {
+    /** TXT records of the scanned hostname exactly as given. */
+    txt: string[]
+    caa: string[]
+    mx: string[]
+    dnssec: boolean
+    /**
+     * The domain SPF/DMARC records belong on — the hostname minus a "www."
+     * prefix. null when it cannot be derived without a full Public Suffix
+     * List, which is the email checks' signal to stay silent instead of
+     * reporting on a name they never queried.
+     */
+    emailDomain: string | null
+    /** TXT records at `emailDomain` — where SPF lives. Empty when it is null. */
+    spfTxt: string[]
+    /** TXT records at `_dmarc.<emailDomain>`. Empty when it is null. */
+    dmarcTxt: string[]
+  }
   robots: {
     raw: string
     allows: (userAgent: string, path: string) => boolean

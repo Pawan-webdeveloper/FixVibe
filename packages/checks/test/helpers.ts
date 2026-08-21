@@ -9,6 +9,8 @@
 
 import * as cheerio from 'cheerio'
 import type { CheckContext, ParsedCookie } from '../src/types.ts'
+import { parseSetCookies } from '../src/context/cookies.ts'
+import { organizationalDomain } from '../src/context/public-suffix.ts'
 import { parseRobots } from '../src/context/robots.ts'
 
 export interface ContextOverrides {
@@ -20,7 +22,8 @@ export interface ContextOverrides {
   html?: string
   cookies?: ParsedCookie[]
   tls?: CheckContext['tls']
-  dns?: CheckContext['dns']
+  /** Partial: unspecified record types default to empty, as an unconfigured zone. */
+  dns?: Partial<CheckContext['dns']>
   robots?: CheckContext['robots']
   httpProbe?: CheckContext['httpProbe']
   probe?: CheckContext['probe']
@@ -32,19 +35,34 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
   const url = new URL(overrides.url ?? 'https://site.test/')
   const finalUrl = new URL(overrides.finalUrl ?? url.href)
   const html = overrides.html ?? DEFAULT_HTML
+  const headers = new Headers(overrides.headers ?? { 'content-type': 'text/html; charset=utf-8' })
 
   return {
     url,
     finalUrl,
     redirectChain: overrides.redirectChain ?? [],
     status: overrides.status ?? 200,
-    headers: new Headers(overrides.headers ?? { 'content-type': 'text/html; charset=utf-8' }),
+    headers,
     html,
     $: cheerio.load(html),
     scripts: [],
-    cookies: overrides.cookies ?? [],
+    // Derived from Set-Cookie through the real parser, exactly as buildContext
+    // does, so a fixture describing a response gets the cookies that response
+    // would actually produce.
+    cookies: overrides.cookies ?? parseSetCookies(headers),
     tls: overrides.tls ?? null,
-    dns: overrides.dns ?? { txt: [], caa: [], mx: [], dnssec: false },
+    dns: {
+      txt: [],
+      caa: [],
+      mx: [],
+      dnssec: false,
+      // Derived, not hardcoded: a test that overrides the URL gets the mail
+      // domain its checks would really have been handed.
+      emailDomain: organizationalDomain(url.hostname),
+      spfTxt: [],
+      dmarcTxt: [],
+      ...overrides.dns,
+    },
     robots: overrides.robots ?? null,
     httpProbe: overrides.httpProbe,
     // Unit tests are network-free by design; a check that probes in a test
@@ -100,6 +118,26 @@ export function robotsFrom(raw: string): CheckContext['robots'] {
 /** Allows everything and declares a sitemap — the shape a healthy site serves. */
 export function permissiveRobots(sitemapUrl = 'https://site.test/sitemap.xml'): CheckContext['robots'] {
   return parseRobots(`User-agent: *\nAllow: /\nSitemap: ${sitemapUrl}\n`)
+}
+
+/**
+ * A well-configured mail zone. Real-shaped rather than minimal: `~all` with
+ * several includes is what competent domains actually publish, so a check that
+ * fires on this is miscalibrated, not observant.
+ */
+export const HEALTHY_DNS: Partial<CheckContext['dns']> = {
+  emailDomain: 'site.test',
+  spfTxt: ['v=spf1 include:_spf.google.com include:sendgrid.net ~all'],
+  dmarcTxt: ['v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@site.test'],
+}
+
+/**
+ * An RFC 9116 security.txt whose Expires is `daysValid` from now — computed so
+ * the fixture cannot rot into an "expired" finding a year after it was written.
+ */
+export function securityTxt(daysValid = 365): string {
+  const expires = new Date(Date.now() + daysValid * 86_400_000).toISOString()
+  return [`Contact: mailto:security@site.test`, `Expires: ${expires}`, 'Preferred-Languages: en', ''].join('\n')
 }
 
 /** probe() stub over a path → response map; unlisted paths resolve to null (unreachable). */

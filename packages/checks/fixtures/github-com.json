@@ -24,6 +24,15 @@
     "status": 301,
     "location": "https://github.com/"
   },
+  "dns": {
+    "emailDomain": "github.com",
+    "spfTxt": [
+      "v=spf1 ip4:192.30.252.0/22 include:spf.protection.outlook.com include:_netblocks.google.com include:_netblocks2.google.com include:mail.zendesk.com include:_spf.salesforce.com include:servers.mcsv.net include:mktomail.com include:sendgrid.net ip4:62.253.227.114 ip4:166.78.69.169 ip4:166.78.69.170 ip4:166.78.71.131 ~all"
+    ],
+    "dmarcTxt": [
+      "v=DMARC1; p=quarantine; sp=reject; pct=100; rua=mailto:dmarc@github.com; ruf=mailto:dmarc@github.com; fo=1"
+    ]
+  },
   "expect": {
     "mustFlag": [
       "security.headers.permissions-policy"

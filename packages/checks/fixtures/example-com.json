@@ -21,6 +21,15 @@
     "status": 200,
     "location": null
   },
+  "dns": {
+    "emailDomain": "example.com",
+    "spfTxt": [
+      "v=spf1 -all"
+    ],
+    "dmarcTxt": [
+      "v=DMARC1;p=reject;sp=reject;adkim=s;aspf=s"
+    ]
+  },
   "expect": {
     "mustFlag": [
       "security.headers.csp",

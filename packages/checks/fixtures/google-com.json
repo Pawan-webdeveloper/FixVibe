@@ -25,6 +25,15 @@
     "status": 301,
     "location": "https://www.google.com/"
   },
+  "dns": {
+    "emailDomain": "google.com",
+    "spfTxt": [
+      "v=spf1 include:_spf.google.com ~all"
+    ],
+    "dmarcTxt": [
+      "v=DMARC1; p=reject; rua=mailto:mailauth-reports@google.com"
+    ]
+  },
   "expect": {
     "mustFlag": [
       "security.headers.csp",
