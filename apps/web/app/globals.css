@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+/*
+ * Colour is defined once as raw custom properties and mapped into Tailwind's
+ * theme by reference, so a utility like `bg-surface` resolves through the same
+ * variable the media query rewrites. Adding a `dark:` variant to every element
+ * would put the palette in the markup instead, where it drifts.
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+:root {
+  --canvas: #ffffff;
+  --surface: #f7f8fa;
+  --ink: #0f1115;
+  --muted: #5b6270;
+  --line: #e2e6ea;
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --danger: #b42318;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0b0d10;
+    --surface: #14181d;
+    --ink: #e9edf2;
+    --muted: #949cab;
+    --line: #232a33;
+    --accent: #5b9dff;
+    --accent-ink: #08101f;
+    --danger: #ff9a8f;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible focus everywhere, including for people navigating by keyboard only. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
