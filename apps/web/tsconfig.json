@@ -1,0 +1,24 @@
+{
+  // Next.js needs a browser-flavoured baseline, so this overrides the four
+  // Node-oriented options in the shared base. Everything else — strict,
+  // noUncheckedIndexedAccess, verbatimModuleSyntax — carries over unchanged.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+
+    // Workspace packages ship raw .ts (main: src/index.ts), so tsc resolves
+    // them straight to source — no build step between engine and app.
+    "paths": {
+      "@/*": ["./*"],
+      "@darvin/checks": ["../../packages/checks/src/index.ts"],
+      "@darvin/db": ["../../packages/db/src/index.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next"]
+}
