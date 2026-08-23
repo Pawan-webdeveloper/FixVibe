@@ -17,7 +17,15 @@ import { eq, inArray } from 'drizzle-orm'
 import type { Finding, ScanScores } from '@darvin/checks'
 import { db } from '../src/client.ts'
 import { organizations, projects, scans, users, type ScanContextMeta } from '../src/schema.ts'
-import { completeScan, createScan, failScan, getScanForViewer } from '../src/queries/scans.ts'
+import {
+  completeScan,
+  countScansByHostSince,
+  countScansByIpSince,
+  createScan,
+  failScan,
+  findRecentAnonymousScan,
+  getScanForViewer,
+} from '../src/queries/scans.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
 const live = process.env.DARVIN_DB === '1'
@@ -148,6 +156,97 @@ describe.skipIf(!live)('scan queries (DARVIN_DB=1)', () => {
 
   it('returns null for a scan id that does not exist', async () => {
     expect(await getScanForViewer(randomUUID(), ANONYMOUS)).toBeNull()
+  })
+
+  it('derives target_host from the url so per-host limiting cannot be bypassed by path', async () => {
+    // /1, /2, /3 are three URLs and one server. Limiting on the URL is no limit.
+    const id = await track(open({ url: 'https://example.test/deep/page?q=1' }))
+    const row = await db.query.scans.findFirst({ where: eq(scans.id, id) })
+    expect(row?.targetHost).toBe('example.test')
+  })
+
+  it('records how long a failed scan took, so a timeout is distinguishable from a DNS error', async () => {
+    const id = await track(open())
+    await failScan(id, 'Could not resolve hostname: nope.invalid', 42)
+    const row = await db.query.scans.findFirst({ where: eq(scans.id, id) })
+    expect(row?.durationMs).toBe(42)
+  })
+
+  describe('rate-limit counters', () => {
+    const hourAgo = () => new Date(Date.now() - 3_600_000)
+
+    it('counts a visitor\'s scans and reports the oldest, for the retry-after message', async () => {
+      const ip = `hash-${randomUUID()}`
+      await track(open({ anonIpHash: ip }))
+      await track(open({ anonIpHash: ip }))
+      const usage = await countScansByIpSince(ip, hourAgo())
+      expect(usage.count).toBe(2)
+      expect(usage.oldest).toBeInstanceOf(Date)
+    })
+
+    it('counts scans of a host across ALL visitors — the limit that protects the site', async () => {
+      const host = `h-${randomUUID()}.test`
+      await track(open({ url: `https://${host}/a`, anonIpHash: `hash-${randomUUID()}` }))
+      await track(open({ url: `https://${host}/b`, anonIpHash: `hash-${randomUUID()}` }))
+      // Two different visitors, two different paths, one host: both count.
+      expect((await countScansByHostSince(host, hourAgo())).count).toBe(2)
+    })
+
+    it('ignores scans older than the window', async () => {
+      const ip = `hash-${randomUUID()}`
+      await track(open({ anonIpHash: ip }))
+      const future = new Date(Date.now() + 60_000)
+      expect((await countScansByIpSince(ip, future)).count).toBe(0)
+    })
+  })
+
+  describe('deduplication', () => {
+    const recently = () => new Date(Date.now() - 600_000)
+    const done = { scores: SCORES, findings: [], contextMeta: META, checkErrors: [], durationMs: 1 }
+
+    it('reuses a recent finished anonymous scan of the same url and profile', async () => {
+      const url = `https://dedup-${randomUUID()}.test/`
+      const id = await track(open({ url }))
+      await completeScan(id, done)
+      expect((await findRecentAnonymousScan(url, 'fast', recently()))?.id).toBe(id)
+    })
+
+    it('never hands back a project\'s scan, which the visitor could not read anyway', async () => {
+      // The important one. A cache hit on a private scan would both leak that
+      // the project exists and send the visitor to a report they are refused.
+      const url = `https://private-${randomUUID()}.test/`
+      const id = await track(open({ url, projectId, requestedBy: ownerId }))
+      await completeScan(id, done)
+      expect(await findRecentAnonymousScan(url, 'fast', recently())).toBeNull()
+    })
+
+    it('skips a scan that failed, so a retry is immediate', async () => {
+      const url = `https://failed-${randomUUID()}.test/`
+      const id = await track(open({ url }))
+      await failScan(id, 'host unreachable')
+      expect(await findRecentAnonymousScan(url, 'fast', recently())).toBeNull()
+    })
+
+    it('skips a scan that is still running', async () => {
+      const url = `https://running-${randomUUID()}.test/`
+      await track(open({ url }))
+      expect(await findRecentAnonymousScan(url, 'fast', recently())).toBeNull()
+    })
+
+    it('does not cross profiles — a deep scan is not an answer to a fast question', async () => {
+      const url = `https://profile-${randomUUID()}.test/`
+      const id = await track(open({ url, profile: 'deep' }))
+      await completeScan(id, done)
+      expect(await findRecentAnonymousScan(url, 'fast', recently())).toBeNull()
+      expect((await findRecentAnonymousScan(url, 'deep', recently()))?.id).toBe(id)
+    })
+
+    it('ignores a scan older than the window', async () => {
+      const url = `https://stale-${randomUUID()}.test/`
+      const id = await track(open({ url }))
+      await completeScan(id, done)
+      expect(await findRecentAnonymousScan(url, 'fast', new Date(Date.now() + 60_000))).toBeNull()
+    })
   })
 
   describe('who may read a scan', () => {

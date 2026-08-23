@@ -15,10 +15,17 @@
  *     matters more here than in a project using RLS.
  */
 
-import { eq } from 'drizzle-orm'
+import { and, count, desc, eq, gte, isNull, min } from 'drizzle-orm'
 import type { Finding, ScanScores } from '@darvin/checks'
 import { db } from '../client.ts'
-import { findings, scans, type FindingRow, type Scan, type ScanContextMeta } from '../schema.ts'
+import {
+  findings,
+  scans,
+  type FindingRow,
+  type Scan,
+  type ScanContextMeta,
+  type ScanProfile,
+} from '../schema.ts'
 import type { Viewer } from './viewer.ts'
 
 export interface ScanWithFindings extends Scan {
@@ -33,7 +40,7 @@ export interface ScanWithFindings extends Scan {
 export interface CreateScanInput {
   /** Already normalized by lib/url.ts — this layer does not parse URLs. */
   url: string
-  profile: 'fast' | 'deep'
+  profile: ScanProfile
   /** Both required by the column, and both known before the scan starts. */
   engineVersion: string
   checksRun: number
@@ -69,6 +76,9 @@ export async function createScan(input: CreateScanInput): Promise<{ id: string }
     .insert(scans)
     .values({
       url: input.url,
+      // Derived rather than accepted, so the column the rate limiter trusts
+      // can never disagree with the URL stored next to it.
+      targetHost: new URL(input.url).hostname,
       profile: input.profile,
       engineVersion: input.engineVersion,
       checksRun: input.checksRun,
@@ -131,10 +141,13 @@ export async function completeScan(scanId: string, result: ScanResult): Promise<
  * owed an explanation for, not server errors — so they land here and the scan
  * page renders them, rather than the request throwing a 500.
  */
-export async function failScan(scanId: string, error: string): Promise<void> {
+export async function failScan(scanId: string, error: string, durationMs?: number): Promise<void> {
   await db
     .update(scans)
-    .set({ status: 'failed', finishedAt: new Date(), error })
+    // durationMs is recorded for failures too: a scan that died after 10s hit a
+    // timeout, one that died after 40ms hit a DNS error, and telling those two
+    // apart from a support question is otherwise guesswork.
+    .set({ status: 'failed', finishedAt: new Date(), error, durationMs: durationMs ?? null })
     .where(eq(scans.id, scanId))
 }
 
@@ -169,4 +182,90 @@ export async function getScanForViewer(scanId: string, viewer: Viewer): Promise<
   if (viewer.kind !== 'user') return null
   const owns = row.requestedBy === viewer.userId || project?.ownerId === viewer.userId
   return owns ? row : null
+}
+
+/* -------------------------------------------------------------------------- */
+/* Rate limiting and deduplication                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * These count rows in `scans`, which means they count scans that were actually
+ * STARTED — the expensive thing — rather than HTTP requests. A flood of
+ * requests that never becomes a scan costs a count query and nothing else, and
+ * belongs to the CDN rather than to this table.
+ *
+ * Postgres rather than Redis on purpose: a scan is seconds of network work, so
+ * request volume here is inherently low, and the columns were already being
+ * written. If that stops being true, replace the bodies — the callers only see
+ * the counts.
+ */
+
+/**
+ * How many scans matched, and when the earliest of them ran.
+ *
+ * The timestamp comes back from the same query because the caller needs it
+ * only to say when the window reopens — and a limit message without a time is
+ * a support ticket.
+ */
+export interface WindowUsage {
+  count: number
+  oldest: Date | null
+}
+
+/** How many scans this visitor has started since `since`. */
+export async function countScansByIpSince(anonIpHash: string, since: Date): Promise<WindowUsage> {
+  const [row] = await db
+    .select({ n: count(), oldest: min(scans.createdAt) })
+    .from(scans)
+    .where(and(eq(scans.anonIpHash, anonIpHash), gte(scans.createdAt, since)))
+  return { count: row?.n ?? 0, oldest: row?.oldest ?? null }
+}
+
+/**
+ * How many scans ANYONE has started against this host since `since`.
+ *
+ * The limit other people are protected by. Without it, ten visitors with ten
+ * addresses can point this service at one small site, and the abuse report
+ * arrives at our host rather than theirs.
+ */
+export async function countScansByHostSince(targetHost: string, since: Date): Promise<WindowUsage> {
+  const [row] = await db
+    .select({ n: count(), oldest: min(scans.createdAt) })
+    .from(scans)
+    .where(and(eq(scans.targetHost, targetHost), gte(scans.createdAt, since)))
+  return { count: row?.n ?? 0, oldest: row?.oldest ?? null }
+}
+
+/**
+ * The most recent finished scan of this exact URL and depth, for reuse instead
+ * of re-fetching someone else's server.
+ *
+ * Restricted to scans that are themselves anonymous. A scan belonging to a
+ * project is private, and handing its id back as a cache hit would both leak
+ * that the project exists and send the visitor to a report they cannot read.
+ *
+ * Only 'done' scans qualify: a failed one should be retryable straight away,
+ * and a running one has nothing to show yet.
+ */
+export async function findRecentAnonymousScan(
+  url: string,
+  profile: ScanProfile,
+  since: Date,
+): Promise<{ id: string } | null> {
+  const [row] = await db
+    .select({ id: scans.id })
+    .from(scans)
+    .where(
+      and(
+        eq(scans.url, url),
+        eq(scans.profile, profile),
+        eq(scans.status, 'done'),
+        isNull(scans.projectId),
+        isNull(scans.requestedBy),
+        gte(scans.createdAt, since),
+      ),
+    )
+    .orderBy(desc(scans.createdAt))
+    .limit(1)
+  return row ?? null
 }
