@@ -12,6 +12,7 @@ import {
   allChecks,
   buildContext,
   computeScores,
+  ENGINE_VERSION,
   runChecks,
   SafeFetchError,
   SsrfError,
@@ -98,7 +99,7 @@ try {
 
 const fetchedMs = Math.round(performance.now() - startedAt)
 const { findings, errors } = await runChecks(ctx)
-const scores = computeScores(findings, allChecks)
+const scores = computeScores(findings, allChecks, errors)
 const totalMs = Math.round(performance.now() - startedAt)
 
 if (json) {
@@ -111,6 +112,8 @@ if (json) {
         status: ctx.status,
         redirectChain: ctx.redirectChain,
         durationMs: totalMs,
+        engineVersion: ENGINE_VERSION,
+        checksRun: allChecks.length,
         scores,
         findings,
         checkErrors: errors,
@@ -129,13 +132,23 @@ if (json) {
 console.log('')
 console.log(`${bold('Darvin')} — ${ctx.finalUrl.href}`)
 const redirectNote = ctx.redirectChain.length > 0 ? `, ${ctx.redirectChain.length} redirect(s)` : ''
-console.log(dim(`  HTTP ${ctx.status}${redirectNote} · fetched in ${fetchedMs}ms · ${allChecks.length} checks in ${totalMs - fetchedMs}ms`))
+console.log(
+  dim(
+    `  HTTP ${ctx.status}${redirectNote} · fetched in ${fetchedMs}ms · ` +
+      `${allChecks.length} checks in ${totalMs - fetchedMs}ms · engine ${ENGINE_VERSION}`,
+  ),
+)
 console.log('')
 
 // Scores — only pillars that actually have checks; the rest would be noise.
 const covered = new Set<Category>(allChecks.map((c) => c.category))
+const degraded = new Set<Category>(scores.degraded)
 for (const category of covered) {
-  console.log(`  ${category.padEnd(15)} ${paintScore(scores[category])} / 100`)
+  // A degraded pillar is marked at the number itself. Printing it bare would
+  // present a partial measurement as a measured one, which is the whole reason
+  // scoring tracks this.
+  const note = degraded.has(category) ? yellow('  provisional — a check did not complete') : ''
+  console.log(`  ${category.padEnd(15)} ${paintScore(scores[category])} / 100${note}`)
 }
 console.log(`  ${bold('overall'.padEnd(15))} ${paintScore(scores.overall)} / 100`)
 console.log('')
