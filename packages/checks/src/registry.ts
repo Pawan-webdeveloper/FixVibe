@@ -38,6 +38,11 @@ import { dmarcCheck } from './email/dmarc.ts'
 import { spfCheck } from './email/spf.ts'
 import { cookieFlagsCheck } from './security/cookies/cookie-flags.ts'
 import { corsWildcardCheck } from './security/cors/cors-wildcard.ts'
+import { directoryListingCheck } from './security/exposure/directory-listing.ts'
+import { sensitivePathsCheck } from './security/exposure/sensitive-paths.ts'
+import { sourceMapsCheck } from './security/exposure/source-maps.ts'
+import { secretsInJsCheck } from './security/secrets/secrets-in-js.ts'
+import { sriCheck } from './security/sri.ts'
 import { serverHeaderCheck } from './security/info-leak/server-header.ts'
 import { xPoweredByCheck } from './security/info-leak/x-powered-by.ts'
 import { mixedContentCheck } from './security/mixed-content.ts'
@@ -73,6 +78,13 @@ export const allChecks: readonly Check[] = [
   securityTxtCheck,
   spfCheck,
   dmarcCheck,
+  // Exposure and supply chain. sensitive-paths and source-maps spend probes,
+  // so they sit inside the per-scan budget shared with sitemap and security.txt.
+  sensitivePathsCheck,
+  secretsInJsCheck,
+  sourceMapsCheck,
+  directoryListingCheck,
+  sriCheck,
   // SEO — order here is cosmetic: checks run concurrently and findings are
   // sorted by severity before anyone sees them.
   robotsMetaCheck,
