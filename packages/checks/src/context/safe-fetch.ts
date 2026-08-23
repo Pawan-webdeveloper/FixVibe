@@ -146,6 +146,12 @@ export async function safeFetch(target: URL | string, options: SafeFetchOptions 
         headers: {
           'user-agent': SCANNER_USER_AGENT,
           accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+          // Exactly what decodeBody can undo. Asking matters twice over: a
+          // server only sets Content-Encoding when compression was requested,
+          // so without this the compression check could never observe one — and
+          // it means every scan pulls a fraction of the bytes off somebody
+          // else's server, which is the polite way to visit uninvited.
+          'accept-encoding': 'gzip, deflate, br',
           ...options.headers,
         },
       })

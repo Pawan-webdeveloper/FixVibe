@@ -37,11 +37,23 @@ const emitting = (id: string, severity: Finding['severity']): Check => ({
 
 describe('runChecks', () => {
   it('registers every check under a unique, category-prefixed id', () => {
-    // 22 security + 12 SEO + 8 AEO.
-    expect(allChecks).toHaveLength(42)
-    expect(allChecks.filter((c) => c.category === 'security')).toHaveLength(22)
-    expect(allChecks.filter((c) => c.category === 'seo')).toHaveLength(12)
-    expect(allChecks.filter((c) => c.category === 'aeo')).toHaveLength(8)
+    // All six pillars now carry checks, so `overall` finally averages the
+    // whole report rather than the two thirds of it that were covered.
+    expect(allChecks).toHaveLength(54)
+    const perPillar = Object.fromEntries(
+      ['security', 'seo', 'aeo', 'performance', 'accessibility', 'compliance'].map((pillar) => [
+        pillar,
+        allChecks.filter((c) => c.category === pillar).length,
+      ]),
+    )
+    expect(perPillar).toEqual({
+      security: 22,
+      seo: 15,
+      aeo: 8,
+      performance: 3,
+      accessibility: 3,
+      compliance: 3,
+    })
 
     // Stable dot-namespaced ids are DB keys later — catch accidental renames.
     expect(new Set(allChecks.map((c) => c.id)).size).toBe(allChecks.length)
