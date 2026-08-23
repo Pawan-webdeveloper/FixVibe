@@ -1,4 +1,9 @@
-import 'dotenv/config'
+import { config } from 'dotenv'
+
+// drizzle-kit runs with this package as its cwd, so a bare `dotenv/config`
+// would look for packages/db/.env and miss the single root .env the rest of
+// the workspace shares.
+config({ path: new URL('../../.env', import.meta.url).pathname })
 import { defineConfig } from 'drizzle-kit'
 
 // drizzle-kit only reads this at CLI time (generate/migrate); the runtime client
