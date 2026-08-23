@@ -26,6 +26,14 @@ import { xFrameOptionsCheck } from './security/headers/x-frame-options.ts'
 import { certExpiryCheck } from './security/tls/cert-expiry.ts'
 import { httpsRedirectCheck } from './security/tls/https-redirect.ts'
 import { tlsProtocolVersionCheck } from './security/tls/protocol-version.ts'
+import { aiBotsAllowedCheck } from './aeo/ai-bots-allowed.ts'
+import { answerStructureCheck } from './aeo/answer-structure.ts'
+import { authorDateCheck } from './aeo/author-date.ts'
+import { entitySchemaCheck } from './aeo/entity-schema.ts'
+import { faqHowToSchemaCheck } from './aeo/faq-howto-schema.ts'
+import { llmsTxtCheck } from './aeo/llms-txt.ts'
+import { outboundCitationsCheck } from './aeo/outbound-citations.ts'
+import { ssrContentCheck } from './aeo/ssr-content.ts'
 import { dmarcCheck } from './email/dmarc.ts'
 import { spfCheck } from './email/spf.ts'
 import { cookieFlagsCheck } from './security/cookies/cookie-flags.ts'
@@ -79,6 +87,17 @@ export const allChecks: readonly Check[] = [
   openGraphCheck,
   twitterCardCheck,
   structuredDataCheck,
+  // AEO — whether an answer engine can read, resolve and cite this page.
+  // ssr-content comes first for a reason: if the text is not in the HTML,
+  // nothing else in this pillar can be.
+  ssrContentCheck,
+  aiBotsAllowedCheck,
+  llmsTxtCheck,
+  entitySchemaCheck,
+  answerStructureCheck,
+  faqHowToSchemaCheck,
+  authorDateCheck,
+  outboundCitationsCheck,
 ]
 
 export interface RunResult {

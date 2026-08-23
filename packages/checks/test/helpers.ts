@@ -94,13 +94,38 @@ export const CLEAN_SEO_HTML = `<!doctype html>
     <meta property="og:image" content="https://site.test/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <script type="application/ld+json">
-      { "@context": "https://schema.org", "@type": "WebSite", "name": "Darvin", "url": "https://site.test/" }
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          { "@type": "WebSite", "name": "Darvin", "url": "https://site.test/" },
+          {
+            "@type": "Organization",
+            "name": "Darvin",
+            "url": "https://site.test/",
+            "sameAs": ["https://github.com/darvin", "https://www.linkedin.com/company/darvin"]
+          }
+        ]
+      }
     </script>
   </head>
   <body>
     <h1>Darvin scanner fixture</h1>
   </body>
 </html>`
+
+/**
+ * An llms.txt a well-configured site would serve. Markdown, not HTML — the
+ * check treats an app shell at this path as a finding of its own.
+ */
+export const LLMS_TXT = [
+  '# Darvin',
+  '',
+  '> A synthetic fixture site used by the engine tests.',
+  '',
+  '## Docs',
+  '- [Checks](https://site.test/checks): what the scanner looks for',
+  '',
+].join('\n')
 
 /** Minimal valid sitemap body for a probe stub. */
 export const SITEMAP_XML =
