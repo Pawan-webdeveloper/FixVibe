@@ -13,7 +13,9 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { ANONYMOUS, getScanForViewer } from '@darvin/db'
+import { getScanForViewer, type Viewer } from '@darvin/db'
+import { getViewer } from '@/lib/authz.ts'
+import { claimScanAction } from './actions.ts'
 import { ScoreRing } from '@/components/scan/score-ring.tsx'
 import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingsList } from '@/components/scan/findings-list.tsx'
@@ -22,10 +24,18 @@ import type { FindingView } from '@/components/scan/finding-card.tsx'
 /** Postgres rejects a malformed uuid with an error, so filter before querying. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Shared between generateMetadata and the page so one render is one query. */
-const loadScan = cache(async (scanId: string) => {
+/**
+ * Shared between generateMetadata and the page so one render is one query.
+ *
+ * The REAL viewer is passed, not a hardcoded anonymous one. An anonymous scan
+ * comes back for anybody either way — that is the shareable report — but a scan
+ * that belongs to a project must come back for its owner, who reaches it from
+ * their own history. Hardcoding anonymous here would 404 people on their own
+ * scans.
+ */
+const loadScan = cache(async (scanId: string, viewer: Viewer) => {
   if (!UUID.test(scanId)) return null
-  return getScanForViewer(scanId, ANONYMOUS)
+  return getScanForViewer(scanId, viewer)
 })
 
 function hostOf(url: string): string {
@@ -47,7 +57,7 @@ export async function generateMetadata({
   params: Promise<{ scanId: string }>
 }): Promise<Metadata> {
   const { scanId } = await params
-  const scan = await loadScan(scanId)
+  const scan = await loadScan(scanId, await getViewer())
   if (!scan) return { title: 'Scan not found' }
 
   const host = hostOf(scan.url)
@@ -63,10 +73,12 @@ export async function generateMetadata({
 
 export default async function ScanPage({ params }: { params: Promise<{ scanId: string }> }) {
   const { scanId } = await params
-  const scan = await loadScan(scanId)
+  const viewer = await getViewer()
+  const scan = await loadScan(scanId, viewer)
   if (!scan) notFound()
 
   const host = hostOf(scan.url)
+  const claimable = scan.projectId === null && scan.requestedBy === null
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -106,6 +118,8 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
           />
 
           {scan.checkErrors.length > 0 && <CheckErrors errors={scan.checkErrors} />}
+
+          {claimable && <SaveReport scanId={scan.id} host={host} signedIn={viewer.kind === 'user'} />}
 
           <div className="mt-10">
             <FindingsList findings={scan.findings as FindingView[]} />
@@ -219,6 +233,42 @@ function CheckErrors({ errors }: { errors: Array<{ checkId: string; message: str
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+/**
+ * The conversion moment, placed directly under the score where the reader has
+ * just seen something worth keeping.
+ */
+function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; signedIn: boolean }) {
+  return (
+    <section className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-5 py-4">
+      <div>
+        <p className="text-sm font-medium">Keep this report</p>
+        <p className="text-sm text-muted">
+          Track {host} over time and see what changes between scans.
+        </p>
+      </div>
+
+      {signedIn ? (
+        <form action={claimScanAction}>
+          <input type="hidden" name="scanId" value={scanId} />
+          <button
+            type="submit"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+          >
+            Save as a project
+          </button>
+        </form>
+      ) : (
+        <Link
+          href={`/login?next=${encodeURIComponent(`/scan/${scanId}`)}`}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+        >
+          Sign in to save
+        </Link>
+      )}
     </section>
   )
 }
