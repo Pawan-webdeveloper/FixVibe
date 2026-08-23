@@ -22,4 +22,4 @@
  * count test in test/registry.test.ts is the tripwire: it fails on every
  * registry change, which is the moment to come back here.
  */
-export const ENGINE_VERSION = '1.0.0'
+export const ENGINE_VERSION = '1.1.0'
