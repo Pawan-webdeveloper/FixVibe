@@ -37,9 +37,10 @@ export interface CheckContext {
   /** The parsed document — cheerio, loaded once, shared by every check. */
   $: CheerioAPI
   /**
-   * Scripts found in the document. Inline scripts carry their `content`;
-   * external ones carry only their absolute `url` (content fetching lands with
-   * the secrets-in-JS check in Phase 1).
+   * Scripts found in the document. Inline scripts carry their `content`.
+   * External ones carry their absolute `url`, and their `content` too when the
+   * script belongs to the scanned site and was readable — a bundle on an
+   * unrelated CDN, or one that failed to fetch, keeps an empty `content`.
    */
   scripts: Array<{ url: string; content: string }>
   cookies: ParsedCookie[]

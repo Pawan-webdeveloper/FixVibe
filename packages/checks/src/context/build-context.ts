@@ -11,6 +11,7 @@ import type { CheckContext } from '../types.ts'
 import { assertSafeUrl } from './ssrf-guard.ts'
 import { safeFetch } from './safe-fetch.ts'
 import { parseHtml } from './parse-html.ts'
+import { fetchScriptBodies } from './fetch-scripts.ts'
 import { parseSetCookies } from './cookies.ts'
 import { getTlsInfo } from './tls.ts'
 import { getDnsInfo } from './dns.ts'
@@ -45,7 +46,10 @@ export async function buildContext(
   const page = await safeFetch(url, { timeoutMs: options.timeoutMs })
   const { finalUrl } = page
 
-  const { $, scripts } = parseHtml(page.body, finalUrl)
+  const { $, scripts: referenced } = parseHtml(page.body, finalUrl)
+  // External script bodies are fetched so secrets-in-JS and source-maps have
+  // something to read. Bounded and SSRF-guarded — see fetch-scripts.ts.
+  const scripts = await fetchScriptBodies(referenced, finalUrl)
   const cookies = parseSetCookies(page.headers)
 
   const isHttps = finalUrl.protocol === 'https:'

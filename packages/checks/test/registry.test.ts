@@ -37,9 +37,9 @@ const emitting = (id: string, severity: Finding['severity']): Check => ({
 
 describe('runChecks', () => {
   it('registers every check under a unique, category-prefixed id', () => {
-    // 17 security + 12 SEO + 8 AEO.
-    expect(allChecks).toHaveLength(37)
-    expect(allChecks.filter((c) => c.category === 'security')).toHaveLength(17)
+    // 22 security + 12 SEO + 8 AEO.
+    expect(allChecks).toHaveLength(42)
+    expect(allChecks.filter((c) => c.category === 'security')).toHaveLength(22)
     expect(allChecks.filter((c) => c.category === 'seo')).toHaveLength(12)
     expect(allChecks.filter((c) => c.category === 'aeo')).toHaveLength(8)
 
