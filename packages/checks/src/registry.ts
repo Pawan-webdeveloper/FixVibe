@@ -16,7 +16,7 @@
  *     scans of the same site are meaningful.
  */
 
-import { SEVERITY_ORDER, type Check, type CheckContext, type Finding } from './types.ts'
+import { SEVERITY_ORDER, type Check, type CheckContext, type CheckError, type Finding } from './types.ts'
 import { cspCheck } from './security/headers/csp.ts'
 import { hstsCheck } from './security/headers/hsts.ts'
 import { permissionsPolicyCheck } from './security/headers/permissions-policy.ts'
@@ -80,12 +80,6 @@ export const allChecks: readonly Check[] = [
   twitterCardCheck,
   structuredDataCheck,
 ]
-
-/** A check that crashed or timed out — a bug in US (or a hostile page), not a site finding. */
-export interface CheckError {
-  checkId: string
-  message: string
-}
 
 export interface RunResult {
   findings: Finding[]

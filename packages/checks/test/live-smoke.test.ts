@@ -27,7 +27,7 @@ describe.skipIf(process.env.DARVIN_LIVE !== '1')('live smoke (DARVIN_LIVE=1)', (
     // example.com ships no CSP/HSTS — a clean report here would mean we broke.
     expect(findings.map((f) => f.checkId)).toContain('security.headers.csp')
 
-    const scores = computeScores(findings, allChecks)
+    const scores = computeScores(findings, allChecks, errors)
     expect(scores.security).toBeLessThan(100)
     expect(scores.security).toBeGreaterThan(0)
 

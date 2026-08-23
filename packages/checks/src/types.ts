@@ -103,6 +103,17 @@ export interface Finding {
   fixPrompt: string
 }
 
+/**
+ * A check that crashed or timed out — a bug in US (or a hostile page), never a
+ * finding about the site. Lives here rather than in the registry because
+ * scoring consumes it: a check that produced no findings because it died must
+ * not be mistaken for a check that passed.
+ */
+export interface CheckError {
+  checkId: string
+  message: string
+}
+
 export interface Check {
   /** Stable, dot-namespaced id, e.g. "security.headers.csp". Never rename — it's a DB key. */
   id: string
@@ -120,4 +131,15 @@ export interface ScanScores {
   accessibility: number
   compliance: number
   overall: number
+  /**
+   * Pillars whose score is provisional because a check in them failed to
+   * complete. The number is still the best available reading, but it was
+   * measured with an instrument that was partly broken, so every surface that
+   * displays it — and every feature that compares it — must say so.
+   *
+   * Stored with the scan rather than recomputed on read: which pillar a check
+   * belonged to is a fact about the registry at scan time, and that registry
+   * will have changed by the time anyone looks.
+   */
+  degraded: Category[]
 }

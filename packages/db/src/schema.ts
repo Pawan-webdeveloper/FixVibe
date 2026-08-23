@@ -52,6 +52,16 @@ export const categoryEnum = pgEnum('category', CATEGORY_VALUES)
 /** Scan lifecycle. Mirrors the Inngest step sequence, so 'queued' — not 'pending'. */
 export const scanStatusEnum = pgEnum('scan_status', ['queued', 'running', 'done', 'failed'])
 
+/**
+ * How deep a scan went. `fast` is HTTP-only and runs inline; `deep` adds the
+ * headless browser, PageSpeed and a crawl, and runs on the queue.
+ *
+ * This is a comparability key, not a label. A deep scan surfaces findings a
+ * fast scan cannot see, so its score is legitimately lower for an unchanged
+ * site — charting the two on one line would show a drop that never happened.
+ */
+export const scanProfileEnum = pgEnum('scan_profile', ['fast', 'deep'])
+
 /** User-controlled triage state; drives the "3 fixed, 1 new" re-scan diff. */
 export const findingStatusEnum = pgEnum('finding_status', ['open', 'fixed', 'ignored'])
 
@@ -175,6 +185,7 @@ export const scans = pgTable(
      * history.
      */
     url: text('url').notNull(),
+    profile: scanProfileEnum('profile').notNull().default('fast'),
     status: scanStatusEnum('status').notNull().default('queued'),
     /** Set when the worker picks the job up — distinct from `createdAt` (enqueued). */
     startedAt: timestamp('started_at', { withTimezone: true }),
@@ -184,6 +195,25 @@ export const scans = pgTable(
     /** Written once at the scoring step; avoids re-aggregating findings on every page view. */
     scores: jsonb('scores').$type<ScanScores>(),
     contextMeta: jsonb('context_meta').$type<ScanContextMeta>(),
+    /**
+     * Which engine produced this reading. Every feature that subtracts one scan
+     * from another must refuse to compare across a change in it — otherwise the
+     * day you ship new checks, every monitored customer is told their site got
+     * worse. Not nullable and not backfillable: a row without it can never be
+     * compared to anything, so there is no useful default to invent later.
+     */
+    engineVersion: text('engine_version').notNull(),
+    /** Denominator for "17 of 29 checks could run" and a second comparability signal. */
+    checksRun: integer('checks_run').notNull(),
+    /**
+     * Checks that crashed or timed out. Our bugs, not the site's — kept so a
+     * support question about a moved score has an answer, and so the scan can
+     * show which pillars were only partly measured.
+     */
+    checkErrors: jsonb('check_errors')
+      .$type<Array<{ checkId: string; message: string }>>()
+      .notNull()
+      .default([]),
     /** Failure reason (SsrfError, SafeFetchError, timeout…). Meaningful only when status = 'failed'. */
     error: text('error'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -193,6 +223,10 @@ export const scans = pgTable(
     index('scans_project_created_idx').on(t.projectId, desc(t.createdAt)),
     // The queue sweep: everything still 'queued' or stuck in 'running'.
     index('scans_status_idx').on(t.status),
+    // Two hot reads share this shape: the short-TTL dedup lookup ("has this URL
+    // been scanned at this depth recently?") and the diff's "previous scan of
+    // the same URL at the same depth".
+    index('scans_url_profile_created_idx').on(t.url, t.profile, desc(t.createdAt)),
   ],
 )
 
