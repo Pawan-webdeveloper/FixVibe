@@ -20,11 +20,31 @@ import { fetchRobots } from './robots.ts'
 export interface BuildContextOptions {
   /** Budget for the main page fetch (side channels have their own, shorter ones). */
   timeoutMs?: number
+  /**
+   * Whether this scan may test the target's backends actively — reaching the
+   * Supabase project or Firebase database the page's own JavaScript talks to.
+   *
+   * Only ever true when the requester has proved they control the domain.
+   * Passing it turns on `ctx.activeProbe`; leaving it off means the checks
+   * that need it are not merely disabled but structurally unable to run,
+   * because the function they would call is not on the context.
+   */
+  activeTesting?: boolean
 }
 
 /** Politeness cap: total extra same-origin requests all checks may make combined. */
 const MAX_PROBES_PER_SCAN = 24
 const PROBE_MAX_BODY_BYTES = 256 * 1024
+
+/**
+ * Active probes are capped far lower than same-origin ones. They are
+ * authenticated requests against a third party's API (Supabase, Firebase), and
+ * a scanner that issues dozens of them looks like an attack to whoever reads
+ * those logs — even when the customer authorised it.
+ */
+const MAX_ACTIVE_PROBES_PER_SCAN = 12
+/** Enough for a PostgREST OpenAPI document on a large project. */
+const ACTIVE_PROBE_MAX_BODY_BYTES = 1024 * 1024
 
 const EMPTY_DNS: CheckContext['dns'] = {
   txt: [],
@@ -86,6 +106,9 @@ export async function buildContext(
     robots,
     httpProbe,
     probe: makeProbe(finalUrl.origin),
+    // Deliberately conditional: an unauthorised scan does not get a disabled
+    // capability, it gets no capability. See CheckContext.activeProbe.
+    ...(options.activeTesting ? { activeProbe: makeActiveProbe() } : {}),
   }
 }
 
@@ -100,6 +123,41 @@ async function probeHttpVariant(hostname: string): Promise<CheckContext['httpPro
     return { status: response.status, location: response.headers.get('location') }
   } catch {
     return null // port 80 closed / filtered — nothing to report on
+  }
+}
+
+/**
+ * The context's `activeProbe()`: any origin, memoised per url+headers, capped
+ * hard. Handed out only when the caller passed `activeTesting`.
+ *
+ * Still routed through safeFetch, so `assertSafeUrl` runs on the url and on
+ * every redirect hop. "The user authorised us to test their backend" is not a
+ * reason to let a redirect walk us into 169.254.169.254.
+ */
+function makeActiveProbe(): NonNullable<CheckContext['activeProbe']> {
+  const cache = new Map<string, ReturnType<NonNullable<CheckContext['activeProbe']>>>()
+  let remaining = MAX_ACTIVE_PROBES_PER_SCAN
+
+  return (url, init) => {
+    // Headers are part of the key: the same url with a different API key is a
+    // different question, and answering the second from the first would lie.
+    const key = `${url}\u0000${JSON.stringify(init?.headers ?? {})}`
+    const cached = cache.get(key)
+    if (cached) return cached
+
+    if (remaining <= 0) return Promise.resolve(null)
+    remaining -= 1
+
+    const result = safeFetch(url, {
+      timeoutMs: 8_000,
+      maxBodyBytes: ACTIVE_PROBE_MAX_BODY_BYTES,
+      headers: init?.headers,
+    }).then(
+      (response) => ({ status: response.status, body: response.body, headers: response.headers }),
+      () => null,
+    )
+    cache.set(key, result)
+    return result
   }
 }
 

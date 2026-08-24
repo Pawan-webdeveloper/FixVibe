@@ -129,6 +129,27 @@ export interface CheckContext {
    * Resolves to null on any network failure or when the cap is exhausted.
    */
   probe: (path: string) => Promise<{ status: number; body: string; headers: Headers } | null>
+  /**
+   * Fetch an ARBITRARY url, including a backend on someone else's
+   * infrastructure — a Supabase project, a Firebase database.
+   *
+   * **Present only when the scan was authorised to test actively**, i.e. the
+   * requester proved they control this domain (projects.verified_domain).
+   * Its absence IS the gate, and that is the whole point of shaping it as a
+   * capability instead of a `verifiedDomain: boolean`. A boolean has to be
+   * consulted, and the check that forgets to consult it fails silently by
+   * probing a stranger's database. A missing function cannot be forgotten:
+   * the check that skips the guard does not compile.
+   *
+   * Probing an endpoint you do not own is unauthorised testing regardless of
+   * how gentle the request is, so no check may reach for the network any other
+   * way. SSRF-guarded and capped exactly like probe(); resolves to null on any
+   * failure or once the budget is spent.
+   */
+  activeProbe?: (
+    url: string,
+    init?: { headers?: Record<string, string> },
+  ) => Promise<{ status: number; body: string; headers: Headers } | null>
 }
 
 /** One concrete problem found on the target. A check may emit zero or many. */

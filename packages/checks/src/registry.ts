@@ -53,6 +53,8 @@ import { corsWildcardCheck } from './security/cors/cors-wildcard.ts'
 import { directoryListingCheck } from './security/exposure/directory-listing.ts'
 import { sensitivePathsCheck } from './security/exposure/sensitive-paths.ts'
 import { sourceMapsCheck } from './security/exposure/source-maps.ts'
+import { firebaseRulesCheck } from './security/backend/firebase-rules.ts'
+import { supabaseRlsCheck } from './security/backend/supabase-rls.ts'
 import { secretsInJsCheck } from './security/secrets/secrets-in-js.ts'
 import { sriCheck } from './security/sri.ts'
 import { serverHeaderCheck } from './security/info-leak/server-header.ts'
@@ -105,6 +107,11 @@ export const allChecks: readonly Check[] = [
   sourceMapsCheck,
   directoryListingCheck,
   sriCheck,
+  // Backend authorization. These two are the only checks in the engine that
+  // touch someone else's infrastructure, so they run only when the context
+  // grants `activeProbe` — i.e. on a domain the requester has proved they own.
+  supabaseRlsCheck,
+  firebaseRulesCheck,
   // SEO — order here is cosmetic: checks run concurrently and findings are
   // sorted by severity before anyone sees them.
   robotsMetaCheck,

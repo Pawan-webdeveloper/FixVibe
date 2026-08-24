@@ -19,6 +19,7 @@ import { db } from '../src/client.ts'
 import { memberships, organizations, projects, scans, subscriptions, users } from '../src/schema.ts'
 import { ensureUser, getUserContext } from '../src/queries/users.ts'
 import {
+  activeTestingAllowed,
   claimScan,
   createProject,
   getProject,
@@ -263,6 +264,67 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
       const [summary] = await listProjectSummaries(viewer)
       expect(summary?.latest).not.toBeNull()
       expect(summary?.delta).toBeNull()
+    })
+  })
+  /**
+   * The gate on active backend testing. Every case here is a REFUSAL except
+   * one, because the cost of the two mistakes is not symmetric: wrongly
+   * refusing costs a verified customer one check, wrongly allowing points our
+   * scanner at a stranger's database and makes us the ones doing unauthorised
+   * testing.
+   */
+  describe('activeTestingAllowed', () => {
+    const verifiedProject = async (url: string) => {
+      const identity = newIdentity()
+      await ensureUser(identity)
+      const context = await getUserContext(identity.id)
+      const viewer: Viewer = { kind: 'user', userId: identity.id }
+      const project = await createProject(viewer, { name: 'p', url, orgId: context!.orgId })
+      await db.update(projects).set({ verifiedDomain: true }).where(eq(projects.id, project!.id))
+      return project!.id
+    }
+
+    it('allows it for a verified project scanning its own host', async () => {
+      const projectId = await verifiedProject('https://owned.test/')
+      expect(await activeTestingAllowed(projectId, 'https://owned.test/pricing')).toBe(true)
+    })
+
+    it('ignores a "www." prefix on either side', async () => {
+      const projectId = await verifiedProject('https://www.owned.test/')
+      expect(await activeTestingAllowed(projectId, 'https://owned.test/')).toBe(true)
+    })
+
+    it('refuses a project that has not proved ownership', async () => {
+      const identity = newIdentity()
+      await ensureUser(identity)
+      const context = await getUserContext(identity.id)
+      const project = await createProject(
+        { kind: 'user', userId: identity.id },
+        { name: 'p', url: 'https://unverified.test/', orgId: context!.orgId },
+      )
+      expect(await activeTestingAllowed(project!.id, 'https://unverified.test/')).toBe(false)
+    })
+
+    it('refuses a URL that is not on the verified host', async () => {
+      // The whole point of the second condition: verify one domain, then aim
+      // the same project at somebody else's.
+      const projectId = await verifiedProject('https://owned.test/')
+      expect(await activeTestingAllowed(projectId, 'https://victim.test/')).toBe(false)
+      // A subdomain is a different host, and strict is the safe direction.
+      expect(await activeTestingAllowed(projectId, 'https://app.owned.test/')).toBe(false)
+      // ...as is a lookalike that merely starts the same way.
+      expect(await activeTestingAllowed(projectId, 'https://owned.test.evil.test/')).toBe(false)
+    })
+
+    it('refuses anonymous scans and unknown projects', async () => {
+      expect(await activeTestingAllowed(null, 'https://owned.test/')).toBe(false)
+      expect(await activeTestingAllowed(undefined, 'https://owned.test/')).toBe(false)
+      expect(await activeTestingAllowed(randomUUID(), 'https://owned.test/')).toBe(false)
+    })
+
+    it('refuses a URL it cannot parse', async () => {
+      const projectId = await verifiedProject('https://owned.test/')
+      expect(await activeTestingAllowed(projectId, 'not a url')).toBe(false)
     })
   })
 })
