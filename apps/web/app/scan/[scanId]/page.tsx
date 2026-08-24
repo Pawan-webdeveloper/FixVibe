@@ -21,6 +21,9 @@ import { ScoreRing } from '@/components/scan/score-ring.tsx'
 import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingsList } from '@/components/scan/findings-list.tsx'
 import { FixPromptDialog } from '@/components/scan/fix-prompt-dialog.tsx'
+import { PaywallNotice } from '@/components/scan/paywall-blur.tsx'
+import { entitlementsFor, type Entitlements } from '@/lib/entitlements.ts'
+import { canSeeFixPrompt, redactFindings } from '@/lib/redact.ts'
 import type { FindingView } from '@/components/scan/finding-card.tsx'
 
 /** Postgres rejects a malformed uuid with an error, so filter before querying. */
@@ -82,6 +85,11 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
   const host = hostOf(scan.url)
   const claimable = scan.projectId === null && scan.requestedBy === null
 
+  // Redaction happens here, above every component. Nothing below this line
+  // receives the withheld text, so no component can leak it by accident.
+  const entitlements = await entitlementsFor(viewer)
+  const report = redactFindings(scan.findings, entitlements)
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line pb-5">
@@ -123,11 +131,17 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
 
           {claimable && <SaveReport scanId={scan.id} host={host} signedIn={viewer.kind === 'user'} />}
 
-          <AggregateFixPrompt scan={scan} />
+          <AggregateFixPrompt scan={scan} entitlements={entitlements} />
 
           <div className="mt-10">
-            <FindingsList findings={scan.findings as FindingView[]} />
+            <FindingsList findings={report.findings as FindingView[]} />
           </div>
+
+          <PaywallNotice
+            lockedCount={report.lockedCount}
+            lockedSeverities={report.lockedSeverities}
+            signedIn={entitlements.signedIn}
+          />
         </>
       )}
     </div>
@@ -282,7 +296,17 @@ function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; 
  * grouping and the stack-specific locations improve as the engine does, and a
  * prompt frozen at scan time would keep handing out last month's advice.
  */
-function AggregateFixPrompt({ scan }: { scan: ScanWithFindings }) {
+function AggregateFixPrompt({
+  scan,
+  entitlements,
+}: {
+  scan: ScanWithFindings
+  entitlements: Entitlements
+}) {
+  // Withheld whole rather than truncated: an agent handed half a work order
+  // makes half the changes and reports success.
+  if (!canSeeFixPrompt(entitlements)) return null
+
   const prompt = buildFixPrompt(scan.findings, {
     url: scan.contextMeta?.finalUrl ?? scan.url,
     stack: {
