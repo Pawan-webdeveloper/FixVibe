@@ -22,6 +22,7 @@ import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingsList } from '@/components/scan/findings-list.tsx'
 import { FixPromptDialog } from '@/components/scan/fix-prompt-dialog.tsx'
 import { PaywallNotice } from '@/components/scan/paywall-blur.tsx'
+import { ScanProgress } from '@/components/scan/scan-progress.tsx'
 import { entitlementsFor, type Entitlements } from '@/lib/entitlements.ts'
 import { canSeeFixPrompt, redactFindings } from '@/lib/redact.ts'
 import type { FindingView } from '@/components/scan/finding-card.tsx'
@@ -106,7 +107,7 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
 
       {scan.status === 'failed' && <FailedScan url={scan.url} error={scan.error} at={scan.createdAt} />}
 
-      {(scan.status === 'queued' || scan.status === 'running') && <RunningScan />}
+      {(scan.status === 'queued' || scan.status === 'running') && <RunningScan scanId={scan.id} />}
 
       {scan.status === 'done' && scan.scores && (
         <>
@@ -180,13 +181,11 @@ function FailedScan({ url, error, at }: { url: string; error: string | null; at:
  * them onto a queue, and the branch that is missing on the day you need it
  * costs an afternoon.
  */
-function RunningScan() {
+function RunningScan({ scanId }: { scanId: string }) {
   return (
     <section className="my-10 rounded-lg border border-line bg-surface p-6">
       <h2 className="text-lg font-semibold">Still scanning</h2>
-      <p className="mt-2 text-sm text-muted">
-        This scan is in progress. Refresh in a few seconds.
-      </p>
+      <ScanProgress scanId={scanId} />
     </section>
   )
 }

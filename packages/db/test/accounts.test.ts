@@ -40,6 +40,12 @@ const META = { finalUrl: 'https://x.test/', redirectChain: [], status: 200, fram
 
 describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
   const createdUsers: string[] = []
+  /**
+   * Anonymous scans have no project and no requester, so deleting the test
+   * users does NOT cascade to them — they outlive the suite and accumulate.
+   * Tracked separately for that reason.
+   */
+  const createdScans: string[] = []
 
   const newIdentity = () => {
     const id = randomUUID()
@@ -48,6 +54,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
   }
 
   afterAll(async () => {
+    if (createdScans.length) await db.delete(scans).where(inArray(scans.id, createdScans))
     if (createdUsers.length) await db.delete(users).where(inArray(users.id, createdUsers))
   })
 
@@ -139,6 +146,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
   describe('claimScan — the signup funnel', () => {
     const openAnonymousScan = async (url = `https://claim-${randomUUID()}.test/`) => {
       const { id } = await createScan({ url, profile: 'fast', engineVersion: '0.0.0-test', checksRun: 1 })
+      createdScans.push(id)
       return id
     }
 
