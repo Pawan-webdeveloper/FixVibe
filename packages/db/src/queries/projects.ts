@@ -10,7 +10,7 @@
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { db } from '../client.ts'
-import { projects, scans, type Project, type Scan } from '../schema.ts'
+import { monitorEvents, monitors, projects, scans, type Project, type Scan } from '../schema.ts'
 import type { Viewer } from './viewer.ts'
 
 export interface NewProjectInput {
@@ -190,4 +190,39 @@ function comparableDelta(latest: Scan | null, previous: Scan | null): number | n
   // way a single number cannot express, so no number is offered.
   if (latest.scores.degraded.length > 0 || previous.scores.degraded.length > 0) return null
   return latest.scores.overall - previous.scores.overall
+}
+
+/**
+ * PUBLIC QUERY — no Viewer, by design.
+ *
+ * The status page at /status/[slug] is meant to be readable by anyone: it is
+ * what a team links to during an incident. The slug is the capability, which is
+ * why the schema generates one instead of putting a UUID in a shareable URL.
+ *
+ * Returns only the fields a public page may show. Selecting the row and
+ * trimming it at the caller would work until somebody forgot to trim.
+ */
+export async function getPublicProjectBySlug(slug: string) {
+  const project = await db.query.projects.findFirst({
+    where: eq(projects.slug, slug),
+    columns: { id: true, name: true, url: true, slug: true },
+  })
+  return project ?? null
+}
+
+/** PUBLIC — the events behind a status page. Same reasoning as above. */
+export async function publicUptimeEvents(projectId: string, limit = 90) {
+  const monitor = await db.query.monitors.findFirst({
+    where: and(eq(monitors.projectId, projectId), eq(monitors.type, 'uptime')),
+    columns: { id: true, enabled: true, lastStatus: true },
+  })
+  if (!monitor?.enabled) return null
+
+  const events = await db.query.monitorEvents.findMany({
+    where: eq(monitorEvents.monitorId, monitor.id),
+    orderBy: desc(monitorEvents.ts),
+    limit,
+    columns: { ts: true, ok: true, latencyMs: true },
+  })
+  return { lastStatus: monitor.lastStatus, events }
 }

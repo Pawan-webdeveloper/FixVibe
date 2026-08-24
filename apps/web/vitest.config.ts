@@ -7,6 +7,8 @@ export default defineConfig({
     // client and the API route. Component behaviour is covered by the app itself.
     environment: 'node',
     include: ['test/**/*.test.ts'],
+    // Components are imported for their pure helpers, so JSX must parse.
+
   },
   resolve: {
     alias: {
