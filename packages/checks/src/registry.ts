@@ -43,6 +43,9 @@ import { faqHowToSchemaCheck } from './aeo/faq-howto-schema.ts'
 import { llmsTxtCheck } from './aeo/llms-txt.ts'
 import { outboundCitationsCheck } from './aeo/outbound-citations.ts'
 import { ssrContentCheck } from './aeo/ssr-content.ts'
+import { caaCheck } from './domain/caa.ts'
+import { domainExpiryCheck } from './domain/expiry.ts'
+import { dkimCheck } from './email/dkim.ts'
 import { dmarcCheck } from './email/dmarc.ts'
 import { spfCheck } from './email/spf.ts'
 import { cookieFlagsCheck } from './security/cookies/cookie-flags.ts'
@@ -90,6 +93,11 @@ export const allChecks: readonly Check[] = [
   securityTxtCheck,
   spfCheck,
   dmarcCheck,
+  dkimCheck,
+  // Domain-level: who may issue certificates for this name, and whether the
+  // name is still going to be theirs next month.
+  caaCheck,
+  domainExpiryCheck,
   // Exposure and supply chain. sensitive-paths and source-maps spend probes,
   // so they sit inside the per-scan budget shared with sitemap and security.txt.
   sensitivePathsCheck,

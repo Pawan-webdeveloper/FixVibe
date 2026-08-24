@@ -28,12 +28,13 @@ const PROBE_MAX_BODY_BYTES = 256 * 1024
 
 const EMPTY_DNS: CheckContext['dns'] = {
   txt: [],
-  caa: [],
+  caa: null,
   mx: [],
-  dnssec: false,
   emailDomain: null,
   spfTxt: [],
   dmarcTxt: [],
+  dkim: { selectors: {}, wildcard: null },
+  registration: null,
 }
 
 export async function buildContext(

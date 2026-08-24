@@ -9,8 +9,10 @@
  * HTML cannot honestly be judged by the SEO checks — running them anyway would
  * assert on data that was never observed.
  *
- * Certificate dates are stored as day-offsets from "now" so fixtures never
- * expire under us.
+ * Certificate dates AND domain registration dates are stored as day-offsets
+ * from "now" so fixtures never expire under us. A fixture holding a literal
+ * date is a test that passes today and fails in six weeks, for no reason
+ * anyone will remember.
  */
 
 import { readdirSync, readFileSync } from 'node:fs'
@@ -33,6 +35,11 @@ interface Fixture {
   html?: string
   /** Recorded DNS. Absent means the snapshot captured none, so the zone reads as empty. */
   dns?: Partial<CheckContext['dns']>
+  /**
+   * Domain registration as a day-offset. Absent means the registry answered
+   * nothing, which is what the checks see for most ccTLDs.
+   */
+  registration?: { daysFromNow: number; registrar: string | null } | null
   /** robots.txt body; null/absent means the file was missing or non-200. */
   robotsTxt?: string | null
   /** Same-origin paths a check may probe, and what they answered. */
@@ -60,7 +67,15 @@ describe('site fixtures through the registry', () => {
       status: fixture.status,
       headers: fixture.headers,
       html: fixture.html,
-      dns: fixture.dns,
+      dns: {
+        ...fixture.dns,
+        registration: fixture.registration
+          ? {
+              expiresAt: new Date(Date.now() + fixture.registration.daysFromNow * 86_400_000).toISOString(),
+              registrar: fixture.registration.registrar,
+            }
+          : null,
+      },
       robots: fixture.robotsTxt ? robotsFrom(fixture.robotsTxt) : null,
       probe: probeStub(fixture.probe ?? {}),
       tls: fixture.tls

@@ -195,6 +195,7 @@ const SURFACE_BY_PREFIX: ReadonlyArray<{ prefix: string; surface: SurfaceId }> =
   { prefix: 'aeo.author-date', surface: 'head' },
 
   { prefix: 'security.email.', surface: 'dns' },
+  { prefix: 'security.domain.', surface: 'dns' },
 
   { prefix: 'seo.robots-txt', surface: 'webroot' },
   { prefix: 'seo.sitemap', surface: 'webroot' },

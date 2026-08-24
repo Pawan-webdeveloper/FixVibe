@@ -53,9 +53,10 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     tls: overrides.tls ?? null,
     dns: {
       txt: [],
-      caa: [],
+      caa: null,
       mx: [],
-      dnssec: false,
+      dkim: { selectors: {}, wildcard: null },
+      registration: null,
       // Derived, not hardcoded: a test that overrides the URL gets the mail
       // domain its checks would really have been handed.
       emailDomain: organizationalDomain(url.hostname),
@@ -152,8 +153,21 @@ export function permissiveRobots(sitemapUrl = 'https://site.test/sitemap.xml'): 
  */
 export const HEALTHY_DNS: Partial<CheckContext['dns']> = {
   emailDomain: 'site.test',
+  mx: ['aspmx.l.google.com'],
   spfTxt: ['v=spf1 include:_spf.google.com include:sendgrid.net ~all'],
   dmarcTxt: ['v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@site.test'],
+  // A real (short) RSA key, not a placeholder: the DKIM check distinguishes a
+  // published key from a revoked one by whether p= has a value.
+  dkim: {
+    selectors: {
+      google: ['v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4T1PE2vh5xqRGzOrDnkoi'],
+    },
+    wildcard: null,
+  },
+  caa: {
+    name: 'site.test',
+    records: ['issue "letsencrypt.org"', 'issuewild "letsencrypt.org"', 'iodef "mailto:security@site.test"'],
+  },
 }
 
 /**

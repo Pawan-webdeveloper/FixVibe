@@ -28,7 +28,18 @@
     ],
     "dmarcTxt": [
       "v=DMARC1;p=reject;sp=reject;adkim=s;aspf=s"
-    ]
+    ],
+    "caa": {
+      "name": "example.com",
+      "records": []
+    },
+    "mx": [],
+    "dkim": {
+      "selectors": {},
+      "wildcard": [
+        "v=DKIM1; p="
+      ]
+    }
   },
   "expect": {
     "mustFlag": [
@@ -38,11 +49,18 @@
       "security.headers.x-content-type-options",
       "security.headers.referrer-policy",
       "security.headers.permissions-policy",
-      "security.tls.https-redirect"
+      "security.tls.https-redirect",
+      "security.domain.caa"
     ],
     "mustNotFlag": [
       "security.tls.cert-expiry",
-      "security.tls.protocol-version"
+      "security.tls.protocol-version",
+      "security.email.dkim",
+      "security.domain.expiry"
     ]
+  },
+  "registration": {
+    "daysFromNow": 353,
+    "registrar": "RESERVED-Internet Assigned Numbers Authority"
   }
 }
