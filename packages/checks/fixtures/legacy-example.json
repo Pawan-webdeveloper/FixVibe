@@ -27,7 +27,16 @@
   "dns": {
     "emailDomain": "legacy.example",
     "spfTxt": [],
-    "dmarcTxt": []
+    "dmarcTxt": [],
+    "caa": {
+      "name": "legacy.example",
+      "records": []
+    },
+    "mx": [],
+    "dkim": {
+      "selectors": {},
+      "wildcard": null
+    }
   },
   "expect": {
     "mustFlag": [
@@ -43,13 +52,20 @@
       "security.info-leak.server",
       "security.info-leak.x-powered-by",
       "security.email.spf",
-      "security.email.dmarc"
+      "security.email.dmarc",
+      "security.domain.caa",
+      "security.domain.expiry"
     ],
     "mustNotFlag": [
       "security.cookies.flags",
       "security.cors.wildcard",
       "security.mixed-content",
-      "security.security-txt"
+      "security.security-txt",
+      "security.email.dkim"
     ]
+  },
+  "registration": {
+    "daysFromNow": 5,
+    "registrar": "Budget Domains Ltd."
   }
 }

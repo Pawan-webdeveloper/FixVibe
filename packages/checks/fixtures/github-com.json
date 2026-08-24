@@ -31,7 +31,33 @@
     ],
     "dmarcTxt": [
       "v=DMARC1; p=quarantine; sp=reject; pct=100; rua=mailto:dmarc@github.com; ruf=mailto:dmarc@github.com; fo=1"
-    ]
+    ],
+    "caa": {
+      "name": "github.com",
+      "records": [
+        "issuewild \"letsencrypt.org\"",
+        "issue \"letsencrypt.org\"",
+        "issue \"digicert.com\"",
+        "issuewild \"sectigo.com\"",
+        "issue \"globalsign.com\"",
+        "issue \"sectigo.com\"",
+        "issuewild \"digicert.com\""
+      ]
+    },
+    "mx": [
+      "github-com.mail.protection.outlook.com"
+    ],
+    "dkim": {
+      "selectors": {
+        "google": [
+          "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAj6T5sl/RwdSqGoYWaWaFbS2UAeyPrEmd0gogocmRfS441qwR8/0KB81Hw89P0l4YiFRrXYk7NVIGfyCRHAYYZUzCkGeOysI2EjgzLFhd/NEsbRzOEc/kWkK/RO6JFq/5lOn6M9AZw/ap9tds4JG9ApgNNdSpPxp9DmvpsOSgNMVflRxQFrk3kdS4RNAPKu/OPoA7dlR/A/pECryjRoYgENtDXzdnK70HgCekems6UDzxDj61cjyoKoXtEMF/QsaHEQ1Gjfv014rDJBsubk/kT5VqHkWHa/ia68Z5r228Ety/wFfQNjXTx/J7KGZ9GkZlKED659eiJcLnWcKDSiQlhwIDAQAB"
+        ],
+        "selector1": [
+          "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCxZC/z2cK+2s1f/ktzSDSeFzkfIHrjwtGFsfKMAYvKaXjPVNzKykpbXBkX5nB7dVUTFttda7aROr2iSrIseQ27Ui+4rUZVzgFanE8RaXhYM9n5wPKNv8GtLJk7JgcsYZ7ErgID4uW2sEYyV/dnRYw6rDzOaeRKkKELTUfJI5ebLQIDAQAB;"
+        ]
+      },
+      "wildcard": null
+    }
   },
   "expect": {
     "mustFlag": [
@@ -45,7 +71,14 @@
       "security.headers.referrer-policy",
       "security.tls.cert-expiry",
       "security.tls.protocol-version",
-      "security.tls.https-redirect"
+      "security.tls.https-redirect",
+      "security.domain.caa",
+      "security.domain.expiry",
+      "security.email.dkim"
     ]
+  },
+  "registration": {
+    "daysFromNow": 45,
+    "registrar": "MarkMonitor Inc."
   }
 }

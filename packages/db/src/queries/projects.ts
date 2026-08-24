@@ -226,3 +226,46 @@ export async function publicUptimeEvents(projectId: string, limit = 90) {
   })
   return { lastStatus: monitor.lastStatus, events }
 }
+
+/**
+ * Whether a scan may test the target's backends actively — reaching the
+ * Supabase project or Firebase database the page's JavaScript talks to.
+ *
+ * Two conditions, and BOTH matter:
+ *
+ *   1. The project is domain-verified. Probing an endpoint you do not own is
+ *      unauthorised testing however gentle the request is.
+ *   2. The URL being scanned is on the project's own host. Without this,
+ *      verifying `mysite.com` and then pointing the same project at
+ *      `victim.com` would hand an attacker our scanner — which is precisely
+ *      the hole the verification flag exists to close.
+ *
+ * Hosts are compared exactly, modulo a leading "www.". Strictness is the safe
+ * direction here: refusing to actively test a subdomain the user does own
+ * costs them a check, while the opposite mistake costs someone else.
+ *
+ * Deliberately takes no Viewer, alongside the schedulers. It authorises
+ * nothing, returns no data, and answers only about a project id the caller
+ * already holds — it is the authorization predicate, not a read path.
+ */
+export async function activeTestingAllowed(projectId: string | null | undefined, scanUrl: string): Promise<boolean> {
+  if (!projectId) return false // anonymous and unclaimed scans are never active
+
+  const project = await db.query.projects.findFirst({
+    where: eq(projects.id, projectId),
+    columns: { url: true, verifiedDomain: true },
+  })
+  if (!project?.verifiedDomain) return false
+
+  return sameHost(project.url, scanUrl)
+}
+
+/** True when both URLs parse and name the same host, ignoring a "www." prefix. */
+function sameHost(a: string, b: string): boolean {
+  try {
+    const strip = (url: string) => new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+    return strip(a) === strip(b)
+  } catch {
+    return false // an unparseable URL is not a match
+  }
+}

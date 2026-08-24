@@ -32,7 +32,20 @@
     ],
     "dmarcTxt": [
       "v=DMARC1; p=reject; rua=mailto:mailauth-reports@google.com"
-    ]
+    ],
+    "caa": {
+      "name": "google.com",
+      "records": [
+        "issue \"pki.goog\""
+      ]
+    },
+    "mx": [
+      "smtp.google.com"
+    ],
+    "dkim": {
+      "selectors": {},
+      "wildcard": null
+    }
   },
   "expect": {
     "mustFlag": [
@@ -40,13 +53,20 @@
       "security.headers.hsts",
       "security.headers.x-content-type-options",
       "security.headers.referrer-policy",
-      "security.headers.permissions-policy"
+      "security.headers.permissions-policy",
+      "security.email.dkim"
     ],
     "mustNotFlag": [
       "security.headers.x-frame-options",
       "security.tls.cert-expiry",
       "security.tls.protocol-version",
-      "security.tls.https-redirect"
+      "security.tls.https-redirect",
+      "security.domain.caa",
+      "security.domain.expiry"
     ]
+  },
+  "registration": {
+    "daysFromNow": 750,
+    "registrar": "MarkMonitor Inc."
   }
 }

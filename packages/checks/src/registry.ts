@@ -43,6 +43,9 @@ import { faqHowToSchemaCheck } from './aeo/faq-howto-schema.ts'
 import { llmsTxtCheck } from './aeo/llms-txt.ts'
 import { outboundCitationsCheck } from './aeo/outbound-citations.ts'
 import { ssrContentCheck } from './aeo/ssr-content.ts'
+import { caaCheck } from './domain/caa.ts'
+import { domainExpiryCheck } from './domain/expiry.ts'
+import { dkimCheck } from './email/dkim.ts'
 import { dmarcCheck } from './email/dmarc.ts'
 import { spfCheck } from './email/spf.ts'
 import { cookieFlagsCheck } from './security/cookies/cookie-flags.ts'
@@ -50,6 +53,8 @@ import { corsWildcardCheck } from './security/cors/cors-wildcard.ts'
 import { directoryListingCheck } from './security/exposure/directory-listing.ts'
 import { sensitivePathsCheck } from './security/exposure/sensitive-paths.ts'
 import { sourceMapsCheck } from './security/exposure/source-maps.ts'
+import { firebaseRulesCheck } from './security/backend/firebase-rules.ts'
+import { supabaseRlsCheck } from './security/backend/supabase-rls.ts'
 import { secretsInJsCheck } from './security/secrets/secrets-in-js.ts'
 import { sriCheck } from './security/sri.ts'
 import { serverHeaderCheck } from './security/info-leak/server-header.ts'
@@ -90,6 +95,11 @@ export const allChecks: readonly Check[] = [
   securityTxtCheck,
   spfCheck,
   dmarcCheck,
+  dkimCheck,
+  // Domain-level: who may issue certificates for this name, and whether the
+  // name is still going to be theirs next month.
+  caaCheck,
+  domainExpiryCheck,
   // Exposure and supply chain. sensitive-paths and source-maps spend probes,
   // so they sit inside the per-scan budget shared with sitemap and security.txt.
   sensitivePathsCheck,
@@ -97,6 +107,11 @@ export const allChecks: readonly Check[] = [
   sourceMapsCheck,
   directoryListingCheck,
   sriCheck,
+  // Backend authorization. These two are the only checks in the engine that
+  // touch someone else's infrastructure, so they run only when the context
+  // grants `activeProbe` — i.e. on a domain the requester has proved they own.
+  supabaseRlsCheck,
+  firebaseRulesCheck,
   // SEO — order here is cosmetic: checks run concurrently and findings are
   // sorted by severity before anyone sees them.
   robotsMetaCheck,

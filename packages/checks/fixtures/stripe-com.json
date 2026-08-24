@@ -31,7 +31,34 @@
     ],
     "dmarcTxt": [
       "v=DMARC1; p=reject; pct=100; fo=1; rua=mailto:dmarc-reports@stripe.com; ruf=mailto:dmarc-forensics@stripe.com;"
-    ]
+    ],
+    "caa": {
+      "name": "stripe.com",
+      "records": [
+        "issue \"visa.com\"",
+        "iodef \"mailto:caa-violations@stripe.com\"",
+        "issue \"amazon.com\"",
+        "issue \"digicert.com\""
+      ]
+    },
+    "mx": [
+      "aspmx.l.google.com",
+      "alt1.aspmx.l.google.com",
+      "alt2.aspmx.l.google.com",
+      "aspmx3.googlemail.com",
+      "aspmx2.googlemail.com"
+    ],
+    "dkim": {
+      "selectors": {
+        "google": [
+          "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4T1PE2vh5xqRGzOrDnkoi03N/BFQ+GLa/xF69d8K0QOZBxTJbttc2DxcPdpvxqQRQOheompWvzCvWw/SH/NMgq72ulPKz2nHQbU6wIucXMf/sizgnsy+Ihiw9S5c/5sBMHUVZStqhHMuY8BGx0wGLavSmMFzBNdchT4g+46OuhQIDAQAB"
+        ],
+        "mandrill": [
+          "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCrLHiExVd55zd/IQ/J/mRwSRMAocV/hMB3jXwaHH36d9NaVynQFYV8NaWi69c1veUtRzGt7yAioXqLj7Z4TeEUoOLgrKsn8YnckGs9i3B3tVFB+Ch/4mPhXWiNfNdynHWBcPcbJ8kjEQ2U8y78dHZj1YeRXXVvWob2OaKynO8/lQIDAQAB"
+        ]
+      },
+      "wildcard": null
+    }
   },
   "expect": {
     "clean": true,
@@ -47,5 +74,9 @@
       "security.tls.protocol-version",
       "security.tls.https-redirect"
     ]
+  },
+  "registration": {
+    "daysFromNow": 382,
+    "registrar": "SafeNames Ltd."
   }
 }

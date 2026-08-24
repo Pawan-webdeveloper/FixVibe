@@ -27,6 +27,13 @@ export interface ContextOverrides {
   robots?: CheckContext['robots']
   httpProbe?: CheckContext['httpProbe']
   probe?: CheckContext['probe']
+  scripts?: CheckContext['scripts']
+  /**
+   * Supplying this is what marks a context as "authorised to test actively".
+   * Leave it out and the backend checks are structurally unable to run, which
+   * is the behaviour most of their tests assert.
+   */
+  activeProbe?: CheckContext['activeProbe']
 }
 
 const DEFAULT_HTML = '<!doctype html><html lang="en"><head><title>Test</title></head><body><h1>Test</h1></body></html>'
@@ -45,7 +52,7 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     headers,
     html,
     $: cheerio.load(html),
-    scripts: [],
+    scripts: overrides.scripts ?? [],
     // Derived from Set-Cookie through the real parser, exactly as buildContext
     // does, so a fixture describing a response gets the cookies that response
     // would actually produce.
@@ -53,9 +60,10 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     tls: overrides.tls ?? null,
     dns: {
       txt: [],
-      caa: [],
+      caa: null,
       mx: [],
-      dnssec: false,
+      dkim: { selectors: {}, wildcard: null },
+      registration: null,
       // Derived, not hardcoded: a test that overrides the URL gets the mail
       // domain its checks would really have been handed.
       emailDomain: organizationalDomain(url.hostname),
@@ -68,6 +76,28 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     // Unit tests are network-free by design; a check that probes in a test
     // gets "unreachable" unless the test provides its own stub.
     probe: overrides.probe ?? (() => Promise.resolve(null)),
+    // Conditional on purpose, mirroring buildContext: an unauthorised context
+    // does not carry a disabled capability, it carries no capability.
+    ...(overrides.activeProbe ? { activeProbe: overrides.activeProbe } : {}),
+  }
+}
+
+/**
+ * activeProbe() stub over a url → response map. An unlisted url resolves to
+ * null, i.e. unreachable — the same thing the real capability does when a
+ * request fails or the budget runs out.
+ */
+export function activeProbeStub(
+  responses: Record<string, { status: number; body?: string; headers?: Record<string, string> }>,
+): NonNullable<CheckContext['activeProbe']> {
+  return (url) => {
+    const response = responses[url]
+    if (!response) return Promise.resolve(null)
+    return Promise.resolve({
+      status: response.status,
+      body: response.body ?? '',
+      headers: new Headers(response.headers ?? {}),
+    })
   }
 }
 
@@ -152,8 +182,21 @@ export function permissiveRobots(sitemapUrl = 'https://site.test/sitemap.xml'): 
  */
 export const HEALTHY_DNS: Partial<CheckContext['dns']> = {
   emailDomain: 'site.test',
+  mx: ['aspmx.l.google.com'],
   spfTxt: ['v=spf1 include:_spf.google.com include:sendgrid.net ~all'],
   dmarcTxt: ['v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@site.test'],
+  // A real (short) RSA key, not a placeholder: the DKIM check distinguishes a
+  // published key from a revoked one by whether p= has a value.
+  dkim: {
+    selectors: {
+      google: ['v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4T1PE2vh5xqRGzOrDnkoi'],
+    },
+    wildcard: null,
+  },
+  caa: {
+    name: 'site.test',
+    records: ['issue "letsencrypt.org"', 'issuewild "letsencrypt.org"', 'iodef "mailto:security@site.test"'],
+  },
 }
 
 /**

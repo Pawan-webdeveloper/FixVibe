@@ -49,9 +49,27 @@ export interface CheckContext {
   dns: {
     /** TXT records of the scanned hostname exactly as given. */
     txt: string[]
-    caa: string[]
+    /**
+     * The CAA record set that actually governs certificate issuance for this
+     * host, found by RFC 8659 §3's tree climb: the hostname first, then each
+     * parent up to the registrable domain, stopping at the first name that
+     * publishes any. `name` is the name that answered.
+     *
+     *   null                  — we could not determine it (resolver failure).
+     *   { records: [] }       — we asked all the way up; there is genuinely none.
+     *   { records: [...] }    — the governing set.
+     *
+     * A plain `string[]` here would be a false-positive machine: querying only
+     * `www.example.com` and finding nothing says nothing at all, because the
+     * policy that binds every CA lives one label up.
+     */
+    caa: { name: string; records: string[] } | null
+    /**
+     * Mail exchangers, best priority first. A NULL MX (RFC 7505's `MX 0 .`,
+     * "this domain accepts no mail") is filtered out rather than reported as a
+     * host, so an empty list means "no mail exchanger" either way.
+     */
     mx: string[]
-    dnssec: boolean
     /**
      * The domain SPF/DMARC records belong on — the hostname minus a "www."
      * prefix. null when it cannot be derived without a full Public Suffix
@@ -63,6 +81,30 @@ export interface CheckContext {
     spfTxt: string[]
     /** TXT records at `_dmarc.<emailDomain>`. Empty when it is null. */
     dmarcTxt: string[]
+    dkim: {
+      /**
+       * TXT records at `<selector>._domainkey.<emailDomain>`, keyed by
+       * selector. Only well-known provider selectors are tried — a selector is
+       * chosen by whoever signs the mail and cannot be enumerated from outside
+       * — so an EMPTY map means "no selector we know of", never "no DKIM".
+       */
+      selectors: Record<string, string[]>
+      /**
+       * The record served by a wildcard `*._domainkey.<emailDomain>`, when one
+       * exists. `selectors` is then empty by construction: under a wildcard
+       * every name answers, so a "hit" on any selector proves nothing about a
+       * key actually being in use. Usually `v=DKIM1; p=` — RFC 6376 §3.6.1's
+       * way of saying "this domain signs nothing", which is a deliberate
+       * configuration and not a defect.
+       */
+      wildcard: string[] | null
+    }
+    /**
+     * Domain registration, from RDAP. null when the registry did not answer or
+     * has no RDAP endpoint, which is common enough that its absence says
+     * nothing about the domain.
+     */
+    registration: { expiresAt: string | null; registrar: string | null } | null
   }
   robots: {
     raw: string
@@ -87,6 +129,27 @@ export interface CheckContext {
    * Resolves to null on any network failure or when the cap is exhausted.
    */
   probe: (path: string) => Promise<{ status: number; body: string; headers: Headers } | null>
+  /**
+   * Fetch an ARBITRARY url, including a backend on someone else's
+   * infrastructure — a Supabase project, a Firebase database.
+   *
+   * **Present only when the scan was authorised to test actively**, i.e. the
+   * requester proved they control this domain (projects.verified_domain).
+   * Its absence IS the gate, and that is the whole point of shaping it as a
+   * capability instead of a `verifiedDomain: boolean`. A boolean has to be
+   * consulted, and the check that forgets to consult it fails silently by
+   * probing a stranger's database. A missing function cannot be forgotten:
+   * the check that skips the guard does not compile.
+   *
+   * Probing an endpoint you do not own is unauthorised testing regardless of
+   * how gentle the request is, so no check may reach for the network any other
+   * way. SSRF-guarded and capped exactly like probe(); resolves to null on any
+   * failure or once the budget is spent.
+   */
+  activeProbe?: (
+    url: string,
+    init?: { headers?: Record<string, string> },
+  ) => Promise<{ status: number; body: string; headers: Headers } | null>
 }
 
 /** One concrete problem found on the target. A check may emit zero or many. */

@@ -170,6 +170,7 @@ type SurfaceId = 'urgent' | 'headers' | 'head' | 'markup' | 'dns' | 'webroot' | 
 const SURFACE_BY_PREFIX: ReadonlyArray<{ prefix: string; surface: SurfaceId }> = [
   { prefix: 'security.exposure.sensitive-paths', surface: 'urgent' },
   { prefix: 'security.secrets.', surface: 'urgent' },
+  { prefix: 'security.backend.', surface: 'urgent' },
 
   { prefix: 'security.headers.', surface: 'headers' },
   { prefix: 'security.cors.', surface: 'headers' },
@@ -195,6 +196,7 @@ const SURFACE_BY_PREFIX: ReadonlyArray<{ prefix: string; surface: SurfaceId }> =
   { prefix: 'aeo.author-date', surface: 'head' },
 
   { prefix: 'security.email.', surface: 'dns' },
+  { prefix: 'security.domain.', surface: 'dns' },
 
   { prefix: 'seo.robots-txt', surface: 'webroot' },
   { prefix: 'seo.sitemap', surface: 'webroot' },

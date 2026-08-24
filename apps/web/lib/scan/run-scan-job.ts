@@ -25,7 +25,14 @@ import {
   SafeFetchError,
   SsrfError,
 } from '@darvin/checks'
-import { completeScan, createScan, failScan, type ScanContextMeta, type ScanProfile } from '@darvin/db'
+import {
+  activeTestingAllowed,
+  completeScan,
+  createScan,
+  failScan,
+  type ScanContextMeta,
+  type ScanProfile,
+} from '@darvin/db'
 
 export interface ScanRequest {
   /** Already normalized by lib/url.ts. This layer does not parse user input. */
@@ -51,7 +58,12 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
   const startedAt = performance.now()
 
   try {
-    const ctx = await buildContext(request.url)
+    // Active backend probing is authorised by DATA, not by a flag the caller
+    // passes: the project must be domain-verified AND the URL must be on that
+    // project's own host. A caller cannot opt itself in.
+    const activeTesting = await activeTestingAllowed(request.projectId, request.url)
+
+    const ctx = await buildContext(request.url, { activeTesting })
     const { findings, errors } = await runChecks(ctx)
     const scores = computeScores(findings, allChecks, errors)
 
