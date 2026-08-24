@@ -39,6 +39,25 @@ export const serverEnv = {
     return required('IP_HASH_SALT')
   },
 
+  /** Stripe. Absent until billing is configured; the routes below say so. */
+  get stripeSecretKey() {
+    return required('STRIPE_SECRET_KEY')
+  },
+  get stripeWebhookSecret() {
+    return required('STRIPE_WEBHOOK_SECRET')
+  },
+  get stripeProPriceId() {
+    return required('STRIPE_PRICE_PRO_MONTHLY')
+  },
+  /** Where Stripe sends the customer back to. */
+  get appUrl() {
+    return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  },
+  /** True when billing can actually run, so a route can refuse cleanly. */
+  get billingConfigured() {
+    return Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_PRO_MONTHLY)
+  },
+
   get isProduction() {
     return process.env.NODE_ENV === 'production'
   },

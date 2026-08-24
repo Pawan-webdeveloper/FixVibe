@@ -87,6 +87,13 @@ export interface ScanContextMeta {
   redirectChain: string[]
   status: number
   framework: string | null
+  /**
+   * Where the site is served from — Vercel, Netlify, Cloudflare, nginx.
+   * Stored alongside `framework` because it is the field that decides where
+   * response headers are configured, and for a header fix that matters more
+   * than which framework rendered the page.
+   */
+  platform: string | null
   /** ISO-8601 — jsonb has no Date type, so it round-trips as a string. */
   tlsExpiry: string | null
 }

@@ -26,6 +26,15 @@ import { xFrameOptionsCheck } from './security/headers/x-frame-options.ts'
 import { certExpiryCheck } from './security/tls/cert-expiry.ts'
 import { httpsRedirectCheck } from './security/tls/https-redirect.ts'
 import { tlsProtocolVersionCheck } from './security/tls/protocol-version.ts'
+import { formLabelsCheck } from './accessibility/static/form-labels.ts'
+import { imgAltCheck } from './accessibility/static/img-alt.ts'
+import { linkTextCheck } from './accessibility/static/link-text.ts'
+import { cookieBannerCheck } from './compliance/cookie-banner.ts'
+import { privacyPolicyLinkCheck } from './compliance/privacy-policy-link.ts'
+import { trackersBeforeConsentCheck } from './compliance/trackers-before-consent.ts'
+import { cachingHeadersCheck } from './performance/caching-headers.ts'
+import { compressionCheck } from './performance/compression.ts'
+import { imageFormatsCheck } from './performance/image-formats.ts'
 import { aiBotsAllowedCheck } from './aeo/ai-bots-allowed.ts'
 import { answerStructureCheck } from './aeo/answer-structure.ts'
 import { authorDateCheck } from './aeo/author-date.ts'
@@ -48,6 +57,9 @@ import { xPoweredByCheck } from './security/info-leak/x-powered-by.ts'
 import { mixedContentCheck } from './security/mixed-content.ts'
 import { securityTxtCheck } from './security/security-txt.ts'
 import { canonicalCheck } from './seo/canonical.ts'
+import { faviconCheck } from './seo/favicon.ts'
+import { headingOrderCheck } from './seo/heading-order.ts'
+import { hreflangCheck } from './seo/hreflang.ts'
 import { h1Check } from './seo/h1.ts'
 import { langCheck } from './seo/lang.ts'
 import { metaDescriptionCheck } from './seo/meta-description.ts'
@@ -99,6 +111,9 @@ export const allChecks: readonly Check[] = [
   openGraphCheck,
   twitterCardCheck,
   structuredDataCheck,
+  faviconCheck,
+  headingOrderCheck,
+  hreflangCheck,
   // AEO — whether an answer engine can read, resolve and cite this page.
   // ssr-content comes first for a reason: if the text is not in the HTML,
   // nothing else in this pillar can be.
@@ -110,6 +125,19 @@ export const allChecks: readonly Check[] = [
   faqHowToSchemaCheck,
   authorDateCheck,
   outboundCitationsCheck,
+  // Performance — what the response headers and markup can prove without a
+  // browser. Field data (PageSpeed) is a later, network-dependent addition.
+  compressionCheck,
+  cachingHeadersCheck,
+  imageFormatsCheck,
+  // Accessibility — the static half. Rendered-DOM auditing needs the browser.
+  imgAltCheck,
+  formLabelsCheck,
+  linkTextCheck,
+  // Compliance — observable from one uninteracted request.
+  trackersBeforeConsentCheck,
+  cookieBannerCheck,
+  privacyPolicyLinkCheck,
 ]
 
 export interface RunResult {

@@ -13,3 +13,10 @@ export { SafeFetchError } from './context/safe-fetch.ts'
 export { allChecks, runChecks, type RunResult } from './registry.ts'
 export { computeScores, SEVERITY_PENALTIES } from './scoring.ts'
 export { ENGINE_VERSION } from './version.ts'
+export {
+  buildFixPrompt,
+  detectStack,
+  type FixableFinding,
+  type FixPromptContext,
+  type StackHint,
+} from './fix-prompt.ts'

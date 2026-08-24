@@ -13,12 +13,17 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getScanForViewer, type Viewer } from '@darvin/db'
+import { buildFixPrompt } from '@darvin/checks'
+import { getScanForViewer, type ScanWithFindings, type Viewer } from '@darvin/db'
 import { getViewer } from '@/lib/authz.ts'
 import { claimScanAction } from './actions.ts'
 import { ScoreRing } from '@/components/scan/score-ring.tsx'
 import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingsList } from '@/components/scan/findings-list.tsx'
+import { FixPromptDialog } from '@/components/scan/fix-prompt-dialog.tsx'
+import { PaywallNotice } from '@/components/scan/paywall-blur.tsx'
+import { entitlementsFor, type Entitlements } from '@/lib/entitlements.ts'
+import { canSeeFixPrompt, redactFindings } from '@/lib/redact.ts'
 import type { FindingView } from '@/components/scan/finding-card.tsx'
 
 /** Postgres rejects a malformed uuid with an error, so filter before querying. */
@@ -80,6 +85,11 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
   const host = hostOf(scan.url)
   const claimable = scan.projectId === null && scan.requestedBy === null
 
+  // Redaction happens here, above every component. Nothing below this line
+  // receives the withheld text, so no component can leak it by accident.
+  const entitlements = await entitlementsFor(viewer)
+  const report = redactFindings(scan.findings, entitlements)
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line pb-5">
@@ -121,9 +131,17 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
 
           {claimable && <SaveReport scanId={scan.id} host={host} signedIn={viewer.kind === 'user'} />}
 
+          <AggregateFixPrompt scan={scan} entitlements={entitlements} />
+
           <div className="mt-10">
-            <FindingsList findings={scan.findings as FindingView[]} />
+            <FindingsList findings={report.findings as FindingView[]} />
           </div>
+
+          <PaywallNotice
+            lockedCount={report.lockedCount}
+            lockedSeverities={report.lockedSeverities}
+            signedIn={entitlements.signedIn}
+          />
         </>
       )}
     </div>
@@ -271,4 +289,38 @@ function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; 
       )}
     </section>
   )
+}
+
+/**
+ * Built on read rather than stored, so a report gets today's prompt: the
+ * grouping and the stack-specific locations improve as the engine does, and a
+ * prompt frozen at scan time would keep handing out last month's advice.
+ */
+function AggregateFixPrompt({
+  scan,
+  entitlements,
+}: {
+  scan: ScanWithFindings
+  entitlements: Entitlements
+}) {
+  // Withheld whole rather than truncated: an agent handed half a work order
+  // makes half the changes and reports success.
+  if (!canSeeFixPrompt(entitlements)) return null
+
+  const prompt = buildFixPrompt(scan.findings, {
+    url: scan.contextMeta?.finalUrl ?? scan.url,
+    stack: {
+      framework: scan.contextMeta?.framework ?? null,
+      // Absent on scans recorded before platform detection existed; null is the
+      // honest value there, and the prompt falls back to generic guidance.
+      platform: scan.contextMeta?.platform ?? null,
+    },
+  })
+
+  // Empty when nothing is actionable — a report of only informational rows has
+  // no work order, and an empty box would imply otherwise.
+  if (!prompt) return null
+
+  const actionable = scan.findings.filter((f) => f.severity !== 'info').length
+  return <FixPromptDialog prompt={prompt} issueCount={actionable} />
 }

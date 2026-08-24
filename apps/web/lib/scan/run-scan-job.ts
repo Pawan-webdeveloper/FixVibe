@@ -15,7 +15,16 @@
  */
 
 import 'server-only'
-import { buildContext, computeScores, ENGINE_VERSION, allChecks, runChecks, SafeFetchError, SsrfError } from '@darvin/checks'
+import {
+  allChecks,
+  buildContext,
+  computeScores,
+  detectStack,
+  ENGINE_VERSION,
+  runChecks,
+  SafeFetchError,
+  SsrfError,
+} from '@darvin/checks'
 import { completeScan, createScan, failScan, type ScanContextMeta, type ScanProfile } from '@darvin/db'
 
 export interface ScanRequest {
@@ -46,12 +55,16 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
     const { findings, errors } = await runChecks(ctx)
     const scores = computeScores(findings, allChecks, errors)
 
+    // Detected once, at scan time, and stored — the aggregate fix prompt is
+    // built later from the saved report, when the page's HTML is long gone.
+    const stack = detectStack(ctx)
+
     const contextMeta: ScanContextMeta = {
       finalUrl: ctx.finalUrl.href,
       redirectChain: ctx.redirectChain,
       status: ctx.status,
-      // Framework detection arrives with the stack-aware fix prompts in Phase 4.
-      framework: null,
+      framework: stack.framework,
+      platform: stack.platform,
       tlsExpiry: ctx.tls?.validTo.toISOString() ?? null,
     }
 
