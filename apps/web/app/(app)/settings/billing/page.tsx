@@ -1,15 +1,16 @@
 /**
  * Current plan, usage against it, and a way out.
  *
- * Deliberately thin. Everything a customer might want to change — card,
- * cancellation, invoices, tax details — lives in Stripe's portal, which handles
- * dunning and receipts correctly and is not a differentiator worth rebuilding.
+ * Deliberately thin, but less thin than it was. Stripe's billing portal used
+ * to own cancellation, card changes, invoices and dunning; Razorpay has no
+ * equivalent, so cancellation is here and the rest is where Razorpay puts it —
+ * in the emails it sends the payer, which is where they will look anyway.
  */
 
 import Link from 'next/link'
 import { getSubscription } from '@darvin/db'
 import { requireUser } from '@/lib/authz.ts'
-import { planFor } from '@/lib/plans.ts'
+import { formatPrice, planFor } from '@/lib/plans.ts'
 import { serverEnv } from '@/lib/env.ts'
 import { BillingButton } from '@/components/billing/billing-button.tsx'
 
@@ -24,11 +25,12 @@ export default async function BillingPage() {
   const subscription = await getSubscription(user.id)
   const plan = planFor(subscription?.plan)
 
-  // Stripe's vocabulary is wider than active/cancelled — past_due and
-  // incomplete both mean "paid plan, something needs attention", and hiding
-  // that behind a green tick is how a customer finds out by losing access.
+  // Razorpay's vocabulary is wider than active/cancelled. `pending` means a
+  // charge failed and it is retrying; `halted` means it has given up. Both are
+  // "paid plan, something needs attention", and hiding that behind a green
+  // tick is how a customer finds out by losing access.
   const needsAttention =
-    subscription && !['active', 'trialing', 'canceled'].includes(subscription.status)
+    subscription && !['created', 'active', 'authenticated', 'cancelled', 'completed'].includes(subscription.status)
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
@@ -40,21 +42,22 @@ export default async function BillingPage() {
             <p className="text-sm text-muted">Current plan</p>
             <p className="text-xl font-semibold">{plan.name}</p>
           </div>
-          {plan.priceMonthlyUsd > 0 && (
-            <p className="text-sm text-muted tabular-nums">${plan.priceMonthlyUsd} / month</p>
+          {plan.priceMonthly > 0 && (
+            <p className="text-sm text-muted tabular-nums">{formatPrice(plan)} / month</p>
           )}
         </div>
 
         {needsAttention && (
           <p className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-sm">
-            Stripe reports this subscription as <span className="font-mono">{subscription.status}</span>.
-            Open the billing portal to resolve it before access changes.
+            Razorpay reports this subscription as <span className="font-mono">{subscription.status}</span>,
+            which usually means a charge did not go through. Razorpay has emailed the payment
+            method on file; resolve it there before access changes.
           </p>
         )}
 
         {subscription?.periodEnd && (
           <p className="mt-3 text-sm text-muted">
-            {subscription.status === 'canceled' ? 'Access ends' : 'Renews'} on{' '}
+            {subscription.status === 'cancelled' ? 'Access ends' : 'Renews'} on{' '}
             {stamp(subscription.periodEnd)}.
           </p>
         )}
@@ -72,9 +75,11 @@ export default async function BillingPage() {
 
         <div className="mt-6 flex flex-wrap gap-3">
           {plan.id === 'free' ? (
-            <BillingButton endpoint="/api/billing/checkout" label="Upgrade to Pro" />
+            <BillingButton action="upgrade" label="Upgrade to Pro" />
           ) : (
-            <BillingButton endpoint="/api/billing/portal" label="Manage billing" variant="secondary" />
+            subscription?.status !== 'cancelled' && (
+              <BillingButton action="cancel" label="Cancel subscription" variant="secondary" />
+            )
           )}
           <Link href="/pricing" className="self-center text-sm text-accent">
             Compare plans

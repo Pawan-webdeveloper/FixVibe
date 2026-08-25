@@ -39,23 +39,43 @@ export const serverEnv = {
     return required('IP_HASH_SALT')
   },
 
-  /** Stripe. Absent until billing is configured; the routes below say so. */
-  get stripeSecretKey() {
-    return required('STRIPE_SECRET_KEY')
+  /** Razorpay. Absent until billing is configured; the routes say so cleanly. */
+  get razorpayKeyId() {
+    return required('RAZORPAY_KEY_ID')
   },
-  get stripeWebhookSecret() {
-    return required('STRIPE_WEBHOOK_SECRET')
+  get razorpayKeySecret() {
+    return required('RAZORPAY_KEY_SECRET')
   },
-  get stripeProPriceId() {
-    return required('STRIPE_PRICE_PRO_MONTHLY')
+  /** The Plan created in the Razorpay dashboard. Its amount is the real price. */
+  get razorpayProPlanId() {
+    return required('RAZORPAY_PLAN_PRO_MONTHLY')
   },
-  /** Where Stripe sends the customer back to. */
+  /**
+   * A DIFFERENT secret from the API one: Razorpay generates it per webhook in
+   * the dashboard. Signing a webhook check with the API secret is the second
+   * commonest way this integration fails.
+   */
+  get razorpayWebhookSecret() {
+    return required('RAZORPAY_WEBHOOK_SECRET')
+  },
   get appUrl() {
     return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   },
-  /** True when billing can actually run, so a route can refuse cleanly. */
+  /**
+   * True when a subscription can actually be created, so a route can refuse
+   * cleanly instead of throwing. The webhook secret is deliberately NOT part
+   * of this: checkout works without it, and a deployment that takes money
+   * while silently dropping webhooks is a worse failure than one that cannot
+   * take money at all — so the webhook route checks for it separately and
+   * complains loudly.
+   */
   get billingConfigured() {
-    return Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_PRO_MONTHLY)
+    return Boolean(
+      process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_PLAN_PRO_MONTHLY,
+    )
+  },
+  get webhookConfigured() {
+    return Boolean(process.env.RAZORPAY_WEBHOOK_SECRET)
   },
 
   get isProduction() {

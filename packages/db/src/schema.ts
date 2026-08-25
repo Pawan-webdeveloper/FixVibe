@@ -385,10 +385,18 @@ export const subscriptions = pgTable('subscriptions', {
   userId: uuid('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
-  /** Null until the first checkout — free users never touch Stripe. */
-  stripeCustomerId: text('stripe_customer_id').unique(),
+  /**
+   * Provider-neutral on purpose. These held `stripe_` names until billing
+   * moved to Razorpay, and renaming a column across a live table to follow a
+   * vendor is a migration nobody wants to run twice. What the product needs to
+   * know is "which customer at whichever processor we use", and that does not
+   * change when the processor does.
+   *
+   * Null until the first payment — a free account never reaches the processor.
+   */
+  billingCustomerId: text('billing_customer_id').unique(),
   /** Webhooks arrive keyed by this; needed to map an event back to a user. */
-  stripeSubscriptionId: text('stripe_subscription_id').unique(),
+  billingSubscriptionId: text('billing_subscription_id').unique(),
   plan: text('plan').notNull().default('free'),
   status: text('status').notNull().default('active'),
   periodEnd: timestamp('period_end', { withTimezone: true }),
