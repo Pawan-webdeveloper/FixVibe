@@ -61,7 +61,9 @@ import { serverHeaderCheck } from './security/info-leak/server-header.ts'
 import { xPoweredByCheck } from './security/info-leak/x-powered-by.ts'
 import { mixedContentCheck } from './security/mixed-content.ts'
 import { securityTxtCheck } from './security/security-txt.ts'
+import { brokenLinksCheck } from './seo/broken-links.ts'
 import { canonicalCheck } from './seo/canonical.ts'
+import { duplicateMetadataCheck } from './seo/duplicate-metadata.ts'
 import { faviconCheck } from './seo/favicon.ts'
 import { headingOrderCheck } from './seo/heading-order.ts'
 import { hreflangCheck } from './seo/hreflang.ts'
@@ -129,6 +131,10 @@ export const allChecks: readonly Check[] = [
   faviconCheck,
   headingOrderCheck,
   hreflangCheck,
+  // Crawl-powered: silent on a fast scan, because they read evidence only a
+  // `deep` scan goes and collects.
+  brokenLinksCheck,
+  duplicateMetadataCheck,
   // AEO — whether an answer engine can read, resolve and cite this page.
   // ssr-content comes first for a reason: if the text is not in the HTML,
   // nothing else in this pillar can be.

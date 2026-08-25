@@ -119,10 +119,14 @@ export interface CheckContext {
    * did not answer.
    */
   httpProbe?: { status: number; location: string | null } | null
-  /** Crawled sub-pages (Phase 2 — absent in single-page scans). */
-  pages?: Array<{ url: string; status: number; html: string }>
-  /** PageSpeed Insights payload (Phase 2). */
-  psi?: unknown
+  /**
+   * What a bounded same-origin crawl found, present only on a `deep` scan.
+   *
+   * Absent means the crawl never ran — NOT that the site has one page. Every
+   * check reading this must stay silent when it is undefined, or a fast scan
+   * would start reporting the absence of evidence it never went looking for.
+   */
+  crawl?: CrawlSummary
   /**
    * Fetch a same-origin path (e.g. "/.env", "/security.txt"). Memoised per path
    * and capped per scan so a misbehaving check cannot hammer the target.
@@ -150,6 +154,28 @@ export interface CheckContext {
     url: string,
     init?: { headers?: Record<string, string> },
   ) => Promise<{ status: number; body: string; headers: Headers } | null>
+}
+
+/**
+ * The crawl's findings, as the checks see them. Mirrors CrawlResult in
+ * context/crawl.ts; declared here so a check never has to import from the
+ * context layer to read its own input.
+ */
+export interface CrawlSummary {
+  /** Sub-pages whose HTML was kept, deduplicated by final url. Root excluded. */
+  pages: Array<{ url: string; finalUrl: string; status: number; html: string }>
+  /**
+   * Requested url → the status it answered with, redirects followed. A url
+   * ABSENT from this map is one we failed to reach, which means unknown — a
+   * check must never read absence as a defect.
+   */
+  linkStatus: Record<string, number>
+  /** Same-origin links on the root page, before any budget was applied. */
+  linksFound: number
+  /** Of those, how many the budget never let us request. */
+  linksSkipped: number
+  /** How many robots.txt told us not to fetch. Coverage we lack, never a defect. */
+  linksDisallowed: number
 }
 
 /** One concrete problem found on the target. A check may emit zero or many. */

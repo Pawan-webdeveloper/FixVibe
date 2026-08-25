@@ -63,7 +63,13 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
     // project's own host. A caller cannot opt itself in.
     const activeTesting = await activeTestingAllowed(request.projectId, request.url)
 
-    const ctx = await buildContext(request.url, { activeTesting })
+    const ctx = await buildContext(request.url, {
+      activeTesting,
+      // The one behavioural difference between the profiles: a deep scan
+      // follows the page's own links, which multiplies the requests we make
+      // against the target and is why the fast scan does not.
+      crawl: request.profile === 'deep',
+    })
     const { findings, errors } = await runChecks(ctx)
     const scores = computeScores(findings, allChecks, errors)
 

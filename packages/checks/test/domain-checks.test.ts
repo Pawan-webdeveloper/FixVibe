@@ -115,8 +115,12 @@ describe('security.domain.expiry', () => {
 
   it('stays silent on a registration renewed well in advance', async () => {
     expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(365) } }))).toEqual([])
-    // 31 days is the first day of silence — the boundary, asserted explicitly.
-    expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(31) } }))).toEqual([])
+    // Both sides of the 30-day boundary. Half-days on purpose: an exact 31
+    // would floor to 30 the moment a millisecond elapses between building the
+    // fixture and the check reading the clock, which is a flaky test, not a
+    // boundary test.
+    expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(30.5) } }))).toHaveLength(1)
+    expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(31.5) } }))).toEqual([])
   })
 
   it('scales severity with how little time is left', async () => {

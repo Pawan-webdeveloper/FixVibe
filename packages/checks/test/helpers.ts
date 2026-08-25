@@ -34,6 +34,12 @@ export interface ContextOverrides {
    * is the behaviour most of their tests assert.
    */
   activeProbe?: CheckContext['activeProbe']
+  /**
+   * Supplying this is what marks a context as coming from a `deep` scan.
+   * Leave it out and the crawl-powered checks stay silent, which is the
+   * behaviour their tests assert first.
+   */
+  crawl?: CheckContext['crawl']
 }
 
 const DEFAULT_HTML = '<!doctype html><html lang="en"><head><title>Test</title></head><body><h1>Test</h1></body></html>'
@@ -79,7 +85,40 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     // Conditional on purpose, mirroring buildContext: an unauthorised context
     // does not carry a disabled capability, it carries no capability.
     ...(overrides.activeProbe ? { activeProbe: overrides.activeProbe } : {}),
+    ...(overrides.crawl ? { crawl: overrides.crawl } : {}),
   }
+}
+
+/**
+ * A CrawlSummary with sane defaults, so a test naming three link statuses does
+ * not have to restate the coverage counters it does not care about.
+ */
+export function crawlSummary(overrides: Partial<NonNullable<CheckContext['crawl']>> = {}) {
+  const linkStatus = overrides.linkStatus ?? {}
+  return {
+    pages: [],
+    linkStatus,
+    linksFound: Object.keys(linkStatus).length,
+    linksSkipped: 0,
+    linksDisallowed: 0,
+    ...overrides,
+  }
+}
+
+/** A sub-page for crawlSummary({ pages: [...] }), with url === finalUrl by default. */
+export function crawledPage(path: string, html: string, origin = 'https://site.test') {
+  const url = new URL(path, origin).href
+  return { url, finalUrl: url, status: 200, html }
+}
+
+/** Minimal document with a title and (optionally) a meta description. */
+export function pageHtml(title: string, description?: string): string {
+  return (
+    '<!doctype html><html lang="en"><head>' +
+    `<title>${title}</title>` +
+    (description === undefined ? '' : `<meta name="description" content="${description}" />`) +
+    '</head><body><h1>x</h1></body></html>'
+  )
 }
 
 /**

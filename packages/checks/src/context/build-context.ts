@@ -16,6 +16,7 @@ import { parseSetCookies } from './cookies.ts'
 import { getTlsInfo } from './tls.ts'
 import { getDnsInfo } from './dns.ts'
 import { fetchRobots } from './robots.ts'
+import { crawlSite } from './crawl.ts'
 
 export interface BuildContextOptions {
   /** Budget for the main page fetch (side channels have their own, shorter ones). */
@@ -30,6 +31,14 @@ export interface BuildContextOptions {
    * because the function they would call is not on the context.
    */
   activeTesting?: boolean
+  /**
+   * Whether to follow the page's own same-origin links (the `deep` profile).
+   *
+   * Off by default because it multiplies the requests a scan makes against the
+   * target: a fast scan stays one page plus a handful of probes, which is what
+   * makes the landing page's "paste a URL" flow answer in about a second.
+   */
+  crawl?: boolean
 }
 
 /** Politeness cap: total extra same-origin requests all checks may make combined. */
@@ -91,6 +100,10 @@ export async function buildContext(
     wantsHttpProbe ? probeHttpVariant(finalUrl.hostname) : Promise.resolve(null),
   ])
 
+  // After robots: the crawl consults it, and after the page fetch: it follows
+  // links found in that document. Sequential on purpose, not an oversight.
+  const crawl = options.crawl ? await crawlSite($, finalUrl, robots) : undefined
+
   return {
     url,
     finalUrl,
@@ -106,6 +119,7 @@ export async function buildContext(
     robots,
     httpProbe,
     probe: makeProbe(finalUrl.origin),
+    ...(crawl ? { crawl } : {}),
     // Deliberately conditional: an unauthorised scan does not get a disabled
     // capability, it gets no capability. See CheckContext.activeProbe.
     ...(options.activeTesting ? { activeProbe: makeActiveProbe() } : {}),
