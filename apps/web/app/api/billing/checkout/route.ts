@@ -16,7 +16,7 @@ import { NextResponse } from 'next/server'
 import { getSubscription, getUserContext, updateSubscription } from '@darvin/db'
 import { getViewer } from '@/lib/authz.ts'
 import { serverEnv } from '@/lib/env.ts'
-import { createSubscription } from '@/lib/razorpay.ts'
+import { createSubscription, RazorpayError } from '@/lib/razorpay.ts'
 import { PLANS } from '@/lib/plans.ts'
 
 export const runtime = 'nodejs'
@@ -68,6 +68,20 @@ export async function POST() {
       email: account?.email,
     })
   } catch (error) {
+    // A 401 here almost never means the keys are wrong — the same request
+    // against /payments succeeds with them. Razorpay provisions Subscriptions
+    // separately, and returns exactly the same "Unauthorized" body for an
+    // account that has not enabled it. Saying so in the log is the difference
+    // between a two-minute fix and two days of regenerating keys.
+    if (error instanceof RazorpayError && error.status === 401) {
+      console.error(
+        '[billing/checkout] Razorpay returned 401. If the keys work elsewhere, the Subscriptions ' +
+          'product is not enabled on this account — run `pnpm razorpay:check` to confirm which it is.',
+        error.message,
+      )
+      return NextResponse.json({ error: 'Billing is temporarily unavailable.' }, { status: 503 })
+    }
+
     // Razorpay's message can name plan ids and account state, so it is logged
     // and never returned.
     console.error('[billing/checkout] could not create a subscription', error)

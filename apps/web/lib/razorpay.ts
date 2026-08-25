@@ -55,6 +55,22 @@ export interface RazorpaySubscription {
   notes?: Record<string, string> | null
 }
 
+/**
+ * Carries the HTTP status, because Razorpay's 401 is ambiguous in a way that
+ * matters: identical body whether the credentials are wrong or the account
+ * simply does not have the product enabled. The routes use the status to say
+ * something useful in the log instead of "could not start checkout".
+ */
+export class RazorpayError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'RazorpayError'
+  }
+}
+
 async function call<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
   const credentials = Buffer.from(`${serverEnv.razorpayKeyId}:${serverEnv.razorpayKeySecret}`).toString('base64')
 
@@ -78,7 +94,10 @@ async function call<T>(path: string, init?: { method?: string; body?: unknown })
     } catch {
       // Not JSON — an upstream proxy error page. The raw prefix is the detail.
     }
-    throw new Error(`Razorpay ${init?.method ?? 'GET'} ${path} → ${response.status}: ${description}`)
+    throw new RazorpayError(
+      `Razorpay ${init?.method ?? 'GET'} ${path} → ${response.status}: ${description}`,
+      response.status,
+    )
   }
 
   return JSON.parse(text) as T
