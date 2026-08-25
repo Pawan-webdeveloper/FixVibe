@@ -228,44 +228,36 @@ export async function publicUptimeEvents(projectId: string, limit = 90) {
 }
 
 /**
- * Whether a scan may test the target's backends actively — reaching the
- * Supabase project or Firebase database the page's JavaScript talks to.
+ * The host this project has proved it controls, or null.
  *
- * Two conditions, and BOTH matter:
+ * Returns a HOST rather than a yes/no about a submitted URL, and that shape is
+ * the point. An earlier version compared the project's host against the URL
+ * being scanned and answered true/false here — which was checked before the
+ * page was fetched, and therefore before redirects. Verify evil.test, have it
+ * answer `302 Location: https://victim.test/`, and the scan would pass the
+ * check on evil.test and then build its entire context — HTML, scripts, the
+ * Supabase keys the active checks probe — out of victim.test's document.
  *
- *   1. The project is domain-verified. Probing an endpoint you do not own is
- *      unauthorised testing however gentle the request is.
- *   2. The URL being scanned is on the project's own host. Without this,
- *      verifying `mysite.com` and then pointing the same project at
- *      `victim.com` would hand an attacker our scanner — which is precisely
- *      the hole the verification flag exists to close.
- *
- * Hosts are compared exactly, modulo a leading "www.". Strictness is the safe
- * direction here: refusing to actively test a subdomain the user does own
- * costs them a check, while the opposite mistake costs someone else.
+ * So this layer answers only what it can know: which host was verified. The
+ * comparison happens in buildContext against `finalUrl`, where the host we
+ * actually landed on is known.
  *
  * Deliberately takes no Viewer, alongside the schedulers. It authorises
- * nothing, returns no data, and answers only about a project id the caller
- * already holds — it is the authorization predicate, not a read path.
+ * nothing, returns no data beyond a hostname the caller's own project already
+ * stores, and answers only about a project id the caller already holds.
  */
-export async function activeTestingAllowed(projectId: string | null | undefined, scanUrl: string): Promise<boolean> {
-  if (!projectId) return false // anonymous and unclaimed scans are never active
+export async function verifiedHostForProject(projectId: string | null | undefined): Promise<string | null> {
+  if (!projectId) return null // anonymous and unclaimed scans are never active
 
   const project = await db.query.projects.findFirst({
     where: eq(projects.id, projectId),
     columns: { url: true, verifiedDomain: true },
   })
-  if (!project?.verifiedDomain) return false
+  if (!project?.verifiedDomain) return null
 
-  return sameHost(project.url, scanUrl)
-}
-
-/** True when both URLs parse and name the same host, ignoring a "www." prefix. */
-function sameHost(a: string, b: string): boolean {
   try {
-    const strip = (url: string) => new URL(url).hostname.toLowerCase().replace(/^www\./, '')
-    return strip(a) === strip(b)
+    return new URL(project.url).hostname.toLowerCase().replace(/^www\./, '') || null
   } catch {
-    return false // an unparseable URL is not a match
+    return null // an unparseable project URL proves nothing
   }
 }

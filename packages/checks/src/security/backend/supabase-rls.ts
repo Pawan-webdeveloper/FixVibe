@@ -40,6 +40,18 @@ const ID = 'security.backend.supabase-rls'
 
 /** `https://<ref>.supabase.co` — the project ref is 20 lowercase letters. */
 const PROJECT_URL = /https?:\/\/([a-z]{20})\.supabase\.co/g
+/**
+ * A project ref is exactly twenty lowercase letters, and this is enforced
+ * before the value is ever interpolated into a URL.
+ *
+ * The ref can come from a JWT payload, which is base64 the page under scan
+ * chose — it is NOT a trusted value just because it decoded. A ref of
+ * `"attacker.example/"` turns `https://${ref}.supabase.co/rest/v1` into a URL
+ * whose host is attacker.example, and the scanner would then send the key in
+ * an Authorization header to a stranger and write whatever they answered into
+ * a finding as though it were the customer's own database.
+ */
+const PROJECT_REF = /^[a-z]{20}$/
 /** Modern publishable key format (`sb_publishable_…`), which carries no claims. */
 const PUBLISHABLE_KEY = /(sb_publishable_[A-Za-z0-9_-]{16,})/g
 /** Legacy anon key: a JWT whose payload claims role "anon". */
@@ -54,12 +66,43 @@ const MAX_TABLES = 8
  * `stripe_customer_id` columns is an incident. Matched as substrings of the
  * lowercased column name, so `user_email` and `emailAddress` both count.
  */
-const SENSITIVE_COLUMNS = [
-  'email', 'phone', 'password', 'passwd', 'secret', 'token', 'api_key', 'apikey',
-  'ssn', 'social_security', 'national_id', 'passport', 'tax_id',
-  'address', 'postcode', 'zip', 'birth', 'dob', 'salary',
-  'card', 'iban', 'stripe', 'invoice', 'billing',
-] as const
+const ALWAYS_SENSITIVE: ReadonlySet<string> = new Set([
+  'email', 'password', 'passwd', 'ssn', 'passport', 'iban', 'salary',
+  'dob', 'birthdate', 'phone', 'mobile', 'creditcard',
+])
+
+/**
+ * Words that mean something sensitive on their own but are ordinary inside a
+ * longer name. `token` is a credential; `token_count` is a usage metric.
+ * `card` is a payment method; `cardinality` and `discarded_at` are not.
+ * Matched only when the whole column name reduces to one of these.
+ */
+const SENSITIVE_ALONE: ReadonlySet<string> = new Set([
+  'token', 'secret', 'apikey', 'address', 'zip', 'postcode',
+  'card', 'cardnumber', 'nationalid', 'taxid', 'invoice',
+])
+
+/**
+ * Words that only mean "sensitive" next to another one. `stripe` alone is on
+ * every Supabase starter's public `products` and `prices` tables; paired with
+ * `customer` it is a person.
+ */
+const SENSITIVE_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ['stripe', 'customer'],
+  ['billing', 'address'],
+  ['home', 'address'],
+  ['credit', 'card'],
+  ['card', 'number'],
+  ['social', 'security'],
+  ['date', 'birth'],
+  ['api', 'key'],
+  ['access', 'token'],
+  ['refresh', 'token'],
+  ['auth', 'token'],
+  ['reset', 'token'],
+  ['zip', 'code'],
+  ['postal', 'code'],
+]
 
 interface Project {
   ref: string
@@ -84,7 +127,9 @@ export const supabaseRlsCheck: Check = {
     if (!activeProbe) return []
 
     const project = findProject(ctx)
-    if (!project) return []
+    // Re-checked at the point of use, not only where it was parsed: this value
+    // becomes the HOST of every request this check makes.
+    if (!project || !isProjectRef(project.ref)) return []
 
     const base = `https://${project.ref}.supabase.co/rest/v1`
     const auth = { apikey: project.key, authorization: `Bearer ${project.key}` }
@@ -100,15 +145,17 @@ export const supabaseRlsCheck: Check = {
     const names = [...tables.keys()].sort()
     const tested = names.slice(0, MAX_TABLES)
 
-    const reports = (
-      await Promise.all(
-        tested.map(async (table): Promise<TableReport | null> => {
-          const rows = await countVisibleRows(activeProbe, base, auth, table)
-          if (rows === null || rows === 0) return null
-          return { table, rows, sensitiveColumns: sensitiveIn(tables.get(table) ?? []) }
-        }),
-      )
-    ).filter((report): report is TableReport => report !== null)
+    const probed = await Promise.all(
+      tested.map(async (table): Promise<TableReport | null | 'unknown'> => {
+        const rows = await countVisibleRows(activeProbe, base, auth, table)
+        if (rows === null) return 'unknown' // timed out, refused, or unparseable
+        if (rows === 0) return null
+        return { table, rows, sensitiveColumns: sensitiveIn(tables.get(table) ?? []) }
+      }),
+    )
+
+    const reports = probed.filter((report): report is TableReport => report !== null && report !== 'unknown')
+    const unreadable = probed.filter((report) => report === 'unknown').length
 
     const coverage = {
       project: project.ref,
@@ -119,8 +166,17 @@ export const supabaseRlsCheck: Check = {
       ...(names.length > tested.length ? { notTested: names.length - tested.length } : {}),
     }
 
-    if (reports.length === 0) return [schemaOnlyFinding(coverage, names)]
-    return [exposedDataFinding(ctx, coverage, reports)]
+    if (reports.length > 0) return [exposedDataFinding(ctx, coverage, reports)]
+
+    // "Nothing was readable" is a claim about tables we actually managed to
+    // ask about. If a request timed out or was refused we did not learn that
+    // the table is protected, and saying "row-level security is doing its job"
+    // off a failed request would be the exact inversion of this engine's rule.
+    // Silence instead — and a scan that flapped between the two would also
+    // move the score by 27 points and mail the customer about it.
+    if (unreadable > 0) return []
+
+    return [schemaOnlyFinding(coverage, names)]
   },
 }
 
@@ -229,7 +285,11 @@ function findProject(ctx: CheckContext): Project | null {
   for (const token of collect(texts, JWT)) {
     const claims = decodeJwt(token)
     if (claims?.['role'] !== 'anon') continue // service-role keys are secrets.js's problem
-    const ref = typeof claims['ref'] === 'string' ? claims['ref'] : refs[0]
+    const claimed = claims['ref']
+    // The claim is only believed when it looks like a project ref. Anything
+    // else falls back to a ref parsed out of a supabase.co URL, which the
+    // pattern already constrained.
+    const ref = typeof claimed === 'string' && PROJECT_REF.test(claimed) ? claimed : refs[0]
     if (ref) return { ref, key: token }
   }
 
@@ -239,6 +299,11 @@ function findProject(ctx: CheckContext): Project | null {
   if (publishable && ref) return { ref, key: publishable }
 
   return null
+}
+
+/** Belt and braces: nothing reaches a request URL without passing this. */
+function isProjectRef(ref: string): boolean {
+  return PROJECT_REF.test(ref)
 }
 
 function decodeJwt(token: string): Record<string, unknown> | null {
@@ -306,9 +371,36 @@ async function countVisibleRows(
   return Number.isFinite(count) ? count : null
 }
 
+/**
+ * Columns that make an exposed table an incident rather than a design choice.
+ *
+ * Matched on WORD TOKENS in three tiers, never as substrings. Substring
+ * matching was the first implementation and it is a false-positive engine:
+ * `discarded_at` contains "card", `wildcard_domain` contains "card",
+ * `token_count` contains "token", `zip_path` contains "zip", and a public
+ * `prices` table with a `stripe_price_id` was escalated to a critical
+ * "Personal data readable by anyone — rotate your API keys". Every one of
+ * those tells a customer they have a breach when they have a pricing page.
+ */
 function sensitiveIn(columns: readonly string[]): string[] {
   return columns.filter((column) => {
-    const lower = column.toLowerCase()
-    return SENSITIVE_COLUMNS.some((needle) => lower.includes(needle))
+    const words = tokenize(column)
+    if (words.length === 0) return false
+
+    // Tier 1: unambiguous wherever it appears — user_email, emailAddress, email.
+    if (words.some((word) => ALWAYS_SENSITIVE.has(word))) return true
+    // Tier 2: only when it IS the column — `token`, `card_number`, not `token_count`.
+    if (SENSITIVE_ALONE.has(words.join(''))) return true
+    // Tier 3: a pair that changes the meaning — stripe + customer.
+    return SENSITIVE_PAIRS.some(([a, b]) => words.includes(a) && words.includes(b))
   })
+}
+
+/** `stripe_customer_id` / `stripeCustomerId` / `StripeCustomerID` → ['stripe','customer','id']. */
+function tokenize(column: string): string[] {
+  return column
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/[^A-Za-z0-9]+/)
+    .map((word) => word.toLowerCase())
+    .filter(Boolean)
 }

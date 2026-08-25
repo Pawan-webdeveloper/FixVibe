@@ -23,15 +23,21 @@ export interface BuildContextOptions {
   /** Budget for the main page fetch (side channels have their own, shorter ones). */
   timeoutMs?: number
   /**
-   * Whether this scan may test the target's backends actively — reaching the
-   * Supabase project or Firebase database the page's own JavaScript talks to.
+   * The host the requester has PROVED they control, enabling active backend
+   * testing — reaching the Supabase project or Firebase database the page's
+   * own JavaScript talks to.
    *
-   * Only ever true when the requester has proved they control the domain.
-   * Passing it turns on `ctx.activeProbe`; leaving it off means the checks
-   * that need it are not merely disabled but structurally unable to run,
-   * because the function they would call is not on the context.
+   * A host rather than a boolean, and checked against `finalUrl` rather than
+   * the submitted URL, because a redirect otherwise walks straight through the
+   * gate: verify evil.test, have it 302 to victim.test, and a boolean decided
+   * before the fetch would hand `activeProbe` to a context built entirely out
+   * of victim.test's document. The comparison has to happen where the landing
+   * host is known, which is here.
+   *
+   * When it does not match, `ctx.activeProbe` is absent and the checks that
+   * need it are not merely disabled but structurally unable to run.
    */
-  activeTesting?: boolean
+  activeTesting?: { verifiedHost: string }
   /**
    * Whether to follow the page's own same-origin links (the `deep` profile).
    *
@@ -118,6 +124,11 @@ export async function buildContext(
 
   // After robots: the crawl consults it, and after the page fetch: it follows
   // links found in that document. Sequential on purpose, not an oversight.
+  // Judged against finalUrl, not the URL we were handed: everything in this
+  // context came from wherever the redirects ended, so that is the host the
+  // requester must have proved they own.
+  const activeTestingAllowed = mayTestActively(finalUrl, options.activeTesting)
+
   const crawl = options.crawl ? await crawlSite($, finalUrl, robots) : undefined
   const pageSpeed = pageSpeedPromise ? await pageSpeedPromise : undefined
 
@@ -140,8 +151,28 @@ export async function buildContext(
     ...(pageSpeedPromise ? { pageSpeed } : {}),
     // Deliberately conditional: an unauthorised scan does not get a disabled
     // capability, it gets no capability. See CheckContext.activeProbe.
-    ...(options.activeTesting ? { activeProbe: makeActiveProbe() } : {}),
+    ...(activeTestingAllowed ? { activeProbe: makeActiveProbe() } : {}),
   }
+}
+
+/**
+ * Whether the page we landed on is the host the requester proved they own.
+ *
+ * Exported so the rule can be tested directly. Getting it wrong grants a
+ * browser-driving, database-probing capability against somebody else's
+ * infrastructure, and the ways to get it wrong are all near-misses: a
+ * subdomain, a suffix that merely ends the same way, a differing case.
+ *
+ * Exact match, forgiving only a leading "www." — which is a presentation
+ * prefix, not a different site. Everything else is refused. Strictness is the
+ * safe direction: refusing to actively test a subdomain the user does own
+ * costs them a check, while the opposite mistake costs someone else.
+ */
+export function mayTestActively(finalUrl: URL, activeTesting: BuildContextOptions['activeTesting']): boolean {
+  if (!activeTesting?.verifiedHost) return false
+  const strip = (host: string) => host.toLowerCase().replace(/^www\./, '')
+  const landed = strip(finalUrl.hostname)
+  return landed !== '' && landed === strip(activeTesting.verifiedHost)
 }
 
 /** First response of http://host/ — status + Location, body discarded. */

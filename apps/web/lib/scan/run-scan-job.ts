@@ -26,7 +26,7 @@ import {
   SsrfError,
 } from '@darvin/checks'
 import {
-  activeTestingAllowed,
+  verifiedHostForProject,
   completeScan,
   createScan,
   failScan,
@@ -67,12 +67,14 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
 
   try {
     // Active backend probing is authorised by DATA, not by a flag the caller
-    // passes: the project must be domain-verified AND the URL must be on that
-    // project's own host. A caller cannot opt itself in.
-    const activeTesting = await activeTestingAllowed(request.projectId, request.url)
+    // passes: only a domain-verified project has a verified host at all, and
+    // buildContext grants the capability only if the page we LAND on is that
+    // host. A caller cannot opt itself in, and a redirect cannot smuggle
+    // somebody else's site past the gate.
+    const verifiedHost = await verifiedHostForProject(request.projectId)
 
     const ctx = await buildContext(request.url, {
-      activeTesting,
+      ...(verifiedHost ? { activeTesting: { verifiedHost } } : {}),
       // The one behavioural difference between the profiles: a deep scan
       // follows the page's own links, which multiplies the requests we make
       // against the target and is why the fast scan does not.

@@ -174,6 +174,14 @@ function noKnownSelectorFinding(ctx: CheckContext, domain: string): Finding {
  * project that has never sent an email, which is noise, not a finding.
  */
 function sendsMail(ctx: CheckContext): boolean {
+  // `v=spf1 -all` with no mechanisms is a domain stating that NOTHING may send
+  // mail as it. Publishing a revoked DKIM key alongside that is the correct
+  // configuration (RFC 6376 §3.6.1), not a rotation that went wrong, and a
+  // receive-only domain that left one behind after leaving a provider would
+  // otherwise be told at medium severity that its signing is broken.
+  const declaresNoSender = ctx.dns.spfTxt.some((txt) => /^\s*v\s*=\s*spf1\s+-all\s*$/i.test(txt.trim()))
+  if (declaresNoSender) return false
+
   return ctx.dns.mx.length > 0 || ctx.dns.spfTxt.some((txt) => /^\s*v\s*=\s*spf1\b/i.test(txt))
 }
 

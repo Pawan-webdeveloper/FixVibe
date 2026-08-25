@@ -22,6 +22,16 @@
  *
  * Pages are deduplicated by their FINAL url upstream, so `/about` redirecting
  * to `/about/` is one page, not two pages that suspiciously share everything.
+ * They are deduplicated again HERE by declared canonical, because the other
+ * common way one page has two URLs involves no redirect at all: an i18n
+ * default locale serving `/` and `/en` identically, or a store serving
+ * `/collections/all` and `/collections/all?sort_by=price`. Both point a
+ * canonical at the same URL, which is the site telling us they are one page —
+ * and reporting them as duplicates would be scolding a site for doing exactly
+ * the right thing.
+ *
+ * The crawl also excludes non-2xx responses, so a set of custom 404 pages all
+ * titled "Page not found" is broken-links' finding rather than this one's.
  */
 
 import * as cheerio from 'cheerio'
@@ -34,8 +44,28 @@ const MAX_GROUPS_LISTED = 5
 
 interface Page {
   label: string
+  url: string
   title: string
   description: string
+  /** Absolute canonical URL the page declares, or '' when it declares none. */
+  canonical: string
+}
+
+/**
+ * Collapses pages that declare the same canonical URL. Keeps the first, which
+ * is the earliest in crawl order and therefore deterministic.
+ */
+function dedupeByCanonical(pages: readonly Page[]): Page[] {
+  const seen = new Set<string>()
+  const kept: Page[] = []
+  for (const page of pages) {
+    // No canonical means the page makes no claim, so it stands on its own.
+    const key = page.canonical || page.url
+    if (seen.has(key)) continue
+    seen.add(key)
+    kept.push(page)
+  }
+  return kept
 }
 
 export const duplicateMetadataCheck: Check = {
@@ -48,13 +78,14 @@ export const duplicateMetadataCheck: Check = {
     const crawl = ctx.crawl
     if (!crawl || crawl.pages.length === 0) return []
 
-    const pages: Page[] = [
-      { label: labelFor(ctx.finalUrl.href, ctx), ...metadataFrom(ctx.$) },
+    const pages = dedupeByCanonical([
+      { label: labelFor(ctx.finalUrl.href, ctx), url: ctx.finalUrl.href, ...metadataFrom(ctx.$) },
       ...crawl.pages.map((page) => ({
         label: labelFor(page.finalUrl, ctx),
+        url: page.finalUrl,
         ...metadataFrom(cheerio.load(headOf(page.html))),
       })),
-    ]
+    ])
     if (pages.length < 2) return []
 
     const findings: Finding[] = []
@@ -146,14 +177,23 @@ function headOf(html: string): string {
   return end === -1 ? html.slice(0, 64 * 1024) : html.slice(0, end)
 }
 
-/** `<title>` and `<meta name="description">` of one document, normalized for comparison. */
-function metadataFrom($: cheerio.CheerioAPI): { title: string; description: string } {
+/** `<title>`, description and canonical of one document, normalized for comparison. */
+function metadataFrom($: cheerio.CheerioAPI): { title: string; description: string; canonical: string } {
   const description = $('meta')
     .filter((_, element) => ($(element).attr('name') ?? '').trim().toLowerCase() === 'description')
     .first()
     .attr('content')
 
-  return { title: normalize($('title').first().text()), description: normalize(description ?? '') }
+  const canonical = $('link')
+    .filter((_, element) => ($(element).attr('rel') ?? '').trim().toLowerCase() === 'canonical')
+    .first()
+    .attr('href')
+
+  return {
+    title: normalize($('title').first().text()),
+    description: normalize(description ?? ''),
+    canonical: (canonical ?? '').trim(),
+  }
 }
 
 /**

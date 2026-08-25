@@ -29,6 +29,10 @@
  * status code. Fetching a URL twice for two purposes would double the load we
  * put on a site to learn nothing new.
  *
+ * **The origin rule is enforced twice.** A same-origin href can still land on
+ * a third party, because sites route outbound links through their own
+ * redirectors. So the landing origin is checked as well as the requested one.
+ *
  * **A fetch that failed is not a fact.** A timeout, a reset connection, a DNS
  * hiccup — those are omitted from `linkStatus` entirely rather than recorded
  * as some sentinel. Downstream, "not present" reads as "we do not know", which
@@ -95,7 +99,7 @@ export async function crawlSite(
   let linksDisallowed = 0
   for (const href of candidates) {
     // No robots.txt (or one we could not fetch) means no restriction stated.
-    if (robots && !robots.allows(ROBOTS_TOKEN, new URL(href).pathname)) {
+    if (robots && !robots.allows(ROBOTS_TOKEN, pathAndQuery(href))) {
       linksDisallowed += 1
       continue
     }
@@ -104,22 +108,38 @@ export async function crawlSite(
 
   const targets = diversify(allowed, rootUrl).slice(0, MAX_LINKS)
 
+  // Indexed by position in `targets`, NOT pushed on completion. Under
+  // concurrency, completion order is decided by how fast each server answers,
+  // so pushing would make "which ten pages kept their HTML" a network race:
+  // two scans of an unchanged site would crawl the same URLs, keep different
+  // ones, and report a duplicate-title finding that appeared and vanished with
+  // no change on the customer's side.
+  const fetched = new Array<FetchedPage | null>(targets.length).fill(null)
+  await inBatches(targets, CONCURRENCY, async (href, index) => {
+    fetched[index] = await fetchPage(href, rootUrl)
+  })
+
   const linkStatus: Record<string, number> = {}
   const pages: CrawlResult['pages'] = []
   const seenFinalUrls = new Set<string>([rootUrl.href])
 
-  await inBatches(targets, CONCURRENCY, async (href) => {
-    const fetched = await fetchPage(href)
-    if (!fetched) return // unknown, and unknown stays out of the record
+  for (const [index, result] of fetched.entries()) {
+    const href = targets[index]
+    if (href === undefined || result === null) continue // unknown stays out of the record
 
-    linkStatus[href] = fetched.status
+    linkStatus[href] = result.status
 
-    if (!fetched.html || pages.length >= MAX_HTML_PAGES) return
+    if (pages.length >= MAX_HTML_PAGES) continue
+    // Only successful HTML becomes a "page". A custom 404 has a <title> too,
+    // and three of them sharing "Page not found" is not a duplicate-title
+    // defect — it is broken-links' finding, restated as something the customer
+    // cannot act on.
+    if (!result.html || result.status < 200 || result.status > 299) continue
     // Dedup on where we LANDED: a redirect from /about to /about/ is one page.
-    if (seenFinalUrls.has(fetched.finalUrl)) return
-    seenFinalUrls.add(fetched.finalUrl)
-    pages.push({ url: href, finalUrl: fetched.finalUrl, status: fetched.status, html: fetched.html })
-  })
+    if (seenFinalUrls.has(result.finalUrl)) continue
+    seenFinalUrls.add(result.finalUrl)
+    pages.push({ url: href, finalUrl: result.finalUrl, status: result.status, html: result.html })
+  }
 
   return {
     pages,
@@ -137,12 +157,21 @@ interface FetchedPage {
   html: string
 }
 
-async function fetchPage(href: string): Promise<FetchedPage | null> {
+async function fetchPage(href: string, rootUrl: URL): Promise<FetchedPage | null> {
   try {
     const response = await safeFetch(href, {
       timeoutMs: PAGE_TIMEOUT_MS,
       maxBodyBytes: PAGE_MAX_BODY_BYTES,
     })
+
+    // The same-origin rule is checked before the request AND after it. Sites
+    // routinely route outbound links through their own redirector — /go/<id>,
+    // /r?url=, a CMS link tracker, a forum's outbound-link wrapper — so a
+    // same-origin href can land anywhere. Without this the crawl would fetch
+    // and then REPORT ON pages belonging to third parties, in a document
+    // written for the customer of a site that merely linked to them.
+    if (response.finalUrl.origin !== rootUrl.origin) return null
+
     const isHtml = (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')
     return {
       finalUrl: response.finalUrl.href,
@@ -238,14 +267,31 @@ export function diversify(links: readonly string[], rootUrl: URL): string[] {
 async function inBatches<T>(
   items: readonly T[],
   concurrency: number,
-  work: (item: T) => Promise<void>,
+  work: (item: T, index: number) => Promise<void>,
 ): Promise<void> {
   let next = 0
   const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (next < items.length) {
-      const item = items[next++]
-      if (item !== undefined) await work(item)
+      const index = next++
+      const item = items[index]
+      if (item !== undefined) await work(item, index)
     }
   })
   await Promise.all(runners)
+}
+
+/**
+ * What a robots.txt rule is matched against. RFC 9309 patterns cover the query
+ * string, and the two most common real rules rely on it: `Disallow: /*?` (keep
+ * crawlers off faceted URLs) and `Disallow: /search?q=`. Matching the path
+ * alone silently ignored both, so the crawl fetched URLs the site had
+ * explicitly asked it not to — and then reported on them.
+ */
+function pathAndQuery(href: string): string {
+  try {
+    const url = new URL(href)
+    return `${url.pathname}${url.search}`
+  } catch {
+    return '/'
+  }
 }

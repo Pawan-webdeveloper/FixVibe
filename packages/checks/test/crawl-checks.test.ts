@@ -126,6 +126,25 @@ describe('diversify', () => {
   })
 })
 
+describe('crawl output guarantees', () => {
+  it('never hands a non-2xx response to the page comparisons', async () => {
+    // Custom 404 pages have a <title> too. Three of them sharing "Page not
+    // found" is broken-links' finding, not a duplicate-metadata one — and
+    // crawlSite only promotes 2xx HTML into `pages`, so this shape cannot
+    // reach the check at all. Asserted here as the contract it is.
+    const crawl = crawlSummary({
+      pages: [],
+      linkStatus: {
+        'https://site.test/old-pricing': 404,
+        'https://site.test/blog/deleted': 404,
+        'https://site.test/docs/v1': 404,
+      },
+    })
+    expect(await duplicateMetadataCheck.run(makeContext({ crawl }))).toEqual([])
+    expect(await brokenLinksCheck.run(makeContext({ crawl }))).toHaveLength(1)
+  })
+})
+
 describe('seo.broken-links', () => {
   it('says nothing on a fast scan, which never followed a link', async () => {
     const ctx = makeContext()
@@ -221,6 +240,35 @@ describe('seo.broken-links', () => {
 
 describe('seo.duplicate-metadata', () => {
   const root = pageHtml('Acme — Home', 'The Acme home page.')
+
+  /** A page declaring a canonical, i.e. telling us which URL it really is. */
+  const canonicalPage = (title: string, canonical: string) =>
+    '<!doctype html><html lang="en"><head>' +
+    `<title>${title}</title><link rel="canonical" href="${canonical}" />` +
+    '</head><body><h1>x</h1></body></html>'
+
+  it('treats pages that declare the same canonical as one page', async () => {
+    // A Next.js site with a default locale serves / and /en identically, both
+    // pointing a canonical at /. That is the site doing exactly the right
+    // thing, and reporting it as duplicate titles would be scolding it for it.
+    const crawl = crawlSummary({
+      pages: [crawledPage('/en', canonicalPage('Acme — Home', 'https://site.test/'))],
+    })
+    const ctx = makeContext({ html: canonicalPage('Acme — Home', 'https://site.test/'), crawl })
+    expect(await duplicateMetadataCheck.run(ctx)).toEqual([])
+  })
+
+  it('still flags two genuinely distinct pages that share a title', async () => {
+    const crawl = crawlSummary({
+      pages: [
+        crawledPage('/careers', canonicalPage('Careers — Acme', 'https://site.test/careers')),
+        crawledPage('/careers/eng', canonicalPage('Careers — Acme', 'https://site.test/careers/eng')),
+      ],
+    })
+    const findings = await duplicateMetadataCheck.run(makeContext({ html: root, crawl }))
+    expect(findings).toHaveLength(1)
+    expect(findings[0]?.title).toBe('2 pages share the same title')
+  })
 
   it('says nothing on a fast scan', async () => {
     expect(await duplicateMetadataCheck.run(makeContext({ html: root }))).toEqual([])
