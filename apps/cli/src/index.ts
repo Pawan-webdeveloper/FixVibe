@@ -41,11 +41,16 @@ const deep = args.includes('--deep')
 // without a key the shared anonymous quota is spent most of every day.
 const psi = args.includes('--psi')
 const psiApiKey = process.env['PAGESPEED_API_KEY']
+// The browser tier. Needs apps/scanner running and both variables set; without
+// them the rendered checks are silent rather than failing.
+const browser = args.includes('--browser')
+const scannerUrl = process.env['DARVIN_SCANNER_URL']
+const scannerToken = process.env['DARVIN_SCANNER_TOKEN']
 const positional = args.filter((a) => !a.startsWith('--'))
-const KNOWN_FLAGS = new Set(['--json', '--deep', '--psi'])
+const KNOWN_FLAGS = new Set(['--json', '--deep', '--psi', '--browser'])
 const unknownFlags = args.filter((a) => a.startsWith('--') && !KNOWN_FLAGS.has(a))
 
-const USAGE = 'Usage: pnpm scan <url> [--json] [--deep] [--psi]'
+const USAGE = 'Usage: pnpm scan <url> [--json] [--deep] [--psi] [--browser]'
 if (unknownFlags.length > 0) fail(`Unknown flag: ${unknownFlags[0]}\n${USAGE}`)
 if (positional.length !== 1) fail(USAGE)
 
@@ -104,6 +109,9 @@ try {
   ctx = await buildContext(target, {
     crawl: deep,
     ...(psi ? { pageSpeed: psiApiKey ? { apiKey: psiApiKey } : {} } : {}),
+    ...(browser && scannerUrl && scannerToken
+      ? { scanner: { url: scannerUrl, token: scannerToken } }
+      : {}),
   })
 } catch (error) {
   if (error instanceof SsrfError || error instanceof SafeFetchError) fail(`Scan failed: ${error.message}`)

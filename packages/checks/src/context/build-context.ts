@@ -18,6 +18,7 @@ import { getDnsInfo } from './dns.ts'
 import { fetchRobots } from './robots.ts'
 import { crawlSite } from './crawl.ts'
 import { fetchPageSpeed, type PageSpeedOptions } from './psi.ts'
+import { fetchRendered, type ScannerOptions } from './rendered.ts'
 
 export interface BuildContextOptions {
   /** Budget for the main page fetch (side channels have their own, shorter ones). */
@@ -56,6 +57,15 @@ export interface BuildContextOptions {
    * magnitude. Deep, background scans only.
    */
   pageSpeed?: PageSpeedOptions
+  /**
+   * The browser tier (apps/scanner) to render the page with. Presence means
+   * "use it"; absence means the checks reading `ctx.rendered` stay silent.
+   *
+   * A separate process, usually a separate host, and the most failure-prone
+   * component in the system — so every outcome degrades to null rather than
+   * becoming a finding about the customer's site.
+   */
+  scanner?: ScannerOptions
 }
 
 /** Politeness cap: total extra same-origin requests all checks may make combined. */
@@ -114,6 +124,9 @@ export async function buildContext(
   // so it overlaps the side channels AND the crawl instead of being added to
   // them. Not inside the Promise.all below, which the crawl waits on.
   const pageSpeedPromise = options.pageSpeed ? fetchPageSpeed(finalUrl, options.pageSpeed) : undefined
+  // Same reasoning: a headless render takes seconds, so it overlaps the side
+  // channels and the crawl rather than being added after them.
+  const renderedPromise = options.scanner ? fetchRendered(finalUrl, options.scanner) : undefined
 
   const [tls, dns, robots, httpProbe] = await Promise.all([
     isHttps ? getTlsInfo(finalUrl.hostname, tlsPort) : Promise.resolve(null),
@@ -131,6 +144,7 @@ export async function buildContext(
 
   const crawl = options.crawl ? await crawlSite($, finalUrl, robots) : undefined
   const pageSpeed = pageSpeedPromise ? await pageSpeedPromise : undefined
+  const rendered = renderedPromise ? await renderedPromise : undefined
 
   return {
     url,
@@ -149,6 +163,7 @@ export async function buildContext(
     probe: makeProbe(finalUrl.origin),
     ...(crawl ? { crawl } : {}),
     ...(pageSpeedPromise ? { pageSpeed } : {}),
+    ...(renderedPromise ? { rendered } : {}),
     // Deliberately conditional: an unauthorised scan does not get a disabled
     // capability, it gets no capability. See CheckContext.activeProbe.
     ...(activeTestingAllowed ? { activeProbe: makeActiveProbe() } : {}),

@@ -9,7 +9,18 @@
 export * from './types.ts'
 export { buildContext, type BuildContextOptions } from './context/build-context.ts'
 export { type PageSpeedOptions } from './context/psi.ts'
-export { SsrfError } from './context/ssrf-guard.ts'
+export { type ScannerOptions } from './context/rendered.ts'
+// The SSRF primitives are exported for apps/scanner, which drives a real
+// browser and therefore cannot rely on safeFetch's socket-level `lookup` hook:
+// Chromium resolves its own DNS and follows its own redirects, so that service
+// has to ask these questions itself.
+export {
+  assertSafeUrl,
+  isPrivateAddress,
+  resolvePublicAddresses,
+  SsrfError,
+  unbracket,
+} from './context/ssrf-guard.ts'
 export { safeFetch, SafeFetchError, type FetchedPage } from './context/safe-fetch.ts'
 // Exported for the monitoring jobs: an uptime probe and a TLS expiry check need
 // exactly these two primitives, and running a whole scan for either would be

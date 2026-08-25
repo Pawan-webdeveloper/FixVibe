@@ -46,6 +46,13 @@ export const linkTextCheck: Check = {
   title: 'Link text',
 
   run(ctx) {
+    // axe-core audited the RENDERED accessibility tree, which sees implicit
+    // roles, cross-document label associations and elements built at runtime
+    // that this parser cannot. When it has spoken, this check stands down:
+    // two sources reporting one defect would charge the site twice, and the
+    // less accurate of the two would be setting the severity.
+    if (ctx.rendered?.axe) return []
+
     const vague: string[] = []
     const nameless: string[] = []
 

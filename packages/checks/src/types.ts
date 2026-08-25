@@ -128,6 +128,16 @@ export interface CheckContext {
    */
   crawl?: CrawlSummary
   /**
+   * What a headless browser saw, present only when a scan used the browser
+   * tier (apps/scanner).
+   *
+   * null or absent means we did not look — no scanner configured, or it failed
+   * — which is never a statement about the site. `axe` is null independently:
+   * a page whose Content-Security-Policy defeats the audit still returns its
+   * DOM, and a partial answer is used for the parts that arrived.
+   */
+  rendered?: RenderedPage | null
+  /**
    * PageSpeed Insights, present only when a scan was configured to fetch it.
    *
    * Absent means we did not measure — no API key, spent quota, or a fast
@@ -162,6 +172,39 @@ export interface CheckContext {
     url: string,
     init?: { headers?: Record<string, string> },
   ) => Promise<{ status: number; body: string; headers: Headers } | null>
+}
+
+/**
+ * The page as a real browser built it, plus the accessibility audit run
+ * against that DOM. Narrow on purpose: the browser tier could return a great
+ * deal more, and a context field nobody can reason about is a field checks
+ * will misuse.
+ */
+export interface RenderedPage {
+  /** `documentElement.outerHTML` after scripts ran. Empty when only the audit came back. */
+  html: string
+  /** Where the browser ended up — client-side routing can move it. */
+  finalUrl: string
+  /**
+   * axe-core's verdict on the rendered accessibility tree, or null when the
+   * audit could not run. Violations are grouped per RULE: a page with 200
+   * unlabelled icons has one problem, and `nodeCount` carries the scale.
+   */
+  axe: {
+    violations: Array<{
+      /** Stable axe rule id, e.g. "color-contrast". This is the finding's key. */
+      id: string
+      impact: 'critical' | 'serious' | 'moderate' | 'minor' | null
+      help: string
+      helpUrl: string
+      description: string
+      /** axe's own tags, e.g. "wcag2aa", "wcag143" — the WCAG criteria come from these. */
+      tags: string[]
+      nodeCount: number
+      samples: Array<{ target: string; html: string }>
+    }>
+    passCount: number
+  } | null
 }
 
 /**

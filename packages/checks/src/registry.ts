@@ -26,6 +26,7 @@ import { xFrameOptionsCheck } from './security/headers/x-frame-options.ts'
 import { certExpiryCheck } from './security/tls/cert-expiry.ts'
 import { httpsRedirectCheck } from './security/tls/https-redirect.ts'
 import { tlsProtocolVersionCheck } from './security/tls/protocol-version.ts'
+import { axeCheck } from './accessibility/axe.ts'
 import { formLabelsCheck } from './accessibility/static/form-labels.ts'
 import { imgAltCheck } from './accessibility/static/img-alt.ts'
 import { linkTextCheck } from './accessibility/static/link-text.ts'
@@ -159,6 +160,9 @@ export const allChecks: readonly Check[] = [
   imgAltCheck,
   formLabelsCheck,
   linkTextCheck,
+  // The rendered half. When this one has data the three above stand down —
+  // it audits the real accessibility tree and they audit a parse of the HTML.
+  axeCheck,
   // Compliance — observable from one uninteracted request.
   trackersBeforeConsentCheck,
   cookieBannerCheck,

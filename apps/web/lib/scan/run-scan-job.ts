@@ -42,6 +42,15 @@ import {
  */
 const PAGESPEED_API_KEY = process.env['PAGESPEED_API_KEY']
 
+/**
+ * The browser tier (apps/scanner). Both required together; with either absent
+ * a deep scan simply does not render, and the checks that read the rendered
+ * DOM stay silent rather than reporting our missing infrastructure as the
+ * customer's problem.
+ */
+const SCANNER_URL = process.env['DARVIN_SCANNER_URL']
+const SCANNER_TOKEN = process.env['DARVIN_SCANNER_TOKEN']
+
 export interface ScanRequest {
   /** Already normalized by lib/url.ts. This layer does not parse user input. */
   url: string
@@ -83,6 +92,9 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
       // 429 — the anonymous quota is shared with every caller on the internet
       // — so attempting it would spend 30 s of a job's budget to learn nothing.
       ...(request.profile === 'deep' && PAGESPEED_API_KEY ? { pageSpeed: { apiKey: PAGESPEED_API_KEY } } : {}),
+      ...(request.profile === 'deep' && SCANNER_URL && SCANNER_TOKEN
+        ? { scanner: { url: SCANNER_URL, token: SCANNER_TOKEN } }
+        : {}),
     })
     const { findings, errors } = await runChecks(ctx)
     const scores = computeScores(findings, allChecks, errors)
