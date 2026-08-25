@@ -119,10 +119,32 @@ export interface CheckContext {
    * did not answer.
    */
   httpProbe?: { status: number; location: string | null } | null
-  /** Crawled sub-pages (Phase 2 — absent in single-page scans). */
-  pages?: Array<{ url: string; status: number; html: string }>
-  /** PageSpeed Insights payload (Phase 2). */
-  psi?: unknown
+  /**
+   * What a bounded same-origin crawl found, present only on a `deep` scan.
+   *
+   * Absent means the crawl never ran — NOT that the site has one page. Every
+   * check reading this must stay silent when it is undefined, or a fast scan
+   * would start reporting the absence of evidence it never went looking for.
+   */
+  crawl?: CrawlSummary
+  /**
+   * What a headless browser saw, present only when a scan used the browser
+   * tier (apps/scanner).
+   *
+   * null or absent means we did not look — no scanner configured, or it failed
+   * — which is never a statement about the site. `axe` is null independently:
+   * a page whose Content-Security-Policy defeats the audit still returns its
+   * DOM, and a partial answer is used for the parts that arrived.
+   */
+  rendered?: RenderedPage | null
+  /**
+   * PageSpeed Insights, present only when a scan was configured to fetch it.
+   *
+   * Absent means we did not measure — no API key, spent quota, or a fast
+   * scan — which is not the same as measuring something good. null-ish fields
+   * inside it mean the same thing one level down.
+   */
+  pageSpeed?: PageSpeedSummary | null
   /**
    * Fetch a same-origin path (e.g. "/.env", "/security.txt"). Memoised per path
    * and capped per scan so a misbehaving check cannot hammer the target.
@@ -150,6 +172,88 @@ export interface CheckContext {
     url: string,
     init?: { headers?: Record<string, string> },
   ) => Promise<{ status: number; body: string; headers: Headers } | null>
+}
+
+/**
+ * The page as a real browser built it, plus the accessibility audit run
+ * against that DOM. Narrow on purpose: the browser tier could return a great
+ * deal more, and a context field nobody can reason about is a field checks
+ * will misuse.
+ */
+export interface RenderedPage {
+  /** `documentElement.outerHTML` after scripts ran. Empty when only the audit came back. */
+  html: string
+  /** Where the browser ended up — client-side routing can move it. */
+  finalUrl: string
+  /**
+   * axe-core's verdict on the rendered accessibility tree, or null when the
+   * audit could not run. Violations are grouped per RULE: a page with 200
+   * unlabelled icons has one problem, and `nodeCount` carries the scale.
+   */
+  axe: {
+    violations: Array<{
+      /** Stable axe rule id, e.g. "color-contrast". This is the finding's key. */
+      id: string
+      impact: 'critical' | 'serious' | 'moderate' | 'minor' | null
+      help: string
+      helpUrl: string
+      description: string
+      /** axe's own tags, e.g. "wcag2aa", "wcag143" — the WCAG criteria come from these. */
+      tags: string[]
+      nodeCount: number
+      samples: Array<{ target: string; html: string }>
+    }>
+    passCount: number
+  } | null
+}
+
+/**
+ * A narrow summary of a PageSpeed Insights run. Deliberately not the raw
+ * payload: that is roughly half a megabyte of Lighthouse JSON, and a context
+ * field nobody can reason about is a field checks will misuse.
+ */
+export interface PageSpeedSummary {
+  /** Mobile only. It is the harder case and the one Google ranks on. */
+  strategy: 'mobile'
+  /** Lighthouse performance score, rescaled to 0–100 to match every other score we show. */
+  labScore: number | null
+  /**
+   * Core Web Vitals as real Chrome users experienced them (75th percentile,
+   * trailing 28 days). null when this URL has too little traffic to report —
+   * which is most of the web, and is never a defect.
+   */
+  field: {
+    lcpMs: number | null
+    inpMs: number | null
+    /** Already divided by 100: CrUX transmits CLS as an integer scaled by 100. */
+    cls: number | null
+    /** 'url' for this page's own data; 'origin' when Google substituted site-wide data. */
+    scope: 'url' | 'origin'
+  } | null
+  /** One simulated load on a throttled phone. A model of a user, not a user. */
+  lab: { lcpMs: number | null; cls: number | null; tbtMs: number | null } | null
+}
+
+/**
+ * The crawl's findings, as the checks see them. Mirrors CrawlResult in
+ * context/crawl.ts; declared here so a check never has to import from the
+ * context layer to read its own input.
+ */
+export interface CrawlSummary {
+  /** Sub-pages whose HTML was kept, deduplicated by final url. Root excluded. */
+  pages: Array<{ url: string; finalUrl: string; status: number; html: string }>
+  /**
+   * Requested url → the status it answered with, redirects followed. A url
+   * ABSENT from this map is one we failed to reach, which means unknown — a
+   * check must never read absence as a defect.
+   */
+  linkStatus: Record<string, number>
+  /** Same-origin links on the root page, before any budget was applied. */
+  linksFound: number
+  /** Of those, how many the budget never let us request. */
+  linksSkipped: number
+  /** How many robots.txt told us not to fetch. Coverage we lack, never a defect. */
+  linksDisallowed: number
 }
 
 /** One concrete problem found on the target. A check may emit zero or many. */

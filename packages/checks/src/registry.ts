@@ -26,6 +26,7 @@ import { xFrameOptionsCheck } from './security/headers/x-frame-options.ts'
 import { certExpiryCheck } from './security/tls/cert-expiry.ts'
 import { httpsRedirectCheck } from './security/tls/https-redirect.ts'
 import { tlsProtocolVersionCheck } from './security/tls/protocol-version.ts'
+import { axeCheck } from './accessibility/axe.ts'
 import { formLabelsCheck } from './accessibility/static/form-labels.ts'
 import { imgAltCheck } from './accessibility/static/img-alt.ts'
 import { linkTextCheck } from './accessibility/static/link-text.ts'
@@ -34,6 +35,7 @@ import { privacyPolicyLinkCheck } from './compliance/privacy-policy-link.ts'
 import { trackersBeforeConsentCheck } from './compliance/trackers-before-consent.ts'
 import { cachingHeadersCheck } from './performance/caching-headers.ts'
 import { compressionCheck } from './performance/compression.ts'
+import { coreWebVitalsCheck } from './performance/psi.ts'
 import { imageFormatsCheck } from './performance/image-formats.ts'
 import { aiBotsAllowedCheck } from './aeo/ai-bots-allowed.ts'
 import { answerStructureCheck } from './aeo/answer-structure.ts'
@@ -61,7 +63,9 @@ import { serverHeaderCheck } from './security/info-leak/server-header.ts'
 import { xPoweredByCheck } from './security/info-leak/x-powered-by.ts'
 import { mixedContentCheck } from './security/mixed-content.ts'
 import { securityTxtCheck } from './security/security-txt.ts'
+import { brokenLinksCheck } from './seo/broken-links.ts'
 import { canonicalCheck } from './seo/canonical.ts'
+import { duplicateMetadataCheck } from './seo/duplicate-metadata.ts'
 import { faviconCheck } from './seo/favicon.ts'
 import { headingOrderCheck } from './seo/heading-order.ts'
 import { hreflangCheck } from './seo/hreflang.ts'
@@ -129,6 +133,10 @@ export const allChecks: readonly Check[] = [
   faviconCheck,
   headingOrderCheck,
   hreflangCheck,
+  // Crawl-powered: silent on a fast scan, because they read evidence only a
+  // `deep` scan goes and collects.
+  brokenLinksCheck,
+  duplicateMetadataCheck,
   // AEO — whether an answer engine can read, resolve and cite this page.
   // ssr-content comes first for a reason: if the text is not in the HTML,
   // nothing else in this pillar can be.
@@ -145,10 +153,16 @@ export const allChecks: readonly Check[] = [
   compressionCheck,
   cachingHeadersCheck,
   imageFormatsCheck,
+  // The only check that reports a measurement rather than an observation, and
+  // the only one that needs a third-party API. Silent unless a scan fetched it.
+  coreWebVitalsCheck,
   // Accessibility — the static half. Rendered-DOM auditing needs the browser.
   imgAltCheck,
   formLabelsCheck,
   linkTextCheck,
+  // The rendered half. When this one has data the three above stand down —
+  // it audits the real accessibility tree and they audit a parse of the HTML.
+  axeCheck,
   // Compliance — observable from one uninteracted request.
   trackersBeforeConsentCheck,
   cookieBannerCheck,

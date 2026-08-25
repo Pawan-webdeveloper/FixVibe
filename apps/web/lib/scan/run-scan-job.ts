@@ -26,13 +26,30 @@ import {
   SsrfError,
 } from '@darvin/checks'
 import {
-  activeTestingAllowed,
+  verifiedHostForProject,
   completeScan,
   createScan,
   failScan,
   type ScanContextMeta,
   type ScanProfile,
 } from '@darvin/db'
+
+/**
+ * Optional. Absent means deep scans skip PageSpeed Insights entirely rather
+ * than burning half a minute on a call that will be rate-limited. Get one from
+ * the Google Cloud console with the PageSpeed Insights API enabled; the free
+ * tier is 25,000 requests a day.
+ */
+const PAGESPEED_API_KEY = process.env['PAGESPEED_API_KEY']
+
+/**
+ * The browser tier (apps/scanner). Both required together; with either absent
+ * a deep scan simply does not render, and the checks that read the rendered
+ * DOM stay silent rather than reporting our missing infrastructure as the
+ * customer's problem.
+ */
+const SCANNER_URL = process.env['DARVIN_SCANNER_URL']
+const SCANNER_TOKEN = process.env['DARVIN_SCANNER_TOKEN']
 
 export interface ScanRequest {
   /** Already normalized by lib/url.ts. This layer does not parse user input. */
@@ -59,11 +76,26 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
 
   try {
     // Active backend probing is authorised by DATA, not by a flag the caller
-    // passes: the project must be domain-verified AND the URL must be on that
-    // project's own host. A caller cannot opt itself in.
-    const activeTesting = await activeTestingAllowed(request.projectId, request.url)
+    // passes: only a domain-verified project has a verified host at all, and
+    // buildContext grants the capability only if the page we LAND on is that
+    // host. A caller cannot opt itself in, and a redirect cannot smuggle
+    // somebody else's site past the gate.
+    const verifiedHost = await verifiedHostForProject(request.projectId)
 
-    const ctx = await buildContext(request.url, { activeTesting })
+    const ctx = await buildContext(request.url, {
+      ...(verifiedHost ? { activeTesting: { verifiedHost } } : {}),
+      // The one behavioural difference between the profiles: a deep scan
+      // follows the page's own links, which multiplies the requests we make
+      // against the target and is why the fast scan does not.
+      crawl: request.profile === 'deep',
+      // Only when a key is configured. Without one the call is a guaranteed
+      // 429 — the anonymous quota is shared with every caller on the internet
+      // — so attempting it would spend 30 s of a job's budget to learn nothing.
+      ...(request.profile === 'deep' && PAGESPEED_API_KEY ? { pageSpeed: { apiKey: PAGESPEED_API_KEY } } : {}),
+      ...(request.profile === 'deep' && SCANNER_URL && SCANNER_TOKEN
+        ? { scanner: { url: SCANNER_URL, token: SCANNER_TOKEN } }
+        : {}),
+    })
     const { findings, errors } = await runChecks(ctx)
     const scores = computeScores(findings, allChecks, errors)
 

@@ -190,6 +190,7 @@ const SURFACE_BY_PREFIX: ReadonlyArray<{ prefix: string; surface: SurfaceId }> =
   { prefix: 'seo.robots-meta', surface: 'head' },
   { prefix: 'seo.favicon', surface: 'head' },
   { prefix: 'seo.structured-data', surface: 'head' },
+  { prefix: 'seo.duplicate-metadata', surface: 'head' },
   { prefix: 'seo.hreflang', surface: 'head' },
   { prefix: 'aeo.entity-schema', surface: 'head' },
   { prefix: 'aeo.faq-howto-schema', surface: 'head' },
@@ -207,6 +208,8 @@ const SURFACE_BY_PREFIX: ReadonlyArray<{ prefix: string; surface: SurfaceId }> =
   { prefix: 'security.exposure.', surface: 'server' },
 
   { prefix: 'aeo.ssr-content', surface: 'code' },
+  { prefix: 'performance.core-web-vitals', surface: 'code' },
+  { prefix: 'accessibility.axe', surface: 'markup' },
   { prefix: 'compliance.trackers-before-consent', surface: 'code' },
   { prefix: 'compliance.cookie-banner', surface: 'code' },
 ]

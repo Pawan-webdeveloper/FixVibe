@@ -24,6 +24,13 @@ export const formLabelsCheck: Check = {
   title: 'Form labels',
 
   run(ctx) {
+    // axe-core audited the RENDERED accessibility tree, which sees implicit
+    // roles, cross-document label associations and elements built at runtime
+    // that this parser cannot. When it has spoken, this check stands down:
+    // two sources reporting one defect would charge the site twice, and the
+    // less accurate of the two would be setting the severity.
+    if (ctx.rendered?.axe) return []
+
     const unlabelled: string[] = []
 
     for (const el of ctx.$('input, select, textarea').toArray()) {

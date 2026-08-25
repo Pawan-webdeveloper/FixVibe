@@ -73,21 +73,46 @@ describe('security.domain.caa', () => {
     expect(await run(caaCheck, ctx)).toEqual([])
   })
 
-  it('flags a set that authorizes nobody, harder when a certificate is live', async () => {
-    const records = ['iodef "mailto:security@site.test"']
-    const withCert = await run(caaCheck, makeContext({ dns: { caa: { name: 'site.test', records } }, tls: tlsExpiringIn(60) }))
-    expect(withCert[0]?.severity).toBe('high')
+  it('stays silent on a set that restricts nothing', async () => {
+    // RFC 8659 §3, verbatim: "If the Relevant RRset ... contains no Property
+    // Tags that restrict issuance (for instance, if it contains only iodef
+    // Property Tags or only Property Tags unrecognized by the CA), CAA does
+    // not restrict issuance." Only `issue` restricts. Reading the absence of
+    // one as a prohibition told correctly configured domains, at high
+    // severity, that their certificate renewal was about to fail.
+    const silentFor = async (records: string[]) =>
+      run(caaCheck, makeContext({ dns: { caa: { name: 'site.test', records } }, tls: tlsExpiringIn(60) }))
+
+    // A reporting address and no policy.
+    expect(await silentFor(['iodef "mailto:security@site.test"'])).toEqual([])
+    // §4.3: issuewild is IGNORED for a name that is not a wildcard, so this
+    // bans wildcards and leaves ordinary issuance alone — deliberate hardening.
+    expect(await silentFor(['issuewild ";"'])).toEqual([])
+    // A tag we could not render tells us nothing either way.
+    expect(await silentFor(['iodef "mailto:x@site.test"', '{"critical":0,"contactemail":"x@site.test"}'])).toEqual([])
+  })
+
+  it('flags a set whose every issue property names the empty issuer', async () => {
+    const records = ['issue ";"', 'issuewild ";"']
+    const withCert = await run(
+      caaCheck,
+      makeContext({ dns: { caa: { name: 'site.test', records } }, tls: tlsExpiringIn(60) }),
+    )
+    expect(withCert).toHaveLength(1)
+    expect(withCert[0]?.checkId).toBe('security.domain.caa')
     expect(withCert[0]?.title).toBe('CAA record forbids all certificate issuance')
+    // A live certificate proves the configuration is already at odds with reality.
+    expect(withCert[0]?.severity).toBe('high')
 
     const withoutCert = await run(caaCheck, makeContext({ dns: { caa: { name: 'site.test', records } }, tls: null }))
     expect(withoutCert[0]?.severity).toBe('medium')
   })
 
-  it('flags a set whose every issue property names the empty issuer', async () => {
-    const ctx = makeContext({ dns: { caa: { name: 'site.test', records: ['issue ";"', 'issuewild ";"'] } } })
-    const findings = await run(caaCheck, ctx)
-    expect(findings).toHaveLength(1)
-    expect(findings[0]?.checkId).toBe('security.domain.caa')
+  it('stays silent when an issue property authorizes a CA alongside a wildcard ban', async () => {
+    const ctx = makeContext({
+      dns: { caa: { name: 'site.test', records: ['issue "letsencrypt.org"', 'issuewild ";"'] } },
+    })
+    expect(await run(caaCheck, ctx)).toEqual([])
   })
 
   it('stays silent on a record set it could not parse', async () => {
@@ -115,8 +140,12 @@ describe('security.domain.expiry', () => {
 
   it('stays silent on a registration renewed well in advance', async () => {
     expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(365) } }))).toEqual([])
-    // 31 days is the first day of silence — the boundary, asserted explicitly.
-    expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(31) } }))).toEqual([])
+    // Both sides of the 30-day boundary. Half-days on purpose: an exact 31
+    // would floor to 30 the moment a millisecond elapses between building the
+    // fixture and the check reading the clock, which is a flaky test, not a
+    // boundary test.
+    expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(30.5) } }))).toHaveLength(1)
+    expect(await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(31.5) } }))).toEqual([])
   })
 
   it('scales severity with how little time is left', async () => {
@@ -130,13 +159,15 @@ describe('security.domain.expiry', () => {
   })
 
   it('names the registrar in the evidence and the fix prompt', async () => {
-    const findings = await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(10, 'Acme Domains') } }))
+    // 10.5 days, not 10: an exact whole number floors down the moment a
+    // millisecond passes, the same trap as the 30-day boundary above.
+    const findings = await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(10.5, 'Acme Domains') } }))
     expect(findings[0]?.evidence).toMatchObject({ registrar: 'Acme Domains', daysLeft: 10, source: 'RDAP' })
     expect(findings[0]?.fixPrompt).toContain('Acme Domains')
   })
 
   it('omits the registrar cleanly when the registry withheld it', async () => {
-    const findings = await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(10, null) } }))
+    const findings = await run(domainExpiryCheck, makeContext({ dns: { registration: expiringIn(10.5, null) } }))
     expect(findings[0]?.remediation).not.toContain('null')
     expect(findings[0]?.fixPrompt).not.toContain('null')
   })
@@ -184,8 +215,23 @@ describe('security.email.dkim', () => {
     expect(viaMx).toHaveLength(1)
     expect(viaMx[0]?.severity).toBe('info')
 
-    const viaSpf = await run(dkimCheck, makeContext({ dns: { spfTxt: ['v=spf1 -all'] } }))
+    const viaSpf = await run(dkimCheck, makeContext({ dns: { spfTxt: ['v=spf1 include:_spf.google.com ~all'] } }))
     expect(viaSpf).toHaveLength(1)
+  })
+
+  it('treats a bare "v=spf1 -all" as a domain that sends nothing', async () => {
+    // A receive-only domain: MX for support@, SPF saying nothing may send as
+    // it, and a revoked DKIM record left behind when it changed provider —
+    // which is exactly what RFC 6376 §3.6.1 prescribes. It was being told, at
+    // medium severity, that its signing was broken.
+    const receiveOnly = { mx: ['mx.site.test'], spfTxt: ['v=spf1 -all'] }
+    expect(await run(dkimCheck, makeContext({ dns: receiveOnly }))).toEqual([])
+    expect(
+      await run(
+        dkimCheck,
+        makeContext({ dns: { ...receiveOnly, dkim: { selectors: { google: [REVOKED] }, wildcard: null } } }),
+      ),
+    ).toEqual([])
   })
 
   it('never claims DKIM is absent — only that no known selector answered', async () => {

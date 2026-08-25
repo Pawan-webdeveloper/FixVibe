@@ -43,21 +43,32 @@ export const caaCheck: Check = {
     if (caa.records.length === 0) return [noCaaFinding(ctx)]
 
     const properties = parseProperties(caa.records)
-    const recognised = properties.issue.length + properties.issuewild.length + properties.iodef.length
-    // Records exist but none of them parsed. We are looking at a CAA set we
-    // cannot read, so we know neither that issuance is allowed nor that it is
-    // blocked — and "your certificates will stop renewing" is far too loud a
-    // thing to say off a parse failure.
-    if (recognised === 0) return []
 
-    const authorized = [...properties.issue, ...properties.issuewild].filter((value) => value !== '')
+    // ONLY an `issue` Property restricts the ordinary certificate this site
+    // serves. RFC 8659 §3 is explicit that the absence of one is permissive,
+    // not restrictive: "If the Relevant RRset ... contains no Property Tags
+    // that restrict issuance (for instance, if it contains only iodef Property
+    // Tags or only Property Tags unrecognized by the CA), CAA does not
+    // restrict issuance."
+    //
+    // So three sets that look alarming are in fact unrestricted, and all three
+    // land here:
+    //   - iodef only            — a reporting address and no policy.
+    //   - issuewild only        — §4.3 says issuewild is IGNORED for a name
+    //                             that is not a wildcard, so normal issuance
+    //                             is untouched. Banning wildcards alone is
+    //                             deliberate hardening.
+    //   - nothing we could read — an unrenderable tag tells us nothing, and
+    //                             "your renewals will fail" is far too loud a
+    //                             thing to say off a parse failure.
+    if (properties.issue.length === 0) return []
 
-    // A non-empty CAA set that names no CA forbids issuance outright (RFC 8659
-    // §3): the empty issuer-domain-name `;` authorizes nobody, and a set with
-    // only `iodef` has no `issue` property to authorize anybody either. This
-    // is rare, and when it happens it is usually an accident that surfaces as
-    // a failed renewal months later.
-    if (authorized.length === 0) return [issuanceBlockedFinding(ctx, caa, properties)]
+    const authorized = properties.issue.filter((value) => value !== '')
+
+    // Every issue Property names the empty issuer ";", which RFC 8659 does
+    // read as "no CA may issue for this domain". Rare, and when it happens it
+    // is usually an accident that surfaces as a failed renewal months later.
+    if (authorized.length === 0) return [issuanceBlockedFinding(ctx, caa)]
 
     return []
   },
@@ -95,13 +106,8 @@ function noCaaFinding(ctx: CheckContext): Finding {
   }
 }
 
-function issuanceBlockedFinding(
-  ctx: CheckContext,
-  caa: NonNullable<CheckContext['dns']['caa']>,
-  properties: CaaProperties,
-): Finding {
+function issuanceBlockedFinding(ctx: CheckContext, caa: NonNullable<CheckContext['dns']['caa']>): Finding {
   const host = ctx.finalUrl.hostname
-  const onlyIodef = properties.issue.length === 0 && properties.issuewild.length === 0
   // A live certificate proves this configuration is already at odds with
   // reality: something issued one, and the next renewal will not.
   const hasCertificate = ctx.tls !== null
@@ -112,11 +118,8 @@ function issuanceBlockedFinding(
     severity: hasCertificate ? 'high' : 'medium',
     title: 'CAA record forbids all certificate issuance',
     description:
-      `The CAA set at ${caa.name} authorizes no Certificate Authority: ` +
-      (onlyIodef
-        ? 'it contains only an iodef reporting address and no issue property, '
-        : 'every issue/issuewild property names the empty issuer ";", ') +
-      'which RFC 8659 reads as "no CA may issue for this domain". ' +
+      `The CAA set at ${caa.name} authorizes no Certificate Authority: every issue property names ` +
+      'the empty issuer ";", which RFC 8659 reads as "no CA may issue for this domain". ' +
       (hasCertificate
         ? 'The site is currently serving a certificate, so this is not blocking today — it will ' +
           'block the next renewal, most likely at 3 a.m. on the day the current one expires.'

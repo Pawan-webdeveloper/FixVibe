@@ -166,6 +166,97 @@ describe('security.backend.supabase-rls', () => {
     expect(evidence['notTested']).toBe(4)
   })
 
+  it('ignores backend config found in a third-party bundle', async () => {
+    // A vendor widget carries the VENDOR's Supabase URL and key, as every
+    // Supabase-backed widget must. Probing it on a scan of the customer's
+    // site would be unauthorised testing against a company that never
+    // consented, and would write the vendor's schema into the customer's
+    // shareable report. No attacker required — an ordinary embed does it.
+    const ctx = makeContext({
+      scripts: [{ url: 'https://widget.somevendor.io/embed.js', content: supabaseBundle(anonKey) }],
+      activeProbe: activeProbeStub({
+        [`${BASE}/`]: { status: 200, body: spec({ subscribers: ['id', 'email'] }) },
+        [tableUrl('subscribers')]: count(900),
+      }),
+    })
+    expect(await supabaseRlsCheck.run(ctx)).toEqual([])
+  })
+
+  it('still reads the site\'s own CDN subdomain', async () => {
+    const ctx = makeContext({
+      url: 'https://site.test/',
+      scripts: [{ url: 'https://assets.site.test/app.js', content: supabaseBundle(anonKey) }],
+      activeProbe: activeProbeStub({
+        [`${BASE}/`]: { status: 200, body: spec({ posts: ['id'] }) },
+        [tableUrl('posts')]: count(3),
+      }),
+    })
+    expect((await supabaseRlsCheck.run(ctx))[0]?.severity).toBe('high')
+  })
+
+  it('refuses a project ref that is not twenty lowercase letters', async () => {
+    // The ref can come from a JWT payload, which is base64 the page chose. A
+    // ref of "attacker.test/" turns https://${ref}.supabase.co/... into a URL
+    // whose HOST is attacker.test, and the key would be sent there in an
+    // Authorization header.
+    const payload = Buffer.from(
+      JSON.stringify({ iss: 'supabase', ref: 'attacker.test/', role: 'anon' }),
+    ).toString('base64url')
+    const forged = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.c2ln`
+    const ctx = makeContext({
+      html: `<script>const k="${forged}"</script>`,
+      activeProbe: activeProbeStub({
+        'https://attacker.test/.supabase.co/rest/v1/': { status: 200, body: spec({ x: ['id'] }) },
+      }),
+    })
+    expect(await supabaseRlsCheck.run(ctx)).toEqual([])
+  })
+
+  it('does not call a soft-delete timestamp personal data', async () => {
+    // Substring matching made 'discarded_at' contain "card" and escalated a
+    // public blog table to a critical "rotate your API keys". Column names are
+    // matched on whole words.
+    const innocuous = ['id', 'title', 'discarded_at', 'wildcard_domain', 'token_count', 'cardinality', 'stripe_price_id']
+    const ctx = makeContext({
+      scripts: [{ url: 'https://site.test/app.js', content: supabaseBundle(anonKey) }],
+      activeProbe: activeProbeStub({
+        [`${BASE}/`]: { status: 200, body: spec({ posts: innocuous }) },
+        [tableUrl('posts')]: count(12),
+      }),
+    })
+    const findings = await supabaseRlsCheck.run(ctx)
+    expect(findings[0]?.severity).toBe('high') // readable, yes — but not an incident
+    expect(findings[0]?.title).toBe('1 Supabase table(s) readable by anyone')
+  })
+
+  it('still recognises personal data by whole words and by pairs', async () => {
+    const ctx = makeContext({
+      scripts: [{ url: 'https://site.test/app.js', content: supabaseBundle(anonKey) }],
+      activeProbe: activeProbeStub({
+        [`${BASE}/`]: { status: 200, body: spec({ profiles: ['id', 'emailAddress', 'stripe_customer_id'] }) },
+        [tableUrl('profiles')]: count(4),
+      }),
+    })
+    const findings = await supabaseRlsCheck.run(ctx)
+    expect(findings[0]?.severity).toBe('critical')
+    expect(findings[0]?.title).toContain('profiles')
+  })
+
+  it('stays silent rather than claiming RLS holds when a probe failed', async () => {
+    // A timed-out request did not teach us the table is protected. Reporting
+    // "row-level security is doing its job" off a failed request inverts this
+    // engine's central rule — and the flap between critical and low would move
+    // the score 27 points and mail the customer about a site that never changed.
+    const ctx = makeContext({
+      scripts: [{ url: 'https://site.test/app.js', content: supabaseBundle(anonKey) }],
+      activeProbe: activeProbeStub({
+        [`${BASE}/`]: { status: 200, body: spec({ users: ['id', 'email'] }) },
+        // users is absent from the stub, i.e. the request failed.
+      }),
+    })
+    expect(await supabaseRlsCheck.run(ctx)).toEqual([])
+  })
+
   it('finds a project referenced only from inline HTML', async () => {
     const ctx = makeContext({
       html: `<!doctype html><html><head><script>window.ENV={url:"https://${REF}.supabase.co",key:"${anonKey}"}</script></head><body></body></html>`,
