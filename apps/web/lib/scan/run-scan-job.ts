@@ -34,6 +34,14 @@ import {
   type ScanProfile,
 } from '@darvin/db'
 
+/**
+ * Optional. Absent means deep scans skip PageSpeed Insights entirely rather
+ * than burning half a minute on a call that will be rate-limited. Get one from
+ * the Google Cloud console with the PageSpeed Insights API enabled; the free
+ * tier is 25,000 requests a day.
+ */
+const PAGESPEED_API_KEY = process.env['PAGESPEED_API_KEY']
+
 export interface ScanRequest {
   /** Already normalized by lib/url.ts. This layer does not parse user input. */
   url: string
@@ -69,6 +77,10 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
       // follows the page's own links, which multiplies the requests we make
       // against the target and is why the fast scan does not.
       crawl: request.profile === 'deep',
+      // Only when a key is configured. Without one the call is a guaranteed
+      // 429 — the anonymous quota is shared with every caller on the internet
+      // — so attempting it would spend 30 s of a job's budget to learn nothing.
+      ...(request.profile === 'deep' && PAGESPEED_API_KEY ? { pageSpeed: { apiKey: PAGESPEED_API_KEY } } : {}),
     })
     const { findings, errors } = await runChecks(ctx)
     const scores = computeScores(findings, allChecks, errors)

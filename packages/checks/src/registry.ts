@@ -34,6 +34,7 @@ import { privacyPolicyLinkCheck } from './compliance/privacy-policy-link.ts'
 import { trackersBeforeConsentCheck } from './compliance/trackers-before-consent.ts'
 import { cachingHeadersCheck } from './performance/caching-headers.ts'
 import { compressionCheck } from './performance/compression.ts'
+import { coreWebVitalsCheck } from './performance/psi.ts'
 import { imageFormatsCheck } from './performance/image-formats.ts'
 import { aiBotsAllowedCheck } from './aeo/ai-bots-allowed.ts'
 import { answerStructureCheck } from './aeo/answer-structure.ts'
@@ -151,6 +152,9 @@ export const allChecks: readonly Check[] = [
   compressionCheck,
   cachingHeadersCheck,
   imageFormatsCheck,
+  // The only check that reports a measurement rather than an observation, and
+  // the only one that needs a third-party API. Silent unless a scan fetched it.
+  coreWebVitalsCheck,
   // Accessibility — the static half. Rendered-DOM auditing needs the browser.
   imgAltCheck,
   formLabelsCheck,

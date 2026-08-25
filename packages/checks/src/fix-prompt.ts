@@ -208,6 +208,7 @@ const SURFACE_BY_PREFIX: ReadonlyArray<{ prefix: string; surface: SurfaceId }> =
   { prefix: 'security.exposure.', surface: 'server' },
 
   { prefix: 'aeo.ssr-content', surface: 'code' },
+  { prefix: 'performance.core-web-vitals', surface: 'code' },
   { prefix: 'compliance.trackers-before-consent', surface: 'code' },
   { prefix: 'compliance.cookie-banner', surface: 'code' },
 ]

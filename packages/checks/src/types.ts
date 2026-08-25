@@ -128,6 +128,14 @@ export interface CheckContext {
    */
   crawl?: CrawlSummary
   /**
+   * PageSpeed Insights, present only when a scan was configured to fetch it.
+   *
+   * Absent means we did not measure — no API key, spent quota, or a fast
+   * scan — which is not the same as measuring something good. null-ish fields
+   * inside it mean the same thing one level down.
+   */
+  pageSpeed?: PageSpeedSummary | null
+  /**
    * Fetch a same-origin path (e.g. "/.env", "/security.txt"). Memoised per path
    * and capped per scan so a misbehaving check cannot hammer the target.
    * Resolves to null on any network failure or when the cap is exhausted.
@@ -154,6 +162,33 @@ export interface CheckContext {
     url: string,
     init?: { headers?: Record<string, string> },
   ) => Promise<{ status: number; body: string; headers: Headers } | null>
+}
+
+/**
+ * A narrow summary of a PageSpeed Insights run. Deliberately not the raw
+ * payload: that is roughly half a megabyte of Lighthouse JSON, and a context
+ * field nobody can reason about is a field checks will misuse.
+ */
+export interface PageSpeedSummary {
+  /** Mobile only. It is the harder case and the one Google ranks on. */
+  strategy: 'mobile'
+  /** Lighthouse performance score, rescaled to 0–100 to match every other score we show. */
+  labScore: number | null
+  /**
+   * Core Web Vitals as real Chrome users experienced them (75th percentile,
+   * trailing 28 days). null when this URL has too little traffic to report —
+   * which is most of the web, and is never a defect.
+   */
+  field: {
+    lcpMs: number | null
+    inpMs: number | null
+    /** Already divided by 100: CrUX transmits CLS as an integer scaled by 100. */
+    cls: number | null
+    /** 'url' for this page's own data; 'origin' when Google substituted site-wide data. */
+    scope: 'url' | 'origin'
+  } | null
+  /** One simulated load on a throttled phone. A model of a user, not a user. */
+  lab: { lcpMs: number | null; cls: number | null; tbtMs: number | null } | null
 }
 
 /**

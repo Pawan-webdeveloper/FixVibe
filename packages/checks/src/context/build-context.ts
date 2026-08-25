@@ -17,6 +17,7 @@ import { getTlsInfo } from './tls.ts'
 import { getDnsInfo } from './dns.ts'
 import { fetchRobots } from './robots.ts'
 import { crawlSite } from './crawl.ts'
+import { fetchPageSpeed, type PageSpeedOptions } from './psi.ts'
 
 export interface BuildContextOptions {
   /** Budget for the main page fetch (side channels have their own, shorter ones). */
@@ -39,6 +40,16 @@ export interface BuildContextOptions {
    * makes the landing page's "paste a URL" flow answer in about a second.
    */
   crawl?: boolean
+  /**
+   * Fetch PageSpeed Insights for the final URL. Presence means "do it"; the
+   * apiKey inside is all but required, since the keyless quota is shared with
+   * every anonymous caller on the internet and is usually spent.
+   *
+   * Expensive in wall-clock terms: a PSI call runs Lighthouse server-side and
+   * takes 15-30 seconds, more than the rest of a scan by an order of
+   * magnitude. Deep, background scans only.
+   */
+  pageSpeed?: PageSpeedOptions
 }
 
 /** Politeness cap: total extra same-origin requests all checks may make combined. */
@@ -93,6 +104,11 @@ export async function buildContext(
   // produce a false high-severity finding.
   const wantsHttpProbe = isHttps && url.protocol === 'https:' && finalUrl.port === ''
 
+  // Started here and awaited at the very end: a PSI run takes 15-30 seconds,
+  // so it overlaps the side channels AND the crawl instead of being added to
+  // them. Not inside the Promise.all below, which the crawl waits on.
+  const pageSpeedPromise = options.pageSpeed ? fetchPageSpeed(finalUrl, options.pageSpeed) : undefined
+
   const [tls, dns, robots, httpProbe] = await Promise.all([
     isHttps ? getTlsInfo(finalUrl.hostname, tlsPort) : Promise.resolve(null),
     getDnsInfo(finalUrl.hostname).catch(() => EMPTY_DNS),
@@ -103,6 +119,7 @@ export async function buildContext(
   // After robots: the crawl consults it, and after the page fetch: it follows
   // links found in that document. Sequential on purpose, not an oversight.
   const crawl = options.crawl ? await crawlSite($, finalUrl, robots) : undefined
+  const pageSpeed = pageSpeedPromise ? await pageSpeedPromise : undefined
 
   return {
     url,
@@ -120,6 +137,7 @@ export async function buildContext(
     httpProbe,
     probe: makeProbe(finalUrl.origin),
     ...(crawl ? { crawl } : {}),
+    ...(pageSpeedPromise ? { pageSpeed } : {}),
     // Deliberately conditional: an unauthorised scan does not get a disabled
     // capability, it gets no capability. See CheckContext.activeProbe.
     ...(options.activeTesting ? { activeProbe: makeActiveProbe() } : {}),

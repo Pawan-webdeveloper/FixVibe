@@ -36,11 +36,16 @@ const json = args.includes('--json')
 // crawl-powered checks have something to read. Costs extra requests against
 // the target, which is why it is opt-in here and per-profile in the web app.
 const deep = args.includes('--deep')
+// PageSpeed Insights. Separate from --deep because it is a different kind of
+// expensive: a Lighthouse run on Google's side takes 15-30 seconds, and
+// without a key the shared anonymous quota is spent most of every day.
+const psi = args.includes('--psi')
+const psiApiKey = process.env['PAGESPEED_API_KEY']
 const positional = args.filter((a) => !a.startsWith('--'))
-const KNOWN_FLAGS = new Set(['--json', '--deep'])
+const KNOWN_FLAGS = new Set(['--json', '--deep', '--psi'])
 const unknownFlags = args.filter((a) => a.startsWith('--') && !KNOWN_FLAGS.has(a))
 
-const USAGE = 'Usage: pnpm scan <url> [--json] [--deep]'
+const USAGE = 'Usage: pnpm scan <url> [--json] [--deep] [--psi]'
 if (unknownFlags.length > 0) fail(`Unknown flag: ${unknownFlags[0]}\n${USAGE}`)
 if (positional.length !== 1) fail(USAGE)
 
@@ -96,7 +101,10 @@ const startedAt = performance.now()
 
 let ctx: CheckContext
 try {
-  ctx = await buildContext(target, { crawl: deep })
+  ctx = await buildContext(target, {
+    crawl: deep,
+    ...(psi ? { pageSpeed: psiApiKey ? { apiKey: psiApiKey } : {} } : {}),
+  })
 } catch (error) {
   if (error instanceof SsrfError || error instanceof SafeFetchError) fail(`Scan failed: ${error.message}`)
   if (error instanceof TypeError) fail(`Invalid URL: ${input}`)

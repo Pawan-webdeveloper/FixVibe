@@ -8,6 +8,7 @@
 
 export * from './types.ts'
 export { buildContext, type BuildContextOptions } from './context/build-context.ts'
+export { type PageSpeedOptions } from './context/psi.ts'
 export { SsrfError } from './context/ssrf-guard.ts'
 export { safeFetch, SafeFetchError, type FetchedPage } from './context/safe-fetch.ts'
 // Exported for the monitoring jobs: an uptime probe and a TLS expiry check need

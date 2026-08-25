@@ -39,7 +39,7 @@ describe('runChecks', () => {
   it('registers every check under a unique, category-prefixed id', () => {
     // All six pillars now carry checks, so `overall` finally averages the
     // whole report rather than the two thirds of it that were covered.
-    expect(allChecks).toHaveLength(61)
+    expect(allChecks).toHaveLength(62)
     const perPillar = Object.fromEntries(
       ['security', 'seo', 'aeo', 'performance', 'accessibility', 'compliance'].map((pillar) => [
         pillar,
@@ -50,7 +50,7 @@ describe('runChecks', () => {
       security: 27,
       seo: 17,
       aeo: 8,
-      performance: 3,
+      performance: 4,
       accessibility: 3,
       compliance: 3,
     })
