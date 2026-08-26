@@ -40,10 +40,15 @@ export const dmarcCheck: Check = {
     const domain = ctx.dns.emailDomain
     if (!domain) return []
 
+    // 'unknown' means the `_dmarc` query failed rather than answered. An empty
+    // answer proves absence; a failed one proves nothing, so no finding.
+    if (ctx.dns.dmarcTxt === 'unknown') return []
+    const dmarcTxt = ctx.dns.dmarcTxt
+
     const name = `_dmarc.${domain}`
     // TXT names routinely carry unrelated values (vendor verification tokens);
     // per RFC 7489 §6.6.3 anything without the version tag is not a candidate.
-    const records = ctx.dns.dmarcTxt.filter((txt) => VERSION_TAG.test(txt))
+    const records = dmarcTxt.filter((txt) => VERSION_TAG.test(txt))
     const [record] = records
 
     if (records.length > 1) {
@@ -79,7 +84,7 @@ export const dmarcCheck: Check = {
             `The TXT lookup at ${name} returned no record starting with v=DMARC1. Receiving servers ` +
             'therefore have no instruction for mail that fails SPF and DKIM, so forged mail from this ' +
             'domain is neither rejected nor reported — the domain owner cannot even see it happening.',
-          evidence: { name, txtRecords: ctx.dns.dmarcTxt },
+          evidence: { name, txtRecords: dmarcTxt },
           remediation:
             `Publish a TXT record at ${name} starting with "v=DMARC1; p=none; rua=mailto:…", then ` +
             'tighten the policy once the reports show only unwanted mail failing.',

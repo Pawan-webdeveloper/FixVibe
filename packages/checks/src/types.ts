@@ -1,4 +1,5 @@
 import type { CheerioAPI } from 'cheerio'
+import type { TxtRecords } from './context/dns.ts'
 
 /** Ranked worst-first; scoring and CLI output both rely on this ordering. */
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info'
@@ -47,8 +48,13 @@ export interface CheckContext {
   /** Peer-certificate summary; null for plain-HTTP targets or when the handshake failed. */
   tls: { validTo: Date; protocol: string; issuer: string } | null
   dns: {
-    /** TXT records of the scanned hostname exactly as given. */
-    txt: string[]
+    /**
+     * TXT records of the scanned hostname exactly as given. `'unknown'` when
+     * the query failed — NXDOMAIN and ENODATA prove absence, a timeout does
+     * not, so checks must stay silent on `'unknown'` rather than report
+     * "no record" off a dead resolver.
+     */
+    txt: TxtRecords
     /**
      * The CAA record set that actually governs certificate issuance for this
      * host, found by RFC 8659 §3's tree climb: the hostname first, then each
@@ -77,10 +83,16 @@ export interface CheckContext {
      * reporting on a name they never queried.
      */
     emailDomain: string | null
-    /** TXT records at `emailDomain` — where SPF lives. Empty when it is null. */
-    spfTxt: string[]
-    /** TXT records at `_dmarc.<emailDomain>`. Empty when it is null. */
-    dmarcTxt: string[]
+    /**
+     * TXT records at `emailDomain` — where SPF lives. Empty when it is null.
+     * `'unknown'` when the lookup failed; the SPF check stays silent then.
+     */
+    spfTxt: TxtRecords
+    /**
+     * TXT records at `_dmarc.<emailDomain>`. Empty when it is null. `'unknown'`
+     * when the lookup failed; the DMARC check stays silent then.
+     */
+    dmarcTxt: TxtRecords
     dkim: {
       /**
        * TXT records at `<selector>._domainkey.<emailDomain>`, keyed by

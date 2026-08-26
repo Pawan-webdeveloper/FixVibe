@@ -152,7 +152,7 @@ function noKnownSelectorFinding(ctx: CheckContext, domain: string): Finding {
       'be listed from outside DNS, so this is NOT proof that DKIM is missing: a custom selector would ' +
       'look exactly like this. It is worth confirming directly, because without DKIM a DMARC policy ' +
       'passes only on SPF, and SPF breaks whenever mail is forwarded.',
-    evidence: { domain, mx: ctx.dns.mx, spfTxt: ctx.dns.spfTxt },
+    evidence: { domain, mx: ctx.dns.mx, spfTxt: ctx.dns.spfTxt === 'unknown' ? [] : ctx.dns.spfTxt },
     remediation:
       'Send a message from this domain to a mailbox you control and read the Authentication-Results ' +
       'header. If it does not say dkim=pass, enable DKIM signing in the mail provider and publish the ' +
@@ -174,15 +174,23 @@ function noKnownSelectorFinding(ctx: CheckContext, domain: string): Finding {
  * project that has never sent an email, which is noise, not a finding.
  */
 function sendsMail(ctx: CheckContext): boolean {
-  // `v=spf1 -all` with no mechanisms is a domain stating that NOTHING may send
-  // mail as it. Publishing a revoked DKIM key alongside that is the correct
-  // configuration (RFC 6376 §3.6.1), not a rotation that went wrong, and a
-  // receive-only domain that left one behind after leaving a provider would
-  // otherwise be told at medium severity that its signing is broken.
-  const declaresNoSender = ctx.dns.spfTxt.some((txt) => /^\s*v\s*=\s*spf1\s+-all\s*$/i.test(txt.trim()))
-  if (declaresNoSender) return false
+  const { spfTxt } = ctx.dns
+  if (spfTxt !== 'unknown') {
+    // `v=spf1 -all` with no mechanisms is a domain stating that NOTHING may send
+    // mail as it. Publishing a revoked DKIM key alongside that is the correct
+    // configuration (RFC 6376 §3.6.1), not a rotation that went wrong, and a
+    // receive-only domain that left one behind after leaving a provider would
+    // otherwise be told at medium severity that its signing is broken.
+    const declaresNoSender = spfTxt.some((txt) => /^\s*v\s*=\s*spf1\s+-all\s*$/i.test(txt.trim()))
+    if (declaresNoSender) return false
 
-  return ctx.dns.mx.length > 0 || ctx.dns.spfTxt.some((txt) => /^\s*v\s*=\s*spf1\b/i.test(txt))
+    if (spfTxt.some((txt) => /^\s*v\s*=\s*spf1\b/i.test(txt))) return true
+  }
+
+  // SPF TXT unreadable ('unknown') or silent: an MX record alone is positive
+  // evidence of mail, while silence from both is not evidence of anything —
+  // stay quiet rather than risk the finding on a resolver failure.
+  return ctx.dns.mx.length > 0
 }
 
 /** A record with a non-empty p= tag. Empty p= is a revoked key, not a broken one. */

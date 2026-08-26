@@ -2,8 +2,11 @@
  * DNS context: the records a scan can learn about a domain in one pass.
  *
  * Notes for the next reader:
- *  - Every resolver call degrades to an empty result. NXDOMAIN, timeouts and
- *    missing record types are normal life for DNS, not scan failures.
+ *  - Every resolver call degrades rather than failing the scan. NXDOMAIN and
+ *    missing record types degrade to an empty result — definitive absence.
+ *    Timeouts and server failures degrade to `'unknown'` on TXT lookups, so
+ *    the email checks stay silent instead of reporting "no record" off a dead
+ *    resolver.
  *  - `emailDomain` is null whenever the organizational domain cannot be derived
  *    without a Public Suffix List (see public-suffix.ts). Null propagates as
  *    empty record lists, and the email checks stay silent on it: reporting
@@ -94,8 +97,10 @@ export async function getDnsInfo(hostname: string): Promise<CheckContext['dns']>
       () => [],
     ),
     // Skip the duplicate query when the page host already IS the mail domain.
-    emailDomain && emailDomain !== host ? txtRecords(emailDomain) : Promise.resolve<string[] | null>(null),
-    emailDomain ? txtRecords(`_dmarc.${emailDomain}`) : Promise.resolve<string[]>([]),
+    emailDomain && emailDomain !== host
+      ? txtRecords(emailDomain)
+      : Promise.resolve<TxtRecords | null>(null),
+    emailDomain ? txtRecords(`_dmarc.${emailDomain}`) : Promise.resolve<TxtRecords>([]),
     emailDomain
       ? dkimRecords(emailDomain)
       : Promise.resolve<CheckContext['dns']['dkim']>({ selectors: {}, wildcard: null }),
@@ -107,7 +112,7 @@ export async function getDnsInfo(hostname: string): Promise<CheckContext['dns']>
     caa,
     mx,
     emailDomain,
-    spfTxt: emailDomain ? (spfTxt ?? txt) : [],
+    spfTxt: emailDomain ? ((spfTxt ?? txt) as TxtRecords) : [],
     dmarcTxt,
     dkim,
     registration,
@@ -148,6 +153,15 @@ async function governingCaa(host: string): Promise<CheckContext['dns']['caa']> {
   return { name: names[names.length - 1]!, records: [] }
 }
 
+/**
+ * Either the definitive record set, or `'unknown'` when the query itself
+ * failed. NXDOMAIN and ENODATA prove absence; a timeout or SERVFAIL does not,
+ * and reporting "no SPF record" off a dead resolver is exactly the false
+ * positive class this sentinel exists to prevent (the CAA climb below already
+ * worked this way).
+ */
+export type TxtRecords = string[] | 'unknown'
+
 /** Definitive DNS "no such record" codes — anything else means we failed to ask. */
 const NO_RECORDS = new Set(['ENODATA', 'ENOTFOUND'])
 
@@ -166,10 +180,10 @@ function caaAt(name: string): Promise<string[] | 'unknown'> {
 }
 
 /** TXT values arrive chunked in 255-byte pieces; join them back into one string. */
-function txtRecords(name: string): Promise<string[]> {
+function txtRecords(name: string): Promise<TxtRecords> {
   return resolveTxt(name).then(
     (records) => records.map((chunks) => chunks.join('')),
-    () => [],
+    (error: NodeJS.ErrnoException) => (NO_RECORDS.has(error.code ?? '') ? [] : 'unknown'),
   )
 }
 
@@ -206,10 +220,13 @@ async function dkimRecords(domain: string): Promise<CheckContext['dns']['dkim']>
   return { selectors, wildcard: null }
 }
 
-/** DKIM records at one selector — unrelated TXT at the same name is discarded. */
+/** DKIM records at one selector — unrelated TXT at the same name is discarded.
+ *  A query failure reads as "no record here", which is safe: most selectors
+ *  answer nothing anyway, and the check never treats absence as a defect on
+ *  its own (see the sendsMail gate in email/dkim.ts). */
 async function dkimAt(selector: string, domain: string): Promise<string[]> {
   const records = await txtRecords(`${selector}._domainkey.${domain}`)
-  return records.filter((record) => /v\s*=\s*DKIM1/i.test(record))
+  return records === 'unknown' ? [] : records.filter((record) => /v\s*=\s*DKIM1/i.test(record))
 }
 
 /**

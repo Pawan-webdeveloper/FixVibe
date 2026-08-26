@@ -219,6 +219,18 @@ describe('security.email.dkim', () => {
     expect(viaSpf).toHaveLength(1)
   })
 
+  it('falls back to MX alone when SPF TXT is unknown (resolver failure)', async () => {
+    // spfTxt === 'unknown' means the query failed, not that no record exists.
+    // An MX record is still positive evidence of mail; silence from both is
+    // not evidence of anything.
+    const viaMx = await run(dkimCheck, makeContext({ dns: { mx: ['mx.site.test'], spfTxt: 'unknown' } }))
+    expect(viaMx).toHaveLength(1)
+    expect(viaMx[0]?.severity).toBe('info')
+
+    const fullyUnknown = makeContext({ dns: { mx: [], spfTxt: 'unknown' } })
+    expect(await run(dkimCheck, fullyUnknown)).toEqual([])
+  })
+
   it('treats a bare "v=spf1 -all" as a domain that sends nothing', async () => {
     // A receive-only domain: MX for support@, SPF saying nothing may send as
     // it, and a revoked DKIM record left behind when it changed provider —
