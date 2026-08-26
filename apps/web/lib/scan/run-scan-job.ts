@@ -30,6 +30,7 @@ import {
   completeScan,
   createScan,
   failScan,
+  markScanRunning,
   type ScanContextMeta,
   type ScanProfile,
 } from '@darvin/db'
@@ -61,7 +62,15 @@ export interface ScanRequest {
   anonIpHash?: string | null
 }
 
-export async function runScanJob(request: ScanRequest): Promise<string> {
+/**
+ * Reserve a scan and hand back its id, without doing any of the work.
+ *
+ * This exists because a deep scan cannot finish inside a request — a crawl plus
+ * PageSpeed plus a browser render is closer to a minute — so the caller needs
+ * an id to redirect to and to poll while the job runs somewhere else. The row
+ * is created here in status 'queued'; executeScan fills it in later.
+ */
+export async function startScanJob(request: ScanRequest): Promise<string> {
   const { id } = await createScan({
     url: request.url,
     profile: request.profile,
@@ -71,7 +80,19 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
     requestedBy: request.requestedBy ?? null,
     anonIpHash: request.anonIpHash ?? null,
   })
+  return id
+}
 
+/**
+ * Do the work against an already-reserved scan row.
+ *
+ * Split from startScanJob so the same function serves both callers: the inline
+ * path runs it immediately, the queue runs it minutes later on another machine.
+ * Idempotent, because Inngest retries — completeScan clears a scan's findings
+ * before writing them, so a second attempt replaces rather than doubles.
+ */
+export async function executeScan(id: string, request: ScanRequest): Promise<void> {
+  await markScanRunning(id)
   const startedAt = performance.now()
 
   try {
@@ -122,7 +143,15 @@ export async function runScanJob(request: ScanRequest): Promise<string> {
   } catch (error) {
     await failScan(id, describeFailure(error), Math.round(performance.now() - startedAt))
   }
+}
 
+/**
+ * Reserve and run, in one call. The inline path for fast scans, unchanged in
+ * behaviour: about two seconds, so the request simply waits.
+ */
+export async function runScanJob(request: ScanRequest): Promise<string> {
+  const id = await startScanJob(request)
+  await executeScan(id, request)
   return id
 }
 
