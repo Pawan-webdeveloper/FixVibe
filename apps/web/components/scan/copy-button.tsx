@@ -27,7 +27,7 @@ export function CopyButton({ text, label = 'Copy fix prompt' }: { text: string; 
       type="button"
       onClick={copy}
       aria-live="polite"
-      className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface"
+      className="border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface"
     >
       {copied ? 'Copied' : label}
     </button>

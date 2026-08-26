@@ -8,7 +8,7 @@
 
 import Link from 'next/link'
 import { allChecks } from '@darvin/checks'
-import { ORDERED_PLANS, type Plan } from '@/lib/plans.ts'
+import { ORDERED_PLANS, formatPrice, type Plan } from '@/lib/plans.ts'
 import { BillingButton } from '@/components/billing/billing-button.tsx'
 
 export const metadata = {
@@ -40,11 +40,11 @@ export default function PricingPage() {
         {ORDERED_PLANS.map((plan) => (
           <section
             key={plan.id}
-            className={`rounded-lg border p-6 ${plan.id === 'pro' ? 'border-accent' : 'border-line'}`}
+            className={` border p-6 ${plan.id === 'pro' ? 'border-accent' : 'border-line'}`}
           >
             <h2 className="font-medium">{plan.name}</h2>
             <p className="mt-2 text-3xl font-semibold tabular-nums">
-              ${plan.priceMonthlyUsd}
+              {formatPrice(plan)}
               <span className="text-base font-normal text-muted"> / month</span>
             </p>
 
@@ -58,9 +58,9 @@ export default function PricingPage() {
 
             <div className="mt-6">
               {plan.id === 'pro' ? (
-                <BillingButton endpoint="/api/billing/checkout" label="Upgrade to Pro" />
+                <BillingButton action="upgrade" label="Upgrade to Pro" />
               ) : (
-                <Link href="/" className="text-sm text-accent">
+                <Link href="/" className="text-sm link">
                   Run a free scan
                 </Link>
               )}

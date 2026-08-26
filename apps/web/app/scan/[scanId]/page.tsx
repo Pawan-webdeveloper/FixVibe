@@ -18,6 +18,8 @@ import { getScanForViewer, type ScanWithFindings, type Viewer } from '@darvin/db
 import { getViewer } from '@/lib/authz.ts'
 import { claimScanAction } from './actions.ts'
 import { ScoreRing } from '@/components/scan/score-ring.tsx'
+import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingsList } from '@/components/scan/findings-list.tsx'
 import { FixPromptDialog } from '@/components/scan/fix-prompt-dialog.tsx'
@@ -93,16 +95,21 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
-      <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line pb-5">
-        <div className="min-w-0">
-          <Link href="/" className="font-mono text-sm font-semibold tracking-tight">
-            darvin
+      <header>
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-2" aria-label="Darvin — home">
+            <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
+            <span className="text-[15px] font-semibold tracking-tight">darvin</span>
           </Link>
-          <h1 className="mt-1 truncate font-mono text-xl">{host}</h1>
+          <Link href="/" className="label link text-muted transition-colors hover:text-ink">
+            Scan another site
+          </Link>
         </div>
-        <Link href="/" className="text-sm text-accent">
-          Scan another site
-        </Link>
+
+        <div className="mt-8">
+          <LabeledRule label="Report" trailing={stamp(scan.createdAt)} />
+        </div>
+        <h1 className="mt-5 truncate text-2xl tracking-[-0.02em] sm:text-3xl">{host}</h1>
       </header>
 
       {scan.status === 'failed' && <FailedScan url={scan.url} error={scan.error} at={scan.createdAt} />}
@@ -157,19 +164,19 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
  */
 function FailedScan({ url, error, at }: { url: string; error: string | null; at: Date }) {
   return (
-    <section className="my-10 rounded-lg border border-line bg-surface p-6">
+    <section className="my-10 border border-line bg-surface p-6">
       <h2 className="text-lg font-semibold">This scan could not be completed</h2>
       <p className="mt-2 text-sm text-muted">
         Darvin tried to read <code className="font-mono">{url}</code> at {stamp(at)} and stopped.
       </p>
       {error && (
-        <p className="mt-3 rounded-md border border-line bg-canvas px-3 py-2 font-mono text-sm">{error}</p>
+        <p className="mt-3 border border-line bg-canvas px-3 py-2 font-mono text-sm">{error}</p>
       )}
       <p className="mt-4 text-sm text-muted">
         If the address was a typo, correct it and try again. If the site is behind a login or blocks
         automated requests, Darvin cannot read it — it only ever reads what a browser would.
       </p>
-      <Link href="/" className="mt-4 inline-block text-sm text-accent">
+      <Link href="/" className="mt-4 inline-block text-sm link">
         Try another address
       </Link>
     </section>
@@ -183,7 +190,7 @@ function FailedScan({ url, error, at }: { url: string; error: string | null; at:
  */
 function RunningScan({ scanId }: { scanId: string }) {
   return (
-    <section className="my-10 rounded-lg border border-line bg-surface p-6">
+    <section className="my-10 border border-line bg-surface p-6">
       <h2 className="text-lg font-semibold">Still scanning</h2>
       <ScanProgress scanId={scanId} />
     </section>
@@ -221,11 +228,11 @@ function ScanFacts({
   ]
 
   return (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-line pt-5 text-sm sm:grid-cols-2">
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 border-t border-line pt-5 sm:grid-cols-2">
       {facts.map(([key, value]) => (
-        <div key={key} className="flex gap-3">
-          <dt className="w-24 shrink-0 text-muted">{key}</dt>
-          <dd className="min-w-0 truncate font-mono text-xs leading-5">{value}</dd>
+        <div key={key} className="flex items-baseline gap-3">
+          <dt className="label w-24 shrink-0 text-muted">{key}</dt>
+          <dd className="min-w-0 truncate text-xs leading-5">{value}</dd>
         </div>
       ))}
     </dl>
@@ -235,7 +242,7 @@ function ScanFacts({
 /** Our failures, shown rather than hidden behind a score that looks complete. */
 function CheckErrors({ errors }: { errors: Array<{ checkId: string; message: string }> }) {
   return (
-    <section className="mt-6 rounded-lg border border-line px-4 py-3">
+    <section className="mt-6 border border-line px-4 py-3">
       <h2 className="text-sm font-medium">
         {errors.length} check{errors.length === 1 ? '' : 's'} could not complete
       </h2>
@@ -260,7 +267,7 @@ function CheckErrors({ errors }: { errors: Array<{ checkId: string; message: str
  */
 function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; signedIn: boolean }) {
   return (
-    <section className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-5 py-4">
+    <section className="mt-6 flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-5 py-4">
       <div>
         <p className="text-sm font-medium">Keep this report</p>
         <p className="text-sm text-muted">
@@ -273,7 +280,7 @@ function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; 
           <input type="hidden" name="scanId" value={scanId} />
           <button
             type="submit"
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+            className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
           >
             Save as a project
           </button>
@@ -281,7 +288,7 @@ function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; 
       ) : (
         <Link
           href={`/login?next=${encodeURIComponent(`/scan/${scanId}`)}`}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+          className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
         >
           Sign in to save
         </Link>

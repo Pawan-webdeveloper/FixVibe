@@ -1,0 +1,31 @@
+import { ScanForm } from '@/components/scan/scan-form.tsx'
+import { TOTAL_CHECKS } from './coverage.ts'
+
+/**
+ * The same form as the hero, at the bottom.
+ *
+ * Literally the same component — a reader who scrolled the whole page should
+ * not have to scroll back, and a second, subtly different form is how the two
+ * drift until one of them stops validating the way the API does.
+ */
+export function FinalCta() {
+  return (
+    <section className="relative overflow-hidden border-t border-line">
+      <div aria-hidden="true" className="bg-grid pointer-events-none absolute inset-0" />
+
+      <div className="relative mx-auto max-w-5xl px-6 py-20 sm:py-28">
+        <h2 className="max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+          Find out what yours is quietly getting wrong.
+        </h2>
+        <p className="mt-4 max-w-[52ch] text-lg text-muted text-pretty">
+          {TOTAL_CHECKS} checks, the evidence behind every one, and a prompt that fixes them. About
+          a second, and no account.
+        </p>
+
+        <div className="mt-8 max-w-xl">
+          <ScanForm />
+        </div>
+      </div>
+    </section>
+  )
+}

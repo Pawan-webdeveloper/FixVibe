@@ -1,67 +1,25 @@
 'use client'
 
 import { useId, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { normalizeScanTarget } from '@/lib/url.ts'
+import { useScanSubmit } from './use-scan-submit.ts'
 
 /**
- * The one interaction on the landing page.
+ * The standard scan form, used wherever the page is not the hero.
  *
- * Validation runs on the client purely so a typo comes back instantly instead
- * of after a round trip; the API route re-runs the same function, because
- * nothing arriving over the wire is trusted. The two can never disagree since
- * they call the same code.
+ * Presentation only: everything that decides whether a scan starts lives in
+ * useScanSubmit, which the hero's form calls too.
  */
 export function ScanForm() {
-  const router = useRouter()
   const inputId = useId()
   const errorId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-
   const [value, setValue] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const { pending, error, clearError, submit } = useScanSubmit()
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (pending) return
-
-    const target = normalizeScanTarget(value)
-    if (!target.ok) {
-      setError(target.reason)
-      inputRef.current?.focus()
-      return
-    }
-
-    setError(null)
-    setPending(true)
-
-    try {
-      const response = await fetch('/api/scan', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: target.url }),
-      })
-
-      if (!response.ok) {
-        // The server owns the real verdict — an SSRF-blocked target, a site that
-        // would not respond, a rate limit. Surface its sentence, not a status code.
-        const detail: unknown = await response.json().catch(() => null)
-        const reason =
-          detail && typeof detail === 'object' && 'error' in detail && typeof detail.error === 'string'
-            ? detail.error
-            : `The scan could not be started (HTTP ${response.status}).`
-        setError(reason)
-        setPending(false)
-        return
-      }
-
-      const { scanId } = (await response.json()) as { scanId: string }
-      router.push(`/scan/${scanId}`)
-    } catch {
-      setError('Could not reach the scanner. Check your connection and try again.')
-      setPending(false)
-    }
+    const started = await submit(value)
+    if (!started) inputRef.current?.focus()
   }
 
   return (
@@ -84,20 +42,18 @@ export function ScanForm() {
           value={value}
           onChange={(event) => {
             setValue(event.target.value)
-            if (error) setError(null)
+            if (error) clearError()
           }}
           disabled={pending}
           aria-invalid={error !== null}
           aria-describedby={error ? errorId : undefined}
-          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-4 py-3 font-mono text-base
-                     text-ink placeholder:text-muted disabled:opacity-60"
+          className="min-w-0 flex-1 border border-line bg-surface px-4 py-3 font-mono text-base text-ink placeholder:text-muted disabled:opacity-60"
         />
 
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-accent px-6 py-3 text-base font-medium text-accent-ink
-                     disabled:opacity-60 sm:w-auto"
+          className="bg-accent px-6 py-3 text-base font-medium text-accent-ink disabled:opacity-60 sm:w-auto"
         >
           {pending ? 'Scanning…' : 'Scan'}
         </button>

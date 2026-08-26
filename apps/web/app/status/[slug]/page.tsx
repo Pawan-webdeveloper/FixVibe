@@ -16,6 +16,7 @@ import type { Metadata } from 'next'
 import { cache } from 'react'
 import { getPublicProjectBySlug, publicUptimeEvents } from '@darvin/db'
 import { UptimeChart } from '@/components/monitors/uptime-chart.tsx'
+import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 /**
  * Cached for a minute. It is public, it is linked during exactly the moments
@@ -53,14 +54,15 @@ export default async function StatusPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-2xl font-semibold">{project.name}</h1>
-      <p className="truncate font-mono text-xs text-muted">{project.url}</p>
+      <LabeledRule label="Status" trailing="checked every minute" />
+      <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">{project.name}</h1>
+      <p className="mt-1 truncate text-xs text-muted">{project.url}</p>
 
-      <section className="mt-8 rounded-lg border border-line p-6">
+      <section className="mt-8 border border-line p-6">
         <p className="flex items-center gap-2 text-lg font-medium">
           <span
             aria-hidden="true"
-            className="inline-block h-2.5 w-2.5 rounded-full"
+            className="inline-block h-2.5 w-2.5"
             style={{ backgroundColor: up ? 'var(--good)' : 'var(--critical)' }}
           />
           {up ? 'All systems operational' : 'Currently unreachable'}
@@ -73,7 +75,7 @@ export default async function StatusPage({ params }: { params: Promise<{ slug: s
 
       <p className="mt-8 text-sm text-muted">
         Checked every minute by{' '}
-        <Link href="/" className="text-accent">
+        <Link href="/" className="link">
           Darvin
         </Link>
         .

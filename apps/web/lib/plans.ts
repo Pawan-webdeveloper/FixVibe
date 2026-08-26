@@ -19,10 +19,17 @@ export type PlanId = 'free' | 'pro'
 export interface Plan {
   id: PlanId
   name: string
-  /** In the smallest currency unit, for display only — Stripe owns the real price. */
-  priceMonthlyUsd: number
-  /** null on free: nobody touches Stripe until they choose to. */
-  stripePriceIdEnv: string | null
+  /**
+   * DISPLAY ONLY. The amount actually charged is the one on the Razorpay Plan
+   * named by `planIdEnv`, and this must be kept equal to it by hand — a
+   * pricing page that disagrees with the checkout modal is a refund request,
+   * not a bug report.
+   */
+  priceMonthly: number
+  /** ISO 4217. Razorpay accounts are INR unless international payments are enabled. */
+  currency: 'INR' | 'USD'
+  /** null on free: nobody reaches the payment processor until they choose to. */
+  planIdEnv: string | null
 
   scansPerMonth: number
   projects: number
@@ -48,8 +55,9 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
   free: {
     id: 'free',
     name: 'Free',
-    priceMonthlyUsd: 0,
-    stripePriceIdEnv: null,
+    priceMonthly: 0,
+    currency: 'INR',
+    planIdEnv: null,
     scansPerMonth: 30,
     projects: 1,
     monitors: 0,
@@ -63,8 +71,9 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    priceMonthlyUsd: 19,
-    stripePriceIdEnv: 'STRIPE_PRICE_PRO_MONTHLY',
+    priceMonthly: 1499,
+    currency: 'INR',
+    planIdEnv: 'RAZORPAY_PLAN_PRO_MONTHLY',
     scansPerMonth: 500,
     projects: 25,
     monitors: 25,
@@ -78,8 +87,8 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
 }
 
 /**
- * `subscriptions.plan` is free text — Stripe's vocabulary changes and an enum
- * there would mean a migration every time pricing does. So an unrecognised
+ * `subscriptions.plan` is free text — a processor's vocabulary changes and an
+ * enum there would mean a migration every time pricing does. So an unrecognised
  * value resolves to free rather than throwing: a billing record we cannot read
  * must not take the product away from someone mid-session.
  */
@@ -88,3 +97,12 @@ export function planFor(plan: string | null | undefined): Plan {
 }
 
 export const ORDERED_PLANS: readonly Plan[] = [PLANS.free, PLANS.pro]
+
+/** "₹1,499" / "$19" — grouped, and never showing a trailing ".00". */
+export function formatPrice(plan: Plan): string {
+  return new Intl.NumberFormat(plan.currency === 'INR' ? 'en-IN' : 'en-US', {
+    style: 'currency',
+    currency: plan.currency,
+    maximumFractionDigits: 0,
+  }).format(plan.priceMonthly)
+}

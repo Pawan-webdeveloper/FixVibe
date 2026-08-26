@@ -51,7 +51,7 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
   return (
     <div className="mt-3">
       <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted">Observed</p>
-      <dl className="overflow-x-auto rounded-md border border-line bg-surface p-3 font-mono text-xs">
+      <dl className="overflow-x-auto border border-line bg-surface p-3 font-mono text-xs">
         {entries.map(([key, value]) => (
           <div key={key} className="flex flex-col gap-0.5 py-1 sm:flex-row sm:gap-3">
             <dt className="shrink-0 text-muted sm:w-40">{key}</dt>
@@ -65,10 +65,10 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
 
 export function FindingCard({ finding }: { finding: FindingView }) {
   return (
-    <article className="rounded-lg border border-line p-4">
+    <article className="border border-line p-4">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span
-          className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${SEVERITY_STYLE[finding.severity]}`}
+          className={` border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${SEVERITY_STYLE[finding.severity]}`}
         >
           {finding.severity}
         </span>

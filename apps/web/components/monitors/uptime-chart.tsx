@@ -25,7 +25,7 @@ export function UptimeChart({ events }: { events: ReadonlyArray<{ ts: Date | str
           <div
             key={day.date}
             title={`${day.date} · ${day.ok} ok, ${day.failed} failed`}
-            className="min-w-[3px] flex-1 rounded-[2px]"
+            className="min-w-[3px] flex-1"
             style={{ backgroundColor: day.failed > 0 ? 'var(--critical)' : 'var(--good)' }}
           />
         ))}

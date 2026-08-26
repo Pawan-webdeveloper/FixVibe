@@ -1,29 +1,33 @@
-import Link from 'next/link'
+import { SiteFooter } from '@/components/marketing/site-footer.tsx'
 
 /**
- * Shell for the pages a logged-out visitor sees. Deliberately thin: the landing
- * page has one job, and chrome that competes with the URL field works against
- * it. Navigation arrives when there is a second page worth going to.
+ * Shell for the pages a logged-out visitor sees.
+ *
+ * Kept as a pure server component with no session read, so the landing page
+ * and the pricing page stay statically rendered. SiteHeader explains why that
+ * matters more here than showing a signed-in visitor their own name.
+ *
+ * The header itself lives one level down, in the (chrome) group: the landing
+ * page's hero carries its own navigation inside its frame, and stacking the
+ * shared header above it would be two navigations on one screen.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-line">
-        <div className="mx-auto max-w-5xl px-6 py-4">
-          <Link href="/" className="font-mono text-sm font-semibold tracking-tight">
-            darvin
-          </Link>
-        </div>
-      </header>
+      {/* First tab stop on the page: a keyboard user should not have to walk
+          the whole navigation to reach the URL field. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-60 focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-ink"
+      >
+        Skip to content
+      </a>
 
-      <main className="flex-1">{children}</main>
+      <main id="main" className="flex-1">
+        {children}
+      </main>
 
-      <footer className="border-t border-line">
-        <div className="mx-auto max-w-5xl px-6 py-6 text-sm text-muted">
-          Darvin reads only what a browser would read. It never logs in, submits forms, or attempts
-          anything a site owner has not already made public.
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

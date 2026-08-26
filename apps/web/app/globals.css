@@ -25,9 +25,23 @@
   --color-info: var(--info);
   --color-good: var(--good);
 
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  /* Marketing surfaces. --elevated is the one step above --surface, used by the
+     single card the landing page is allowed to lift off the canvas. */
+  --color-accent-soft: var(--accent-soft);
+  --color-elevated: var(--elevated);
+
+  /* Hero (terminal) palette — see the HERO TOKENS block below. */
+  --color-brand: var(--brand);
+  --color-hero-ink: var(--hero-ink);
+  --color-hero-ink-dim: var(--hero-ink-dim);
+  --color-hero-field: var(--hero-field);
+  --color-hero-on-ink: var(--hero-on-ink);
+  --color-hero-rule: var(--hero-rule);
+
+  /* next/font sets --font-geist-mono on <html>; the rest is what renders if
+     that ever fails to load. There is no sans stack because there is no sans. */
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 :root {
@@ -35,8 +49,16 @@
   --surface: #f7f8fa;
   --ink: #0f1115;
   --muted: #5b6270;
-  --line: #e2e6ea;
-  --accent: #2563eb;
+  --line: #d8dde3;
+  /*
+   * There is one accent in this system and it is the ink.
+   *
+   * A terminal surface has two colours; the only chroma left in the product is
+   * SEVERITY, below, which carries meaning. Keeping a decorative blue next to
+   * it would put the loudest colour on the page on a button rather than on the
+   * thing that says a stranger can read your database.
+   */
+  --accent: #0f1115;
   --accent-ink: #ffffff;
   --danger: #b42318;
 
@@ -46,6 +68,11 @@
   --low: #0e7490;
   --info: #5b6270;
   --good: #157347;
+
+  --accent-soft: #f0f2f5;
+  --elevated: #ffffff;
+  --grid: #0f11150c;
+  --glow: #2563eb1f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -54,9 +81,9 @@
     --surface: #14181d;
     --ink: #e9edf2;
     --muted: #949cab;
-    --line: #232a33;
-    --accent: #5b9dff;
-    --accent-ink: #08101f;
+    --line: #262d36;
+    --accent: #e9edf2;
+    --accent-ink: #0b0d10;
     --danger: #ff9a8f;
 
     --critical: #ff8a80;
@@ -65,6 +92,11 @@
     --low: #5ec8dc;
     --info: #949cab;
     --good: #4ade80;
+
+    --accent-soft: #e9edf20f;
+    --elevated: #191e25;
+    --grid: #e9edf20d;
+    --glow: #5b9dff2e;
   }
 }
 
@@ -72,11 +104,57 @@ html {
   color-scheme: light dark;
 }
 
+/*
+ * Monospace everywhere, not only in the hero.
+ *
+ * This is a tool that reads machines and reports what they said, and the type
+ * says so on every screen. Prose stays sentence case at a smaller size with
+ * looser leading — uppercase is reserved for micro-labels, where it reads as a
+ * field name rather than as shouting.
+ */
 body {
   background-color: var(--canvas);
   color: var(--ink);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * Square, everywhere. The one exception is drawn, not styled: the score ring
+ * and the meter caps are SVG geometry, which this cannot and should not reach.
+ */
+:where(button, input, textarea, select, a, section, article, aside, div, span, li, dd, dt) {
+  border-radius: 0;
+}
+
+/*
+ * A link is ink with a rule under it. With the accent gone there is no colour
+ * left to mark one, and an unmarked link in a wall of monospace is invisible.
+ */
+.link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-thickness 150ms ease-out;
+}
+
+.link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/*
+ * The micro-label used for field names, section eyebrows and table headers.
+ *
+ * Typography only. It deliberately does NOT set a colour: this rule is
+ * unlayered, so it would outrank every `text-*` utility placed beside it, and
+ * a label on a solid ink button would silently render in muted grey.
+ */
+.label {
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 /* Visible focus everywhere, including for people navigating by keyboard only. */
@@ -92,4 +170,243 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Marketing-only surface treatments.
+ *
+ * Both are decoration and both are masked or scoped so they never sit under
+ * text: contrast on this page is carried entirely by the colour tokens above,
+ * which is what keeps the page passing the accessibility checks it advertises.
+ * ------------------------------------------------------------------------- */
+
+/* Blueprint grid behind the hero, faded out before it reaches the content. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, #000 35%, transparent 100%);
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, #000 35%, transparent 100%);
+}
+
+/* One soft pool of accent light behind the score. */
+.glow {
+  background: radial-gradient(closest-side, var(--glow), transparent);
+}
+
+/*
+ * The page's one signature animation: a line travelling down the sample report
+ * once, the way the scanner reads a page. The global prefers-reduced-motion
+ * rule above collapses its duration to nothing, which is the intent — this is
+ * ornament, and it is the first thing that should stop moving.
+ */
+.scan-sweep::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: scan-sweep 1.8s cubic-bezier(0.4, 0, 0.2, 1) 0.35s both;
+  pointer-events: none;
+}
+
+@keyframes scan-sweep {
+  from {
+    top: 0;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.85;
+  }
+  to {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* ===========================================================================
+ * HERO TOKENS
+ *
+ * The hero is a single saturated block with exactly two colours in it: the
+ * brand fill and near-black. CHANGE THE BRAND COLOUR HERE and nowhere else —
+ * every border, glyph, button and caret in the hero resolves through these.
+ *
+ * They are deliberately NOT redefined under prefers-color-scheme: dark. The
+ * hero is a printed surface, not a themed one; a brand block that flips with
+ * the OS setting is a different brand twice.
+ *
+ * Contrast, measured, not assumed: #050505 on #00E676 is 12.2:1 (AAA), and
+ * --hero-ink-dim composited over the brand is 5.0:1 (AA for body text). If you
+ * change --brand to something darker, invert the whole hero — brand-coloured
+ * type on a near-black fill — rather than shipping grey-on-colour.
+ * ========================================================================= */
+:root {
+  --brand: #ffffff;
+
+  /* One source of truth for the ink. Everything below is this, at an alpha. */
+  --hero-ink-rgb: 5 5 5;
+  --hero-ink: rgb(var(--hero-ink-rgb));
+  --hero-ink-dim: rgb(var(--hero-ink-rgb) / 0.62);
+  --hero-on-ink: var(--brand);
+
+  /* The matrix field. The canvas reads the rgb triple and these two alphas
+     directly, so the glyphs and the CSS can never drift apart. */
+  --hero-field-alpha: 0.14;
+  --hero-field-glow-alpha: 0.82;
+  --hero-field: rgb(var(--hero-ink-rgb) / var(--hero-field-alpha));
+  /* Divisions inside a bordered group, quieter than the group's own edge. */
+  --hero-rule: rgb(var(--hero-ink-rgb) / 0.22);
+}
+
+/*
+ * A saturated brand block can ignore the OS theme — it is the same printed
+ * colour either way. A WHITE one cannot: leaving a full-height white hero
+ * above a dark page is not a design choice, it is a flashbang. So the fill
+ * and the ink swap, and every rule above keeps working because both are
+ * expressed as one colour at an alpha.
+ *
+ * The glyphs are given slightly more alpha here: light-on-dark reads fainter
+ * than dark-on-light at the same value.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: #0b0d10;
+    --hero-ink-rgb: 233 237 242;
+    --hero-field-alpha: 0.17;
+  }
+}
+
+/* Focus is black-on-brand inside the hero, where the accent blue would be
+   both off-palette and low contrast. Offset so it clears a solid black button. */
+.hero :focus-visible {
+  outline: 2px solid var(--hero-ink);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Hero entrance motion.
+ *
+ * Every animation moves opacity, transform or clip-path only — never a
+ * property that reflows — so the entrance cannot contribute to CLS. All use
+ * `both` so the pre-delay state is the keyframe's start, not the element's
+ * natural state.
+ * ------------------------------------------------------------------------- */
+@keyframes hero-frame-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes hero-line-in {
+  from {
+    clip-path: inset(0 0 110% 0);
+    transform: translateY(0.14em);
+  }
+  to {
+    clip-path: inset(0 0 -0.1em 0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-field-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hero-frame-in {
+  animation: hero-frame-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-line-in {
+  animation: hero-line-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-rise {
+  animation: hero-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) 250ms both;
+}
+
+.hero-field-in {
+  animation: hero-field-in 1200ms linear both;
+}
+
+/*
+ * The global reduced-motion rule collapses duration but not DELAY, which would
+ * leave the delayed rows invisible for a quarter of a second and then pop. So
+ * the hero drops its entrances entirely: no animation means the natural, final
+ * state, which is the whole requirement.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .hero-frame-in,
+  .hero-line-in,
+  .hero-rise,
+  .hero-field-in {
+    animation: none !important;
+  }
+}
+
+/* Nav underline that slides in from the left. Scale beats width: it composites
+   instead of reflowing, and this sits on top of a repainting canvas. */
+.hero-link::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 200ms ease-out;
+}
+
+.hero-link:hover::after,
+.hero-link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* The caret is the one place the brand's "terminal" claim has to be literal. */
+.hero-input {
+  caret-color: var(--hero-ink);
+}
+
+/*
+ * The field is densest at the top and gone before the headline starts, so it
+ * stays texture rather than becoming a background the type has to fight. The
+ * mask means the canvas can span the whole content area — no percentage height
+ * resolved against a flex parent, which is the fragile way to do this.
+ */
+.hero-field-mask {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 48%, transparent 97%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 48%, transparent 97%);
+}
+
+/* The disclosure triangle is replaced by our own glyph in the hero nav. */
+.hero-menu > summary {
+  list-style: none;
+}
+
+.hero-menu > summary::-webkit-details-marker {
+  display: none;
 }
