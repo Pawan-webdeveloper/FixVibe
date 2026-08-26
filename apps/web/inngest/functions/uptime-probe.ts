@@ -14,6 +14,7 @@
 
 import { safeFetch } from '@darvin/checks'
 import { consecutiveFailures, recordAlertOnce, recordMonitorRun } from '@darvin/db'
+import { deliverAlert } from '@/lib/alert-email.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import type { MonitorDueEvent } from './types.ts'
 
@@ -54,13 +55,15 @@ export const uptimeProbe = inngest.createFunction(
       }
     })
 
-    return step.run('record-and-alert', async () => {
+    const result = await step.run('record-and-alert', async () => {
       await recordMonitorRun(monitorId, outcome)
 
-      if (outcome.ok) return { ok: true, alerted: false }
+      if (outcome.ok) return { ok: true, alerted: false, streak: 0, alertId: null as string | null }
 
       const streak = await consecutiveFailures(monitorId)
-      if (streak < FAILURES_BEFORE_ALERT) return { ok: false, alerted: false, streak }
+      if (streak < FAILURES_BEFORE_ALERT) {
+        return { ok: false, alerted: false, streak, alertId: null as string | null }
+      }
 
       const alert = await recordAlertOnce({
         projectId,
@@ -68,7 +71,21 @@ export const uptimeProbe = inngest.createFunction(
         channel: 'email',
         payload: { url, streak, statusCode: outcome.statusCode, detail: outcome.detail },
       })
-      return { ok: false, alerted: alert !== null, streak }
+      return { ok: false, alerted: alert !== null, streak, alertId: alert?.id ?? null }
     })
+
+    /*
+     * Delivery is its OWN step, deliberately.
+     *
+     * Inngest memoizes a completed step and retries only the one that failed.
+     * Folded into the step above, a transient mail failure would retry the
+     * whole thing — recordAlertOnce would find today's row already there,
+     * return null, and the retry would send nothing. The alert would be lost
+     * precisely because we tried to be careful about duplicates.
+     */
+    const alertId = result.alertId
+    if (alertId) await step.run('deliver', () => deliverAlert(alertId))
+
+    return result
   },
 )
