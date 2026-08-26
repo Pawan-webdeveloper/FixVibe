@@ -11,11 +11,13 @@ export { uptimeProbe } from './functions/uptime-probe.ts'
 export { rescanProject } from './functions/scheduled-rescan.ts'
 export { domainHealth } from './functions/domain-health.ts'
 export { runScanQueued } from './functions/run-scan.ts'
+export { generateReport } from './functions/generate-report.ts'
 
 import { sweepMonitors } from './functions/sweep.ts'
 import { uptimeProbe } from './functions/uptime-probe.ts'
 import { rescanProject } from './functions/scheduled-rescan.ts'
 import { domainHealth } from './functions/domain-health.ts'
 import { runScanQueued } from './functions/run-scan.ts'
+import { generateReport } from './functions/generate-report.ts'
 
-export const functions = [sweepMonitors, uptimeProbe, rescanProject, domainHealth, runScanQueued]
+export const functions = [sweepMonitors, uptimeProbe, rescanProject, domainHealth, runScanQueued, generateReport]

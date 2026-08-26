@@ -1,5 +1,5 @@
 import { Section, SectionHeading } from './section.tsx'
-import { TOTAL_CHECKS } from './coverage.ts'
+import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
  * The FAQ, and the page's own answer-engine test.
@@ -14,7 +14,7 @@ import { TOTAL_CHECKS } from './coverage.ts'
 const QA: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: 'Do I need an account?',
-    a: 'No. Scanning is anonymous and the report has a shareable URL. An account exists so reports are kept, compared over time and monitored — not so you can run one.',
+    a: 'To scan, no \u2014 anyone can run one, and the score, the pillar breakdown and every finding\u2019s title and severity are public on a shareable URL. To read the findings themselves you do: an account opens the worst of them in full, with the evidence behind each one and the fix. It is free, and there is no password to create.',
   },
   {
     q: 'Will this attack my site?',

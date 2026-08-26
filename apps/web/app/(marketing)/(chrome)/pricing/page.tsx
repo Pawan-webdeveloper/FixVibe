@@ -24,6 +24,9 @@ function features(plan: Plan): string[] {
     plan.fixPrompts ? 'One prompt that fixes the whole site' : 'Per-finding fix prompts',
     plan.history ? 'Scan history and score changes' : 'Latest scan only',
     plan.monitors > 0 ? `${plan.monitors} monitored sites` : 'No monitoring',
+    // Advertised only now that /api/v1 answers. plans.ts holds the boolean
+    // precisely so this line and the code that enforces it cannot disagree.
+    plan.apiAccess ? `API access · ${plan.apiKeys} keys` : 'No API access',
   ]
 }
 

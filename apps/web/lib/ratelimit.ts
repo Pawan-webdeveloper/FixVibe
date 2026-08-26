@@ -14,7 +14,12 @@
  */
 
 import 'server-only'
-import { countScansByHostSince, countScansByIpSince, type WindowUsage } from '@darvin/db'
+import {
+  countScansByHostSince,
+  countScansByIpSince,
+  countScansForUserSince,
+  type WindowUsage,
+} from '@darvin/db'
 
 const HOUR_MS = 3_600_000
 
@@ -76,6 +81,61 @@ export async function checkScanAllowed(input: {
       // been scanned enough for one hour, by anyone.
       reason:
         `${input.targetHost} has been scanned ${PER_TARGET.limit} times in the last hour. ` +
+        `To stay polite to the site, try again in ${humanDelay(seconds)}.`,
+      retryAfterSeconds: seconds,
+    }
+  }
+
+  return { ok: true }
+}
+
+/**
+ * The API's burst ceiling, keyed on the ACCOUNT rather than on the address.
+ *
+ * Higher than a browser visitor's five, and the number is not the point — the
+ * KEY is. A CI fleet shares one egress address and rotates it, so an IP-keyed
+ * limit either throttles the whole fleet as if it were one person or lets a
+ * single caller escape by moving. An account cannot move, and an account is
+ * also what the monthly allowance and the bill are attached to.
+ */
+const PER_ACCOUNT_HOURLY = { limit: 60, windowMs: HOUR_MS }
+
+/**
+ * The API's rate limit.
+ *
+ * Two of the three limits in this file apply; the per-visitor IP one does not,
+ * for the reason above. The per-TARGET limit very much does: it is the one
+ * that protects somebody else's server, and an authenticated caller is no more
+ * entitled to hammer a third party than an anonymous one is. That is why it is
+ * re-checked here rather than being something the API opts out of.
+ */
+export async function checkApiScanAllowed(input: {
+  userId: string
+  targetHost: string
+}): Promise<RateVerdict> {
+  const now = Date.now()
+
+  const used = await countScansForUserSince(input.userId, new Date(now - PER_ACCOUNT_HOURLY.windowMs))
+  if (used >= PER_ACCOUNT_HOURLY.limit) {
+    // No `oldest` to measure against — countScansForUserSince returns a count
+    // and nothing else — so the wait is the full window. That over-states it,
+    // which is the safe direction: a caller told to wait too long retries
+    // late, and a caller told to retry immediately writes a hot loop.
+    const seconds = Math.ceil(PER_ACCOUNT_HOURLY.windowMs / 1000)
+    return {
+      ok: false,
+      reason: `This account has started ${PER_ACCOUNT_HOURLY.limit} scans in the last hour. Try again in ${humanDelay(seconds)}.`,
+      retryAfterSeconds: seconds,
+    }
+  }
+
+  const target = await countScansByHostSince(input.targetHost, new Date(now - PER_TARGET.windowMs))
+  if (target.count >= PER_TARGET.limit) {
+    const seconds = retryAfter(target, PER_TARGET.windowMs)
+    return {
+      ok: false,
+      reason:
+        `${input.targetHost} has been scanned ${PER_TARGET.limit} times in the last hour, by everyone together. ` +
         `To stay polite to the site, try again in ${humanDelay(seconds)}.`,
       retryAfterSeconds: seconds,
     }

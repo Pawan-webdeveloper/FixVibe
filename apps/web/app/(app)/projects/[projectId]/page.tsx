@@ -18,8 +18,15 @@ function stamp(date: Date): string {
   return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
 
-export default async function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ projectId: string }>
+  searchParams: Promise<{ quota?: string }>
+}) {
   const { projectId } = await params
+  const { quota } = await searchParams
   if (!UUID.test(projectId)) notFound()
 
   const viewer = await getViewer()
@@ -38,18 +45,60 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           </Link>
           <h1 className="mt-1 truncate text-2xl font-semibold">{project.name}</h1>
           <p className="truncate font-mono text-xs text-muted">{project.url}</p>
+          <p className="label mt-2 text-muted">
+            {project.verifiedDomain ? (
+              <>
+                Domain verified ·{' '}
+                <Link href={`/projects/${project.id}/verify`} className="link">
+                  manage
+                </Link>
+              </>
+            ) : (
+              <Link href={`/projects/${project.id}/verify`} className="link">
+                Verify this domain to unlock the backend checks →
+              </Link>
+            )}
+          </p>
         </div>
 
-        <form action={rescanAction}>
+        {/*
+          Two submits, one action, same as the onboarding form. The depth is a
+          button rather than a select because there are exactly two of them and
+          a select would need client JavaScript to say what each one costs.
+        */}
+        <form action={rescanAction} className="flex flex-wrap items-center gap-3">
           <input type="hidden" name="projectId" value={project.id} />
           <button
             type="submit"
-            className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+            name="profile"
+            value="fast"
+            className="label inline-flex h-11 items-center border border-ink bg-ink px-6 text-canvas
+                       transition-colors duration-150 hover:bg-transparent hover:text-ink"
           >
             Scan now
           </button>
+          <button
+            type="submit"
+            name="profile"
+            value="deep"
+            title="Crawls the site's own links, renders it in a real browser and reads field Core Web Vitals. Takes about a minute."
+            className="label inline-flex h-11 items-center border border-line px-6
+                       transition-colors duration-150 hover:bg-surface"
+          >
+            Deep scan
+          </button>
         </form>
       </header>
+
+      {quota === 'spent' && (
+        <p role="alert" className="mt-6 border border-line bg-surface px-4 py-3 text-sm">
+          This month&apos;s scan allowance is spent. It resets on the first of next month, or{' '}
+          <Link href="/pricing" className="link">
+            Pro raises it
+          </Link>
+          .
+        </p>
+      )}
 
       {scans.length === 0 ? (
         <p className="mt-8 border border-line bg-surface p-6 text-sm text-muted">
@@ -113,7 +162,11 @@ function HistoryRow({ scan }: { scan: Scan }) {
         <span className="flex-1 font-mono text-xs text-muted">{stamp(scan.createdAt)}</span>
 
         {scan.status === 'failed' && <span className="text-sm text-danger">failed</span>}
-        {scan.status === 'running' && <span className="text-sm text-muted">running…</span>}
+        {(scan.status === 'queued' || scan.status === 'running') && (
+          // Both, because a deep scan sits in 'queued' until a worker takes it
+          // and showing nothing for that window reads as a scan that vanished.
+          <span className="text-sm text-muted">{scan.status === 'queued' ? 'queued…' : 'running…'}</span>
+        )}
 
         {score !== null && (
           <span className="text-lg font-semibold tabular-nums" style={{ color: scoreColor(score) }}>

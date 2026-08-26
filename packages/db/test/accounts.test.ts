@@ -30,6 +30,19 @@ import {
 import { completeScan, createScan } from '../src/queries/scans.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
+/**
+ * createProject now takes the plan's project ceiling. These tests are about
+ * ownership and history rather than pricing, so they pass a ceiling nothing
+ * here reaches; the limit itself has its own file.
+ */
+async function makeProject(
+  viewer: Viewer,
+  input: { name: string; url: string; orgId: string },
+): Promise<Project | null> {
+  const result = await createProject(viewer, input, 100)
+  return result.ok ? result.project : null
+}
+
 const live = process.env.DARVIN_DB === '1'
 
 const scores = (overall: number, degraded: ScanScores['degraded'] = []): ScanScores => ({
@@ -105,12 +118,12 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
       await ensureUser(identity)
       const viewer: Viewer = { kind: 'user', userId: identity.id }
       const context = await getUserContext(identity.id)
-      const project = await createProject(viewer, { name: 'x', url: 'https://x.test/', orgId: context!.orgId })
+      const project = await makeProject(viewer, { name: 'x', url: 'https://x.test/', orgId: context!.orgId })
 
       expect(await listProjects(ANONYMOUS)).toEqual([])
       expect(await getProject(project!.id, ANONYMOUS)).toBeNull()
       expect(await listScansForProject(project!.id, ANONYMOUS)).toEqual([])
-      expect(await createProject(ANONYMOUS, { name: 'x', url: 'https://x.test/', orgId: context!.orgId })).toBeNull()
+      expect(await makeProject(ANONYMOUS, { name: 'x', url: 'https://x.test/', orgId: context!.orgId })).toBeNull()
     })
 
     it('hides one account\'s project from another', async () => {
@@ -121,7 +134,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
       await ensureUser(owner)
       await ensureUser(stranger)
       const ownerCtx = await getUserContext(owner.id)
-      const project = await createProject(
+      const project = await makeProject(
         { kind: 'user', userId: owner.id },
         { name: 'x', url: 'https://x.test/', orgId: ownerCtx!.orgId },
       )
@@ -135,7 +148,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
       const identity = newIdentity()
       await ensureUser(identity)
       const context = await getUserContext(identity.id)
-      const project = await createProject(
+      const project = await makeProject(
         { kind: 'user', userId: identity.id },
         { name: 'x', url: 'https://Example.TEST/path', orgId: context!.orgId },
       )
@@ -205,7 +218,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
       await ensureUser(identity)
       const context = await getUserContext(identity.id)
       const viewer: Viewer = { kind: 'user', userId: identity.id }
-      const project = await createProject(viewer, { name: 'd', url: 'https://d.test/', orgId: context!.orgId })
+      const project = await makeProject(viewer, { name: 'd', url: 'https://d.test/', orgId: context!.orgId })
       return { viewer, projectId: project!.id }
     }
 
@@ -279,7 +292,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
       const identity = newIdentity()
       await ensureUser(identity)
       const context = await getUserContext(identity.id)
-      const project = await createProject({ kind: 'user', userId: identity.id }, { name: 'p', url, orgId: context!.orgId })
+      const project = await makeProject({ kind: 'user', userId: identity.id }, { name: 'p', url, orgId: context!.orgId })
       if (verified) await db.update(projects).set({ verifiedDomain: true }).where(eq(projects.id, project!.id))
       return project!.id
     }

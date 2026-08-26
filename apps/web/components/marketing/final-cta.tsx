@@ -1,5 +1,5 @@
 import { ScanForm } from '@/components/scan/scan-form.tsx'
-import { TOTAL_CHECKS } from './coverage.ts'
+import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
  * The same form as the hero, at the bottom.

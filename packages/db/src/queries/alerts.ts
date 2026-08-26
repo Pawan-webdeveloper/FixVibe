@@ -14,7 +14,7 @@
 
 import { and, desc, eq, gte } from 'drizzle-orm'
 import { db } from '../client.ts'
-import { alerts, type Alert } from '../schema.ts'
+import { alerts, projects, users, type Alert } from '../schema.ts'
 import { getProject } from './projects.ts'
 import type { Viewer } from './viewer.ts'
 
@@ -57,6 +57,50 @@ export async function recordAlertOnce(input: {
       payload: input.payload,
     })
     .returning()
+
+  return row ?? null
+}
+
+/**
+ * Everything needed to send one alert, in a single query.
+ *
+ * The alert ROW is the source of truth for what to send — its kind and payload
+ * already describe the event — so delivery does not need the job that raised
+ * it to hand anything along. That is what lets a failed send be retried later
+ * from nothing but an id.
+ *
+ * The recipient is the project's OWNER. Memberships exist in the schema and
+ * team alerting will need them, but sending to a list nobody has chosen yet
+ * would be inventing a feature; one address is the honest answer today.
+ */
+export interface AlertForDelivery {
+  id: string
+  kind: string
+  payload: Record<string, unknown> | null
+  sentAt: Date | null
+  projectName: string
+  projectUrl: string
+  projectSlug: string
+  recipientEmail: string
+}
+
+export async function alertForDelivery(alertId: string): Promise<AlertForDelivery | null> {
+  const [row] = await db
+    .select({
+      id: alerts.id,
+      kind: alerts.kind,
+      payload: alerts.payload,
+      sentAt: alerts.sentAt,
+      projectName: projects.name,
+      projectUrl: projects.url,
+      projectSlug: projects.slug,
+      recipientEmail: users.email,
+    })
+    .from(alerts)
+    .innerJoin(projects, eq(projects.id, alerts.projectId))
+    .innerJoin(users, eq(users.id, projects.ownerId))
+    .where(eq(alerts.id, alertId))
+    .limit(1)
 
   return row ?? null
 }

@@ -27,6 +27,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/dashboard" className="label text-muted transition-colors hover:text-ink">
             Projects
           </Link>
+          <Link href="/settings/billing" className="label text-muted transition-colors hover:text-ink">
+            Settings
+          </Link>
           <div className="flex-1" />
           <span className="label hidden text-muted sm:inline">{user.email}</span>
           <form action="/signout" method="post">

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createProject } from '@darvin/db'
 import { getViewer } from '@/lib/authz.ts'
 import { normalizeScanTarget } from '@/lib/url.ts'
+import { entitlementsFor } from '@/lib/entitlements.ts'
 
 export interface ActionState {
   error?: string
@@ -27,9 +28,23 @@ export async function createProjectAction(_prev: ActionState, formData: FormData
 
   const name = String(formData.get('name') ?? '').trim() || target.hostname
 
-  const project = await createProject(viewer, { name, url: target.url, orgId })
-  if (!project) return { error: 'Could not create the project.' }
+  // The ceiling is passed in rather than looked up inside the query layer:
+  // that package must not learn about pricing, but it can be told a number,
+  // and a caller that forgets to supply one does not compile.
+  const { plan } = await entitlementsFor(viewer)
+  const result = await createProject(viewer, { name, url: target.url, orgId }, plan.projects)
+
+  if (!result.ok) {
+    if (result.reason === 'limit-reached') {
+      return {
+        error:
+          `The ${plan.name} plan includes ${plan.projects} ` +
+          `${plan.projects === 1 ? 'project' : 'projects'}. Upgrade to track more sites.`,
+      }
+    }
+    return { error: 'Could not create the project.' }
+  }
 
   revalidatePath('/dashboard')
-  redirect(`/projects/${project.id}`)
+  redirect(`/projects/${result.project.id}`)
 }

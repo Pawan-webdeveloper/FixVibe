@@ -1,12 +1,12 @@
 import { allChecks, type Category } from '@darvin/checks'
 
 /**
- * Everything the landing page says about coverage, derived from the registry.
+ * Everything the product says about its own coverage, derived from the registry.
  *
- * The page must never be able to advertise a check the engine does not run, so
- * no count and no check name on it is typed by hand. Adding a check to
- * registry.ts updates the marketing copy in the same commit, and removing one
- * cannot leave a claim behind.
+ * No count and no check name anywhere in the app is typed by hand: the landing
+ * page cannot advertise a check the engine does not run, and onboarding cannot
+ * offer a pillar nothing reports on. Adding a check to registry.ts updates all
+ * of it in the same commit, and removing one cannot leave a claim behind.
  */
 
 export const TOTAL_CHECKS = allChecks.length
@@ -66,4 +66,19 @@ export function pillarSummaries(examplesPerPillar = 4): PillarSummary[] {
 /** Every check in one pillar, for the sections that list a pillar in full. */
 export function checkTitlesIn(category: Category): string[] {
   return allChecks.filter((check) => check.category === category).map((check) => check.title)
+}
+
+/** Every pillar the registry covers. The order matches pillarSummaries(). */
+export function coveredCategories(): Category[] {
+  return pillarSummaries(0).map((pillar) => pillar.category)
+}
+
+/**
+ * Narrows an untrusted string — a form field, a query parameter — to a pillar
+ * the engine actually reports on. Anything else is dropped rather than stored:
+ * the column is a Postgres enum and an unknown value is a write that throws at
+ * runtime instead of a value that was never valid.
+ */
+export function isCoveredCategory(value: unknown): value is Category {
+  return typeof value === 'string' && coveredCategories().includes(value as Category)
 }

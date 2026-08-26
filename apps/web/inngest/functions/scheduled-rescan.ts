@@ -11,10 +11,11 @@
  * saying a site got worse on a day it did not change.
  */
 
-import { recentScansForScheduler, recordAlertOnce, recordMonitorRun } from '@darvin/db'
+import { recentScansForScheduler, recordAlertOnce, recordMonitorRun, type ScanProfile } from '@darvin/db'
 import type { Category } from '@darvin/checks'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import { runScanJob } from '@/lib/scan/run-scan-job.ts'
+import { deliverAlert } from '@/lib/alert-email.ts'
 import type { MonitorDueEvent } from './types.ts'
 
 /**
@@ -89,9 +90,17 @@ export const rescanProject = inngest.createFunction(
       return snapshot(scan)
     })
 
-    const scanId = await step.run('scan', () => runScanJob({ url, profile: 'fast', projectId }))
+    /*
+     * Re-scan at the depth the project was last scanned at, not at a hardcoded
+     * one. comparable() below refuses to report a delta across a change of
+     * profile — correctly, since a deep scan measures things a fast one never
+     * looks at — so a scheduler that always ran 'fast' would silence the delta
+     * on every project that uses deep scans, forever.
+     */
+    const profile: ScanProfile = previous?.profile === 'deep' ? 'deep' : 'fast'
+    const scanId = await step.run('scan', () => runScanJob({ url, profile, projectId }))
 
-    return step.run('record-and-alert', async () => {
+    const result = await step.run('record-and-alert', async () => {
       const [row] = await recentScansForScheduler(projectId, 1)
       const latest = snapshot(row)
 
@@ -101,7 +110,7 @@ export const rescanProject = inngest.createFunction(
       })
 
       if (!comparable(latest, previous)) {
-        return { scanId, alerted: false, reason: 'coverage-changed' }
+        return { scanId, alerted: false, reason: 'coverage-changed', alertId: null as string | null }
       }
 
       const before = previous!.overall!
@@ -109,7 +118,9 @@ export const rescanProject = inngest.createFunction(
 
       // Only a drop is worth interrupting somebody for. An improvement is good
       // news, and good news can wait until they look.
-      if (after >= before) return { scanId, alerted: false, reason: 'no-regression' }
+      if (after >= before) {
+        return { scanId, alerted: false, reason: 'no-regression', alertId: null as string | null }
+      }
 
       const alert = await recordAlertOnce({
         projectId,
@@ -118,7 +129,21 @@ export const rescanProject = inngest.createFunction(
         payload: { scanId, before, after, delta: after - before },
       })
 
-      return { scanId, alerted: alert !== null, before, after }
+      return { scanId, alerted: alert !== null, reason: null, alertId: alert?.id ?? null }
     })
+
+    /*
+     * Delivery is its OWN step, deliberately.
+     *
+     * Inngest memoizes a completed step and retries only the one that failed.
+     * Folded into the step above, a transient mail failure would retry the
+     * whole thing — recordAlertOnce would find today's row already there,
+     * return null, and the retry would send nothing. The alert would be lost
+     * precisely because we tried to be careful about duplicates.
+     */
+    const alertId = result.alertId
+    if (alertId) await step.run('deliver', () => deliverAlert(alertId))
+
+    return result
   },
 )

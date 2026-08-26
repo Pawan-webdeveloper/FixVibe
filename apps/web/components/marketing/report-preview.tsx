@@ -4,7 +4,7 @@ import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingCard } from '@/components/scan/finding-card.tsx'
 import { Section, SectionHeading } from './section.tsx'
 import { SAMPLE, SAMPLE_FINDINGS, SAMPLE_SCORES } from './sample-report.ts'
-import { TOTAL_CHECKS } from './coverage.ts'
+import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
  * The hero image, which is not an image.

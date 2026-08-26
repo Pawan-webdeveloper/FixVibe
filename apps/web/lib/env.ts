@@ -78,6 +78,17 @@ export const serverEnv = {
     return Boolean(process.env.RAZORPAY_WEBHOOK_SECRET)
   },
 
+  /**
+   * Alert email. Absent means monitoring records alerts that reach nobody, so
+   * the transport logs loudly rather than failing quietly — see lib/email.ts.
+   * Deliberately not part of assertServerEnv: a deployment with no mail
+   * provider should still scan, and a monitoring feature nobody has enabled
+   * yet is not a reason to refuse every request.
+   */
+  get alertsConfigured() {
+    return Boolean(process.env.RESEND_API_KEY)
+  },
+
   get isProduction() {
     return process.env.NODE_ENV === 'production'
   },

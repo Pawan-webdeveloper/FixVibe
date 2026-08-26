@@ -13,8 +13,9 @@
  * sections, so a reader who arrived from that page is reading the same grammar.
  */
 
-import { allChecks, type Category } from '@darvin/checks'
+import type { Category } from '@darvin/checks'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
+import { coveredCategories } from '@/lib/pillars.ts'
 import { FindingCard, type FindingView } from './finding-card.tsx'
 
 const LABEL: Record<Category, string> = {
@@ -26,16 +27,36 @@ const LABEL: Record<Category, string> = {
   compliance: 'Compliance',
 }
 
-function coveredPillars(): Category[] {
-  const counts = new Map<Category, number>()
-  for (const check of allChecks) counts.set(check.category, (counts.get(check.category) ?? 0) + 1)
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([category]) => category)
+/**
+ * Pillars the reader asked us to lead with come first; the rest keep the
+ * engine's own order behind them. Nothing is hidden — a priority moves a
+ * section up the page, it never removes one, because the scan measured all of
+ * it and a report that quietly dropped a pillar would be lying by omission.
+ */
+function orderedPillars(priorities: readonly Category[] | null): Category[] {
+  const covered = coveredCategories()
+  if (!priorities?.length) return covered
+
+  const wanted = new Set(priorities)
+  return [...covered.filter((c) => wanted.has(c)), ...covered.filter((c) => !wanted.has(c))]
 }
 
-export function FindingsList({ findings }: { findings: readonly FindingView[] }) {
+export function FindingsList({
+  findings,
+  priorities = null,
+  lockedNote,
+}: {
+  findings: readonly FindingView[]
+  /** Pillars this reader chose at onboarding; null when they never answered. */
+  priorities?: readonly Category[] | null
+  /** Passed straight through: only the page knows which gate applies. */
+  lockedNote?: string
+}) {
+  const leading = new Set(priorities ?? [])
+
   return (
     <div className="flex flex-col gap-12">
-      {coveredPillars().map((pillar, index) => {
+      {orderedPillars(priorities).map((pillar, index) => {
         const inPillar = findings.filter((f) => f.category === pillar)
 
         return (
@@ -44,7 +65,7 @@ export function FindingsList({ findings }: { findings: readonly FindingView[] })
               as="h2"
               id={`pillar-${pillar}`}
               index={index + 1}
-              label={LABEL[pillar]}
+              label={leading.has(pillar) ? `${LABEL[pillar]} ★` : LABEL[pillar]}
               trailing={inPillar.length === 0 ? 'clean' : `${inPillar.length} found`}
             />
 
@@ -55,7 +76,11 @@ export function FindingsList({ findings }: { findings: readonly FindingView[] })
             ) : (
               <div className="mt-4 flex flex-col gap-3">
                 {inPillar.map((finding, i) => (
-                  <FindingCard key={`${finding.checkId}-${i}`} finding={finding} />
+                  <FindingCard
+                    key={`${finding.checkId}-${i}`}
+                    finding={finding}
+                    {...(lockedNote ? { lockedNote } : {})}
+                  />
                 ))}
               </div>
             )}

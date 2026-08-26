@@ -30,4 +30,15 @@ export const inngest = new Inngest({ id: 'darvin', isDev })
 export const EVENTS = {
   /** One per due monitor, emitted by the sweep. */
   monitorDue: 'darvin/monitor.due',
+  /**
+   * A scan that has been reserved but not run. Emitted by the scan endpoint
+   * for the deep profile, which cannot finish inside a request.
+   */
+  scanRequested: 'darvin/scan.requested',
+  /**
+   * A report to build and deliver out of band. Emitted for the deliveries
+   * nobody is waiting on — a scheduled digest, or a retry after the browser
+   * tier was busy. The download route does not use it.
+   */
+  reportRequested: 'darvin/report.requested',
 } as const

@@ -13,6 +13,7 @@
 
 import { getTlsInfo } from '@darvin/checks'
 import { recordAlertOnce, recordMonitorRun } from '@darvin/db'
+import { deliverAlert } from '@/lib/alert-email.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import type { MonitorDueEvent } from './types.ts'
 
@@ -57,14 +58,23 @@ export const domainHealth = inngest.createFunction(
       }
     })
 
-    return step.run('record-and-alert', async () => {
+    const result = await step.run('record-and-alert', async () => {
       await recordMonitorRun(monitorId, { ok: reading.ok, detail: reading.detail })
 
       const daysLeft = reading.daysLeft
-      if (daysLeft === null) return { alerted: false, reason: reading.detail ?? 'no certificate' }
+      if (daysLeft === null) {
+        return {
+          alerted: false,
+          daysLeft: null as number | null,
+          reason: reading.detail ?? 'no certificate',
+          alertId: null as string | null,
+        }
+      }
 
       const threshold = daysLeft < 0 ? 0 : THRESHOLD_DAYS.find((days) => daysLeft <= days)
-      if (threshold === undefined) return { alerted: false, daysLeft }
+      if (threshold === undefined) {
+        return { alerted: false, daysLeft, reason: 'above every threshold', alertId: null as string | null }
+      }
 
       const alert = await recordAlertOnce({
         projectId,
@@ -74,7 +84,21 @@ export const domainHealth = inngest.createFunction(
         channel: 'email',
         payload: { url, daysLeft, expired: daysLeft < 0 },
       })
-      return { alerted: alert !== null, daysLeft, threshold }
+      return { alerted: alert !== null, daysLeft, reason: null, alertId: alert?.id ?? null }
     })
+
+    /*
+     * Delivery is its OWN step, deliberately.
+     *
+     * Inngest memoizes a completed step and retries only the one that failed.
+     * Folded into the step above, a transient mail failure would retry the
+     * whole thing — recordAlertOnce would find today's row already there,
+     * return null, and the retry would send nothing. The alert would be lost
+     * precisely because we tried to be careful about duplicates.
+     */
+    const alertId = result.alertId
+    if (alertId) await step.run('deliver', () => deliverAlert(alertId))
+
+    return result
   },
 )

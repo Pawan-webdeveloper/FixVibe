@@ -121,3 +121,41 @@ export async function withPage<T>(url: URL, job: (page: Page) => Promise<T>): Pr
     await context.close().catch(() => {})
   }
 }
+
+/**
+ * Renders HTML we produced ourselves, with the network sealed off.
+ *
+ * Separate from withPage because the threat is inverted. There, a URL we do
+ * not control is navigated to and the guard vets its subresources. Here the
+ * document is ours and there is no navigation at all — so every request is
+ * blocked outright rather than filtered. That is not paranoia about our own
+ * markup: it is what makes this endpoint safe to expose, because a caller who
+ * could smuggle an <img src="http://169.254.169.254/..."> into the HTML would
+ * otherwise have turned the PDF renderer into the SSRF proxy the guard in
+ * withPage exists to prevent.
+ *
+ * It also makes rendering deterministic. A report that silently fetched a font
+ * would produce a different PDF on a bad network day.
+ */
+export async function withHtmlPage<T>(html: string, job: (page: Page) => Promise<T>): Promise<T> {
+  const context: BrowserContext = await (await browser()).newContext({
+    viewport: VIEWPORT,
+    userAgent: USER_AGENT,
+    // Nothing in a generated report needs to run, and disabling it removes the
+    // last way markup could reach outward.
+    javaScriptEnabled: false,
+    serviceWorkers: 'block',
+  })
+
+  try {
+    context.setDefaultTimeout(NAVIGATION_TIMEOUT_MS)
+    await context.route('**/*', (route) => route.abort('blockedbyclient').catch(() => {}))
+
+    const page = await context.newPage()
+    // 'load' would wait on the very subresources that were just blocked.
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS })
+    return await job(page)
+  } finally {
+    await context.close().catch(() => {})
+  }
+}

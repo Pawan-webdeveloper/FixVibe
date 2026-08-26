@@ -13,8 +13,24 @@ import { canSeeFixPrompt, redactFindings, type RedactableFinding } from '../lib/
 import { planFor } from '../lib/plans.ts'
 import type { Entitlements } from '../lib/entitlements.ts'
 
-const free: Entitlements = { plan: planFor('free'), signedIn: false }
-const pro: Entitlements = { plan: planFor('pro'), signedIn: true }
+const anonymous: Entitlements = {
+  plan: planFor('free'),
+  signedIn: false,
+  findingsInFull: 0,
+  priorities: null,
+}
+const free: Entitlements = {
+  plan: planFor('free'),
+  signedIn: true,
+  findingsInFull: planFor('free').findingsShownInFull,
+  priorities: null,
+}
+const pro: Entitlements = {
+  plan: planFor('pro'),
+  signedIn: true,
+  findingsInFull: Number.POSITIVE_INFINITY,
+  priorities: ['security'],
+}
 
 const finding = (n: number): RedactableFinding => ({
   checkId: `check.${n}`,
@@ -36,7 +52,27 @@ describe('redactFindings', () => {
     expect(report.findings.every((f) => f.locked === false)).toBe(true)
   })
 
-  it('gives a free reader the worst three in full', () => {
+  it('opens nothing for a signed-out reader, and still names everything', () => {
+    const report = redactFindings(many(10), anonymous)
+
+    expect(report.lockedCount).toBe(10)
+    expect(report.findings.every((f) => f.locked === true)).toBe(true)
+    // The shape of the report is the whole offer: a stranger must be able to
+    // see that there are ten problems and how bad they are.
+    expect(report.findings.map((f) => f.title)).toEqual(many(10).map((f) => f.title))
+    expect(report.lockedSeverities).toHaveLength(10)
+  })
+
+  it('sends no withheld text to a signed-out reader', () => {
+    const wire = JSON.stringify(redactFindings(many(10), anonymous))
+
+    expect(wire).not.toContain('SECRET-DESCRIPTION')
+    expect(wire).not.toContain('SECRET-EVIDENCE')
+    expect(wire).not.toContain('SECRET-REMEDIATION')
+    expect(wire).not.toContain('SECRET-FIXPROMPT')
+  })
+
+  it('gives a signed-in free reader the worst three in full', () => {
     const report = redactFindings(many(10), free)
     expect(report.findings.filter((f) => !f.locked)).toHaveLength(3)
     expect(report.lockedCount).toBe(7)

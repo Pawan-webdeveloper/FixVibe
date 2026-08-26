@@ -33,8 +33,8 @@ export default async function BillingPage() {
     subscription && !['created', 'active', 'authenticated', 'cancelled', 'completed'].includes(subscription.status)
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="text-2xl font-semibold">Billing</h1>
+    <>
+      <h1 className="mt-8 text-2xl font-semibold tracking-[-0.02em]">Billing</h1>
 
       <section className="mt-8 border border-line p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -71,6 +71,8 @@ export default async function BillingPage() {
           <dd>{plan.fullFindings ? 'Yes' : `The ${plan.findingsShownInFull} worst`}</dd>
           <dt className="text-muted">Fix prompt</dt>
           <dd>{plan.fixPrompts ? 'Yes' : 'Per finding only'}</dd>
+          <dt className="text-muted">API keys</dt>
+          <dd className="tabular-nums">{plan.apiAccess ? plan.apiKeys : 'Not included'}</dd>
         </dl>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -92,6 +94,6 @@ export default async function BillingPage() {
           </p>
         )}
       </section>
-    </div>
+    </>
   )
 }

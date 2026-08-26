@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   description:
     'Paste a URL and get 63 read-only checks across security, SEO, AI answer engines, performance, ' +
     'accessibility and compliance — each with the evidence observed and a fix prompt for your AI ' +
-    'coding agent. Free, no signup.',
+    'coding agent. Scanning is free.',
   openGraph: {
     type: 'website',
     siteName: 'Darvin',
