@@ -23,7 +23,8 @@ import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingsList } from '@/components/scan/findings-list.tsx'
 import { FixPromptDialog } from '@/components/scan/fix-prompt-dialog.tsx'
-import { PaywallNotice } from '@/components/scan/paywall-blur.tsx'
+import { ExportLinks } from '@/components/scan/export-links.tsx'
+import { ReportGate } from '@/components/scan/report-gate.tsx'
 import { ScanProgress } from '@/components/scan/scan-progress.tsx'
 import { entitlementsFor, type Entitlements } from '@/lib/entitlements.ts'
 import { canSeeFixPrompt, redactFindings } from '@/lib/redact.ts'
@@ -137,18 +138,34 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
 
           {scan.checkErrors.length > 0 && <CheckErrors errors={scan.checkErrors} />}
 
-          {claimable && <SaveReport scanId={scan.id} host={host} signedIn={viewer.kind === 'user'} />}
+          {/* Only for a signed-in reader. A signed-out one already has one
+              sign-in ask on this page — the gate below — and two competing
+              calls to action is how neither gets taken. */}
+          {claimable && entitlements.signedIn && <SaveReport scanId={scan.id} host={host} />}
 
           <AggregateFixPrompt scan={scan} entitlements={entitlements} />
 
+          {/* Shown only to a plan that has it. A download button that answers
+              403 is a worse discovery of the paywall than not offering one. */}
+          {entitlements.plan.exports && <ExportLinks scanId={scan.id} />}
+
           <div className="mt-10">
-            <FindingsList findings={report.findings as FindingView[]} />
+            <FindingsList
+              findings={report.findings as FindingView[]}
+              priorities={entitlements.priorities}
+              lockedNote={
+                entitlements.signedIn
+                  ? 'The detail and the fix for this finding are part of Pro.'
+                  : 'Sign in to open this finding — the evidence behind it and the fix.'
+              }
+            />
           </div>
 
-          <PaywallNotice
+          <ReportGate
             lockedCount={report.lockedCount}
             lockedSeverities={report.lockedSeverities}
             signedIn={entitlements.signedIn}
+            returnTo={`/scan/${scan.id}`}
           />
         </>
       )}
@@ -264,8 +281,12 @@ function CheckErrors({ errors }: { errors: Array<{ checkId: string; message: str
 /**
  * The conversion moment, placed directly under the score where the reader has
  * just seen something worth keeping.
+ *
+ * Signed-in readers only — the signed-out branch was removed when the report
+ * gate below took over that ask. Two sign-in prompts on one page is how
+ * neither gets taken.
  */
-function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; signedIn: boolean }) {
+function SaveReport({ scanId, host }: { scanId: string; host: string }) {
   return (
     <section className="mt-6 flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-5 py-4">
       <div>
@@ -275,24 +296,16 @@ function SaveReport({ scanId, host, signedIn }: { scanId: string; host: string; 
         </p>
       </div>
 
-      {signedIn ? (
-        <form action={claimScanAction}>
-          <input type="hidden" name="scanId" value={scanId} />
-          <button
-            type="submit"
-            className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
-          >
-            Save as a project
-          </button>
-        </form>
-      ) : (
-        <Link
-          href={`/login?next=${encodeURIComponent(`/scan/${scanId}`)}`}
-          className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+      <form action={claimScanAction}>
+        <input type="hidden" name="scanId" value={scanId} />
+        <button
+          type="submit"
+          className="label inline-flex h-11 items-center border border-ink bg-ink px-6 text-canvas
+                     transition-colors duration-150 hover:bg-transparent hover:text-ink"
         >
-          Sign in to save
-        </Link>
-      )}
+          Save as a project
+        </button>
+      </form>
     </section>
   )
 }

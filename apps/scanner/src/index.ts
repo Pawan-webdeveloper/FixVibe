@@ -23,11 +23,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
 import { SsrfError } from '@darvin/checks'
-import { closeBrowser, RENDER_TIMEOUT_MS, withPage } from './browser.ts'
+import { closeBrowser, RENDER_TIMEOUT_MS, withHtmlPage, withPage } from './browser.ts'
 import { assertRenderable } from './guard.ts'
 import { axeAudit, type AxeSummary } from './jobs/axe-audit.ts'
 import { renderedContent, type RenderedContent } from './jobs/rendered-content.ts'
 import { screenshot, type Screenshot } from './jobs/screenshot.ts'
+import { renderPdf } from './jobs/pdf.ts'
 
 const PORT = Number(process.env['PORT'] ?? 8080)
 const TOKEN = process.env['DARVIN_SCANNER_TOKEN'] ?? ''
@@ -39,6 +40,12 @@ const TOKEN = process.env['DARVIN_SCANNER_TOKEN'] ?? ''
  */
 const MAX_CONCURRENT_RENDERS = 2
 const MAX_BODY_BYTES = 8 * 1024
+/**
+ * /pdf carries a whole rendered document rather than a URL, so it gets its own
+ * ceiling. Still bounded: an unbounded body on a service that hands each one to
+ * a browser is a memory exhaustion primitive.
+ */
+const MAX_PDF_BODY_BYTES = 4 * 1024 * 1024
 
 type JobName = 'content' | 'axe' | 'screenshot'
 const ALL_JOBS: readonly JobName[] = ['content', 'axe', 'screenshot']
@@ -86,7 +93,9 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   if (request.method === 'GET' && request.url === '/health') {
     return send(response, 200, { ok: true, inFlight })
   }
-  if (request.method !== 'POST' || request.url !== '/render') {
+  const isRender = request.method === 'POST' && request.url === '/render'
+  const isPdf = request.method === 'POST' && request.url === '/pdf'
+  if (!isRender && !isPdf) {
     return send(response, 404, { error: 'Not found' })
   }
   if (!authorized(request)) {
@@ -97,6 +106,8 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     response.setHeader('retry-after', '5')
     return send(response, 503, { error: 'Busy' })
   }
+
+  if (isPdf) return handlePdf(request, response)
 
   let body: RenderRequest
   try {
@@ -158,6 +169,46 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
 }
 
 /**
+ * POST /pdf — a document we generated, printed by the same Chromium.
+ *
+ * It takes HTML rather than a URL on purpose: the alternative is handing this
+ * service a link back to the app plus a credential to read it with, which is a
+ * second authentication path into the report and a far larger surface than one
+ * string. The HTML arrives self-contained and is rendered with the network
+ * sealed off — see withHtmlPage.
+ */
+async function handlePdf(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  let body: { html?: unknown }
+  try {
+    body = JSON.parse(await readBody(request, MAX_PDF_BODY_BYTES)) as { html?: unknown }
+  } catch {
+    return send(response, 400, { error: 'Body must be JSON under 4MB' })
+  }
+  if (typeof body.html !== 'string' || body.html.trim() === '') {
+    return send(response, 400, { error: 'html is required' })
+  }
+
+  inFlight += 1
+  const startedAt = performance.now()
+  try {
+    const pdf = await withDeadline(withHtmlPage(body.html, (page) => renderPdf(page)))
+    // base64 rather than a binary body: every other response from this service
+    // is JSON, and one endpoint with a different content type is one more thing
+    // for a caller to special-case.
+    send(response, 200, {
+      pdfBase64: pdf.toString('base64'),
+      bytes: pdf.byteLength,
+      durationMs: Math.round(performance.now() - startedAt),
+    })
+  } catch (error) {
+    console.error('pdf failed', error)
+    send(response, 502, { error: 'Could not render that document' })
+  } finally {
+    inFlight -= 1
+  }
+}
+
+/**
  * Constant-time comparison. A token check that returns early on the first
  * wrong byte leaks the token one character at a time to anyone patient enough
  * to measure the difference.
@@ -177,13 +228,13 @@ function parseJobs(value: unknown): JobName[] | null {
   return jobs.length === value.length ? jobs : null
 }
 
-function readBody(request: IncomingMessage): Promise<string> {
+function readBody(request: IncomingMessage, limit = MAX_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0
     const chunks: Buffer[] = []
     request.on('data', (chunk: Buffer) => {
       size += chunk.length
-      if (size > MAX_BODY_BYTES) {
+      if (size > limit) {
         reject(new Error('body too large'))
         request.destroy()
         return
