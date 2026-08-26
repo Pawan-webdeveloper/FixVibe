@@ -1,5 +1,5 @@
 import { Section, SectionHeading } from './section.tsx'
-import { checkTitlesIn } from './coverage.ts'
+import { checkTitlesIn } from '@/lib/pillars.ts'
 
 /**
  * The pillar nobody else leads with.

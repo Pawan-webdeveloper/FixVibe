@@ -8,9 +8,11 @@
  * liability with no upside.
  */
 
+import type { Category } from '@darvin/checks'
 import { eq } from 'drizzle-orm'
 import { db } from '../client.ts'
 import { memberships, organizations, subscriptions, users } from '../schema.ts'
+import type { Viewer } from './viewer.ts'
 
 export interface AuthIdentity {
   /** Supabase auth.users.id. Never invent one here. */
@@ -72,13 +74,20 @@ export interface UserContext {
   email: string
   orgId: string
   plan: string
+  /**
+   * The pillars this person asked us to lead with, or null when they have
+   * never been asked. Null is the signal that sends them through /welcome —
+   * an empty array would mean "asked, wanted nothing", which is a different
+   * answer and must not trigger the same screen twice.
+   */
+  priorities: Category[] | null
 }
 
 /** The identity a logged-in page needs, in one query instead of three. */
 export async function getUserContext(userId: string): Promise<UserContext | null> {
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { id: true, email: true },
+    columns: { id: true, email: true, priorities: true },
     with: {
       ownedOrganizations: { columns: { id: true }, limit: 1 },
       subscription: { columns: { plan: true } },
@@ -89,5 +98,36 @@ export async function getUserContext(userId: string): Promise<UserContext | null
   const orgId = user.ownedOrganizations[0]?.id
   if (!orgId) return null // ensureUser guarantees one; its absence is a bug worth surfacing
 
-  return { id: user.id, email: user.email, orgId, plan: user.subscription?.plan ?? 'free' }
+  return {
+    id: user.id,
+    email: user.email,
+    orgId,
+    plan: user.subscription?.plan ?? 'free',
+    priorities: user.priorities ?? null,
+  }
+}
+
+/**
+ * Record what this person wants the report to lead with.
+ *
+ * Takes a Viewer rather than a user id for the same reason every other
+ * mutation here does: the id is the thing an attacker controls, and a function
+ * that accepts one directly is a function somebody will eventually call with
+ * somebody else's. This writes the caller's own row and no other, which is why
+ * it cannot take a target at all.
+ *
+ * Storing an empty array is deliberate and different from leaving it null:
+ * it records that the question was asked and answered, so nobody is walked
+ * through onboarding twice.
+ */
+export async function setUserPriorities(
+  viewer: Viewer,
+  priorities: readonly Category[],
+): Promise<void> {
+  if (viewer.kind !== 'user') return
+
+  // De-duplicated so a malformed submission cannot store the same pillar six
+  // times and skew any ordering built on the length of this array.
+  const unique = [...new Set(priorities)]
+  await db.update(users).set({ priorities: unique }).where(eq(users.id, viewer.userId))
 }

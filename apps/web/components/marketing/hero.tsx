@@ -3,7 +3,7 @@ import { HeroMatrix } from './hero-matrix.tsx'
 import { HeroScanForm } from './hero-scan-form.tsx'
 import { BrandMark } from './brand-mark.tsx'
 import { Bot, Search, ShieldCheck } from './icons.tsx'
-import { TOTAL_CHECKS } from './coverage.ts'
+import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
  * The hero.
@@ -94,8 +94,12 @@ export function Hero() {
               Paste a URL. In under a minute, get {TOTAL_CHECKS} security, SEO, and AEO checks —
               each with a copy-paste fix prompt for your AI editor.
             </p>
+            {/* Stated before the box, not after the report. A gate a reader
+                was warned about is an offer; the same gate unannounced is a
+                bait-and-switch, and this product's whole pitch is that it does
+                not bluff. */}
             <p className="hero-rise mt-3 font-mono text-xs tracking-[0.22em] text-hero-ink-dim uppercase">
-              No account needed to scan.
+              Free to scan. An account opens the findings.
             </p>
 
             <div id="scan" className="hero-rise mt-9 max-w-3xl scroll-mt-24">

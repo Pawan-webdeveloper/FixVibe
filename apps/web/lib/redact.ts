@@ -63,14 +63,21 @@ export interface RedactedReport {
 
 /**
  * Findings arrive worst-first from the engine, and that order is preserved, so
- * the ones a free reader gets in full are always the ones that matter most —
- * not whichever happened to come cheap.
+ * the ones a reader gets in full are always the ones that matter most — not
+ * whichever happened to come cheap.
+ *
+ * A limit of zero is a legitimate answer, not an edge case: it is what a
+ * signed-out reader gets, and it still returns every finding's title and
+ * severity so they can see exactly what an account would open.
  */
 export function redactFindings(
   findings: readonly RedactableFinding[],
   entitlements: Entitlements,
 ): RedactedReport {
-  const limit = entitlements.plan.fullFindings ? Number.POSITIVE_INFINITY : entitlements.plan.findingsShownInFull
+  // The viewer's allowance, not the plan's: a signed-out reader has no plan,
+  // and reading one from plans.ts here is how they would end up with the free
+  // tier's open findings without an account.
+  const limit = entitlements.findingsInFull
 
   const publicFindings: PublicFinding[] = []
   const lockedSeverities: Severity[] = []

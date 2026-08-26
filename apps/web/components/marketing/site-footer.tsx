@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ENGINE_VERSION } from '@darvin/checks'
-import { TOTAL_CHECKS } from './coverage.ts'
+import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
  * The footer, ending on the promise the whole page is built around.

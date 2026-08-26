@@ -63,7 +63,14 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
   )
 }
 
-export function FindingCard({ finding }: { finding: FindingView }) {
+export function FindingCard({
+  finding,
+  lockedNote = 'The detail and the fix for this finding are withheld.',
+}: {
+  finding: FindingView
+  /** Why this one is closed. The card cannot know; the page can. */
+  lockedNote?: string
+}) {
   return (
     <article className="border border-line p-4">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -77,9 +84,7 @@ export function FindingCard({ finding }: { finding: FindingView }) {
       </header>
 
       {finding.locked ? (
-        <p className="mt-3 text-sm text-muted">
-          The detail and the fix for this finding are part of the paid report.
-        </p>
+        <p className="mt-3 text-sm text-muted">{lockedNote}</p>
       ) : (
         <>
           {finding.description && (

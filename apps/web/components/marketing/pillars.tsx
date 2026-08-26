@@ -1,5 +1,5 @@
 import { Section, SectionHeading } from './section.tsx'
-import { pillarSummaries, TOTAL_CHECKS } from './coverage.ts'
+import { pillarSummaries, TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
  * What a scan actually covers, one card per pillar.

@@ -111,6 +111,17 @@ export interface ScanContextMeta {
 export const users = pgTable('users', {
   id: uuid('id').primaryKey(),
   email: text('email').notNull().unique(),
+  /**
+   * The pillars this person said they care about, asked once after their first
+   * sign-in. Typed as the engine's own Category enum rather than free text, so
+   * a pillar cannot be stored that no check will ever report on.
+   *
+   * NULL and [] mean different things and both are load-bearing:
+   *   null  — never asked. This is what sends someone to /welcome.
+   *   [...] — asked and answered. "All of it" stores every category, so the
+   *           report logic stays one rule instead of a special case.
+   */
+  priorities: categoryEnum('priorities').array(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -167,6 +178,23 @@ export const projects = pgTable(
      * testing, so the gate is data, not a code path.
      */
     verifiedDomain: boolean('verified_domain').notNull().default(false),
+    /**
+     * The secret half of the DNS proof: the value the owner publishes at
+     * `_darvin.<host>`. Generated once per project and kept afterwards — a
+     * token that rotated on every visit would invalidate a record somebody had
+     * already added and was waiting to propagate.
+     *
+     * Unguessable on purpose. Anyone who can predict it can claim a domain
+     * they do not control, and what that unlocks is permission to probe
+     * somebody's Supabase and Firebase.
+     */
+    verificationToken: text('verification_token'),
+    /**
+     * When the proof was last confirmed. Domains change hands, and a flag with
+     * no date behind it says "verified" forever — so the moment is recorded,
+     * and a re-verification sweep has something to read.
+     */
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('projects_owner_idx').on(t.ownerId), index('projects_org_idx').on(t.orgId)],
@@ -358,6 +386,12 @@ export const alerts = pgTable(
  * API keys are credentials: only the hash is stored. The plaintext is shown
  * once at creation and never again, so a database dump cannot be replayed
  * against the API.
+ *
+ * SHA-256, deliberately, where a password would get bcrypt. A password is
+ * short and human-chosen, so a fast hash is brute-forceable and a slow one is
+ * the whole defence. A key here is 256 bits from a CSPRNG — unreachable by
+ * brute force at any hash speed — and it arrives on EVERY API request, where a
+ * 100 ms KDF would be a self-inflicted rate limit.
  */
 export const apiKeys = pgTable(
   'api_keys',
@@ -368,6 +402,16 @@ export const apiKeys = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** User-facing label ("CI", "laptop") — the only way to identify a key after creation. */
     name: text('name'),
+    /**
+     * The first few characters of the plaintext, kept in the clear so a key
+     * found in a CI log can be matched to a row and revoked. Without it the
+     * list is names and dates, and an account with two keys called "CI" has no
+     * way to tell which one leaked — so it revokes both, or neither.
+     *
+     * Safe to store: it exposes a known-length slice of a 256-bit secret and
+     * leaves the rest unguessable. It is not a lookup key — `keyHash` is.
+     */
+    prefix: text('prefix'),
     keyHash: text('key_hash').notNull().unique(),
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
