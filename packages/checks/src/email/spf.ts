@@ -52,6 +52,12 @@ export const spfCheck: Check = {
     // prevent, so this check has nothing to say.
     if (!emailDomain) return []
 
+    // An 'unknown' spfTxt means the TXT query itself failed (timeout, SERVFAIL).
+    // An empty answer proves absence; a failed query proves nothing, and "no
+    // SPF record" off a dead resolver is precisely the false positive this
+    // check must not emit — github.com and stripe.com both publish SPF.
+    if (spfTxt === 'unknown') return []
+
     const [record, ...extraRecords] = spfTxt.filter((txt) => SPF_VERSION.test(txt.trim()))
 
     if (!record) {

@@ -351,6 +351,11 @@ describe('security.email.spf', () => {
     expect(only(findings).severity).toBe('medium')
   })
 
+  it('stays silent when the TXT lookup failed rather than answered', async () => {
+    // A resolver timeout is not evidence of absence — github.com publishes SPF.
+    expect(await run(spfCheck, { dns: { emailDomain: 'site.test', spfTxt: 'unknown' } })).toEqual([])
+  })
+
   it('ignores unrelated TXT records when deciding SPF is absent', async () => {
     const findings = await run(spfCheck, {
       dns: { emailDomain: 'site.test', spfTxt: ['google-site-verification=abc123'] },
@@ -413,6 +418,10 @@ describe('security.email.dmarc', () => {
     const findings = await run(dmarcCheck, { dns: { emailDomain: 'site.test', dmarcTxt: [] } })
     expect(only(findings).title).toBe('No DMARC record')
     expect(only(findings).severity).toBe('medium')
+  })
+
+  it('stays silent when the _dmarc lookup failed rather than answered', async () => {
+    expect(await run(dmarcCheck, { dns: { emailDomain: 'site.test', dmarcTxt: 'unknown' } })).toEqual([])
   })
 
   it('accepts an enforcing record with a reporting address', async () => {
