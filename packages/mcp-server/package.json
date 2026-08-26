@@ -1,5 +1,18 @@
 {
   "name": "@darvin/mcp-server",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "darvin-mcp": "src/index.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
+  }
 }
