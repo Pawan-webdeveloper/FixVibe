@@ -8,9 +8,13 @@
  * A pillar that was checked and came back clean gets a row saying so. Silence
  * would read as "not checked", which is the opposite of the truth and throws
  * away the most reassuring thing the report can say.
+ *
+ * The pillar headings are the same numbered rule the landing page uses for its
+ * sections, so a reader who arrived from that page is reading the same grammar.
  */
 
 import { allChecks, type Category } from '@darvin/checks'
+import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { FindingCard, type FindingView } from './finding-card.tsx'
 
 const LABEL: Record<Category, string> = {
@@ -30,27 +34,28 @@ function coveredPillars(): Category[] {
 
 export function FindingsList({ findings }: { findings: readonly FindingView[] }) {
   return (
-    <div className="flex flex-col gap-10">
-      {coveredPillars().map((pillar) => {
+    <div className="flex flex-col gap-12">
+      {coveredPillars().map((pillar, index) => {
         const inPillar = findings.filter((f) => f.category === pillar)
 
         return (
           <section key={pillar} aria-labelledby={`pillar-${pillar}`}>
-            <h2 id={`pillar-${pillar}`} className="mb-4 flex items-baseline gap-2 text-lg font-semibold">
-              {LABEL[pillar]}
-              <span className="text-sm font-normal text-muted tabular-nums">
-                {inPillar.length === 0 ? 'no findings' : `${inPillar.length}`}
-              </span>
-            </h2>
+            <LabeledRule
+              as="h2"
+              id={`pillar-${pillar}`}
+              index={index + 1}
+              label={LABEL[pillar]}
+              trailing={inPillar.length === 0 ? 'clean' : `${inPillar.length} found`}
+            />
 
             {inPillar.length === 0 ? (
-              <p className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
+              <p className="mt-4 border border-line bg-surface px-4 py-3 text-sm text-muted">
                 Every {LABEL[pillar].toLowerCase()} check passed.
               </p>
             ) : (
-              <div className="flex flex-col gap-3">
-                {inPillar.map((finding, index) => (
-                  <FindingCard key={`${finding.checkId}-${index}`} finding={finding} />
+              <div className="mt-4 flex flex-col gap-3">
+                {inPillar.map((finding, i) => (
+                  <FindingCard key={`${finding.checkId}-${i}`} finding={finding} />
                 ))}
               </div>
             )}

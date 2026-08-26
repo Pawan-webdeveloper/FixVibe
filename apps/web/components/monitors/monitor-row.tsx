@@ -42,7 +42,7 @@ export function MonitorRow({
   }
 
   return (
-    <li className="flex items-center gap-4 rounded-lg border border-line px-5 py-4">
+    <li className="flex items-center gap-4 border border-line px-5 py-4">
       <div className="min-w-0 flex-1">
         <p className="font-medium">
           {title}
@@ -63,13 +63,13 @@ export function MonitorRow({
         aria-label={`${title}: ${on ? 'on' : 'off'}`}
         onClick={toggle}
         disabled={pending}
-        className={`h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
-          on ? 'bg-accent' : 'bg-line'
+        className={`h-6 w-11 shrink-0 transition-colors disabled:opacity-60 ${
+ on ? 'bg-accent' : 'bg-line'
         }`}
       >
         <span
-          className={`block h-5 w-5 rounded-full bg-canvas transition-transform ${
-            on ? 'translate-x-[22px]' : 'translate-x-[2px]'
+          className={`block h-5 w-5 bg-canvas transition-transform ${
+ on ? 'translate-x-[22px]' : 'translate-x-[2px]'
           }`}
         />
       </button>

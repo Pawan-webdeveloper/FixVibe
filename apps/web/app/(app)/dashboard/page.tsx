@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { listProjectSummaries, type ProjectSummary } from '@darvin/db'
 import { getViewer, requireUser } from '@/lib/authz.ts'
 import { NewProjectForm } from './new-project-form.tsx'
+import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 export const metadata = { title: 'Projects' }
 
@@ -21,8 +22,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Projects</h1>
+      <LabeledRule
+        as="h1"
+        label="Projects"
+        trailing={`${summaries.length} tracked`}
+      />
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <NewProjectForm orgId={user.orgId} />
       </div>
 
@@ -41,13 +46,13 @@ export default async function DashboardPage() {
 
 function EmptyState() {
   return (
-    <div className="mt-8 rounded-lg border border-line bg-surface p-8 text-center">
+    <div className="mt-8 border border-line bg-surface p-8 text-center">
       <h2 className="font-medium">No projects yet</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted text-pretty">
         Add a site above to keep its history, or scan any URL from the home page and save the report
         into a project afterwards.
       </p>
-      <Link href="/" className="mt-4 inline-block text-sm text-accent">
+      <Link href="/" className="mt-4 inline-block text-sm link">
         Run a scan
       </Link>
     </div>
@@ -62,21 +67,21 @@ function ProjectRow({ summary }: { summary: ProjectSummary }) {
     <li>
       <Link
         href={`/projects/${project.id}`}
-        className="flex items-center gap-4 rounded-lg border border-line px-5 py-4 hover:bg-surface"
+        className="flex items-center gap-4 border border-line px-5 py-4 hover:bg-surface"
       >
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{project.name}</p>
-          <p className="truncate font-mono text-xs text-muted">{project.url}</p>
+          <p className="truncate text-xs text-muted">{project.url}</p>
         </div>
 
         {score === null ? (
-          <span className="text-sm text-muted">
+          <span className="label text-muted">
             {latest?.status === 'failed' ? 'Last scan failed' : 'Not scanned yet'}
           </span>
         ) : (
           <div className="text-right">
-            <p className="text-xl font-semibold tabular-nums">{score}</p>
-            <p className="text-xs text-muted tabular-nums">
+            <p className="text-2xl font-semibold tabular-nums">{score}</p>
+            <p className="label text-muted tabular-nums">
               {delta === null ? 'coverage changed' : delta === 0 ? 'no change' : delta > 0 ? `+${delta}` : delta}
             </p>
           </div>

@@ -17,7 +17,7 @@ export function FixPromptDialog({ prompt, issueCount }: { prompt: string; issueC
   const [open, setOpen] = useState(false)
 
   return (
-    <section className="mt-6 rounded-lg border border-line bg-surface">
+    <section className="mt-6 border border-line bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
         <div>
           <h2 className="text-sm font-medium">Fix all of this in one prompt</h2>
@@ -31,7 +31,7 @@ export function FixPromptDialog({ prompt, issueCount }: { prompt: string; issueC
             type="button"
             onClick={() => setOpen((was) => !was)}
             aria-expanded={open}
-            className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-canvas"
+            className="border border-line px-3 py-1.5 text-xs font-medium hover:bg-canvas"
           >
             {open ? 'Hide' : 'Show'}
           </button>

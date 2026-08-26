@@ -29,12 +29,12 @@ export function NewProjectForm({ orgId }: { orgId: string }) {
           placeholder="example.com"
           disabled={pending}
           aria-invalid={Boolean(state.error)}
-          className="rounded-md border border-line bg-surface px-3 py-2 font-mono text-sm disabled:opacity-60"
+          className="border border-line bg-surface px-3 py-2 font-mono text-sm disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-60"
+          className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-60"
         >
           {pending ? 'Adding…' : 'Add project'}
         </button>

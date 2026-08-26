@@ -44,7 +44,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           <input type="hidden" name="projectId" value={project.id} />
           <button
             type="submit"
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+            className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
           >
             Scan now
           </button>
@@ -52,7 +52,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
       </header>
 
       {scans.length === 0 ? (
-        <p className="mt-8 rounded-lg border border-line bg-surface p-6 text-sm text-muted">
+        <p className="mt-8 border border-line bg-surface p-6 text-sm text-muted">
           No scans yet. Run one to start this project&apos;s history.
         </p>
       ) : (
@@ -89,7 +89,7 @@ function Sparkline({ scans }: { scans: Scan[] }) {
               key={scan.id}
               title={`${score}/100 · ${stamp(scan.createdAt)}`}
               style={{ height: `${Math.max(4, score)}%`, backgroundColor: scoreColor(score) }}
-              className="min-w-1.5 flex-1 rounded-sm"
+              className="min-w-1.5 flex-1"
             />
           )
         })}
@@ -108,7 +108,7 @@ function HistoryRow({ scan }: { scan: Scan }) {
     <li>
       <Link
         href={`/scan/${scan.id}`}
-        className="flex items-center gap-4 rounded-lg border border-line px-4 py-3 hover:bg-surface"
+        className="flex items-center gap-4 border border-line px-4 py-3 hover:bg-surface"
       >
         <span className="flex-1 font-mono text-xs text-muted">{stamp(scan.createdAt)}</span>
 

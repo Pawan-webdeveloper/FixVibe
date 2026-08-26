@@ -40,7 +40,7 @@ export default function PricingPage() {
         {ORDERED_PLANS.map((plan) => (
           <section
             key={plan.id}
-            className={`rounded-lg border p-6 ${plan.id === 'pro' ? 'border-accent' : 'border-line'}`}
+            className={` border p-6 ${plan.id === 'pro' ? 'border-accent' : 'border-line'}`}
           >
             <h2 className="font-medium">{plan.name}</h2>
             <p className="mt-2 text-3xl font-semibold tabular-nums">
@@ -60,7 +60,7 @@ export default function PricingPage() {
               {plan.id === 'pro' ? (
                 <BillingButton action="upgrade" label="Upgrade to Pro" />
               ) : (
-                <Link href="/" className="text-sm text-accent">
+                <Link href="/" className="text-sm link">
                   Run a free scan
                 </Link>
               )}

@@ -36,7 +36,7 @@ export default async function BillingPage() {
     <div className="mx-auto max-w-2xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Billing</h1>
 
-      <section className="mt-8 rounded-lg border border-line p-6">
+      <section className="mt-8 border border-line p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
             <p className="text-sm text-muted">Current plan</p>
@@ -48,7 +48,7 @@ export default async function BillingPage() {
         </div>
 
         {needsAttention && (
-          <p className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-sm">
+          <p className="mt-4 border border-line bg-surface px-3 py-2 text-sm">
             Razorpay reports this subscription as <span className="font-mono">{subscription.status}</span>,
             which usually means a charge did not go through. Razorpay has emailed the payment
             method on file; resolve it there before access changes.
@@ -81,7 +81,7 @@ export default async function BillingPage() {
               <BillingButton action="cancel" label="Cancel subscription" variant="secondary" />
             )
           )}
-          <Link href="/pricing" className="self-center text-sm text-accent">
+          <Link href="/pricing" className="self-center text-sm link">
             Compare plans
           </Link>
         </div>

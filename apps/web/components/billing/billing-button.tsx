@@ -171,7 +171,7 @@ export function BillingButton({
         type="button"
         onClick={go}
         disabled={pending}
-        className={`rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 ${styles}`}
+        className={` px-4 py-2 text-sm font-medium disabled:opacity-60 ${styles}`}
       >
         {pending ? 'Opening…' : label}
       </button>

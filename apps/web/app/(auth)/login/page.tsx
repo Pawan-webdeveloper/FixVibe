@@ -4,6 +4,8 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client.ts'
+import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 /**
  * Two ways in, both passwordless.
@@ -58,7 +60,7 @@ function LoginForm() {
 
   if (sent) {
     return (
-      <div className="rounded-lg border border-line bg-surface p-6">
+      <div className="border border-line bg-surface p-6">
         <h2 className="font-medium">Check your inbox</h2>
         <p className="mt-2 text-sm text-muted">
           A sign-in link is on its way to <span className="font-mono">{email}</span>. It expires in an
@@ -74,7 +76,7 @@ function LoginForm() {
         type="button"
         onClick={signInWithGithub}
         disabled={pending}
-        className="w-full rounded-md bg-ink px-4 py-3 text-sm font-medium text-canvas disabled:opacity-60"
+        className="w-full bg-ink px-4 py-3 text-sm font-medium text-canvas disabled:opacity-60"
       >
         Continue with GitHub
       </button>
@@ -86,7 +88,7 @@ function LoginForm() {
       </div>
 
       <form onSubmit={sendMagicLink} className="flex flex-col gap-3">
-        <label htmlFor="email" className="text-sm font-medium">
+        <label htmlFor="email" className="label">
           Email
         </label>
         <input
@@ -98,12 +100,12 @@ function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           disabled={pending}
           placeholder="you@example.com"
-          className="rounded-md border border-line bg-surface px-4 py-3 text-base disabled:opacity-60"
+          className="border border-line bg-surface px-4 py-3 text-base disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md border border-line px-4 py-3 text-sm font-medium hover:bg-surface disabled:opacity-60"
+          className="border border-line px-4 py-3 text-sm font-medium hover:bg-surface disabled:opacity-60"
         >
           {pending ? 'Sending…' : 'Email me a sign-in link'}
         </button>
@@ -121,10 +123,16 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="mx-auto max-w-sm px-6 py-24">
-      <Link href="/" className="font-mono text-sm font-semibold tracking-tight">
-        darvin
+      <Link href="/" className="flex items-center gap-2" aria-label="Darvin — home">
+        <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
+        <span className="text-[15px] font-semibold tracking-tight">darvin</span>
       </Link>
-      <h1 className="mt-6 mb-8 text-2xl font-semibold">Sign in</h1>
+      <div className="mt-8">
+        <LabeledRule label="Sign in" trailing="no password" />
+      </div>
+      <h1 className="mt-5 mb-8 text-2xl font-semibold tracking-[-0.02em]">
+        Keep your reports
+      </h1>
       {/* useSearchParams needs a Suspense boundary to keep the page static. */}
       <Suspense fallback={null}>
         <LoginForm />

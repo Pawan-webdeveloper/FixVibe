@@ -41,7 +41,7 @@ export function PaywallNotice({
   })).filter((entry) => entry.n > 0)
 
   return (
-    <section className="mt-8 rounded-lg border border-line bg-surface px-6 py-5">
+    <section className="mt-8 border border-line bg-surface px-6 py-5">
       <h2 className="text-base font-medium">
         {lockedCount} more finding{lockedCount === 1 ? '' : 's'} on this page
       </h2>
@@ -63,12 +63,12 @@ export function PaywallNotice({
       <div className="mt-4 flex flex-wrap gap-3">
         <Link
           href="/pricing"
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
+          className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
         >
           See Pro
         </Link>
         {!signedIn && (
-          <Link href="/login" className="rounded-md border border-line px-4 py-2 text-sm font-medium">
+          <Link href="/login" className="border border-line px-4 py-2 text-sm font-medium">
             Sign in
           </Link>
         )}

@@ -50,21 +50,26 @@ export function PillarScores({ scores }: { scores: ScanScores }) {
               )}
             </dt>
 
-            <div
-              className="h-2 flex-1 overflow-hidden rounded-full bg-surface"
-              role="meter"
-              aria-valuenow={value}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={LABEL[pillar]}
-            >
+            {/* The bar and the number are one <dd>: a <dl> may only pair <dt>
+                with <dd>, and a bare <div> between them breaks the association
+                a screen reader relies on to read the pillar and its score
+                together. */}
+            <dd className="flex flex-1 items-center gap-4">
               <div
-                className="h-full rounded-full"
-                style={{ width: `${value}%`, backgroundColor: scoreColor(value) }}
-              />
-            </div>
-
-            <dd className="w-10 shrink-0 text-right text-sm font-medium tabular-nums">{value}</dd>
+                className="h-2 flex-1 overflow-hidden bg-surface"
+                role="meter"
+                aria-valuenow={value}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={LABEL[pillar]}
+              >
+                <div
+                  className="h-full"
+                  style={{ width: `${value}%`, backgroundColor: scoreColor(value) }}
+                />
+              </div>
+              <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums">{value}</span>
+            </dd>
           </div>
         )
       })}

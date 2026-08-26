@@ -76,9 +76,9 @@ export default async function MonitorsPage({ params }: { params: Promise<{ proje
       </header>
 
       {plan.monitors === 0 && (
-        <p className="mt-6 rounded-lg border border-line bg-surface px-5 py-4 text-sm">
+        <p className="mt-6 border border-line bg-surface px-5 py-4 text-sm">
           Monitoring is part of Pro.{' '}
-          <Link href="/pricing" className="text-accent">
+          <Link href="/pricing" className="link">
             See what it includes
           </Link>
           .
@@ -109,7 +109,7 @@ export default async function MonitorsPage({ params }: { params: Promise<{ proje
           <UptimeChart events={uptimeEvents} />
           <p className="mt-3 text-sm text-muted">
             Published at{' '}
-            <Link href={`/status/${project.slug}`} className="text-accent">
+            <Link href={`/status/${project.slug}`} className="link">
               /status/{project.slug}
             </Link>{' '}
             — readable without an account.
