@@ -67,9 +67,22 @@ export interface ScanResult {
 const INSERT_CHUNK = 500
 
 /**
- * Opens a scan in the 'running' state, because Phase 2 runs it inline and the
- * work begins immediately. When the queue arrives, enqueuing gets its own
- * function that writes 'queued' and lets the worker move it on.
+ * Reserves a scan row. The work has NOT started yet, so the row says 'queued'
+ * and `startedAt` stays null until markScanRunning writes it.
+ *
+ * This wrote 'running' with a timestamp while every scan ran inline, when
+ * reserving and starting were the same instant. On the queue they are not, and
+ * the difference is load-bearing twice over:
+ *
+ *   - a job Inngest never delivered would sit in 'running' forever, looking
+ *     exactly like one being worked on. The status index exists to sweep up
+ *     stuck scans, and it cannot see a stuck scan it cannot distinguish.
+ *   - `startedAt` minus `createdAt` is queue latency. Stamping both at
+ *     reservation makes that zero by construction, which is the one number
+ *     that tells a slow scan apart from a backed-up queue.
+ *
+ * The inline path loses nothing: runScanJob calls executeScan immediately, and
+ * executeScan's first act is markScanRunning.
  */
 export async function createScan(input: CreateScanInput): Promise<{ id: string }> {
   const [row] = await db
@@ -85,8 +98,7 @@ export async function createScan(input: CreateScanInput): Promise<{ id: string }
       projectId: input.projectId ?? null,
       requestedBy: input.requestedBy ?? null,
       anonIpHash: input.anonIpHash ?? null,
-      status: 'running',
-      startedAt: new Date(),
+      status: 'queued',
     })
     .returning({ id: scans.id })
 
@@ -101,6 +113,26 @@ export async function createScan(input: CreateScanInput): Promise<{ id: string }
  * job — Inngest retries by design in Phase 5 — produces the same rows rather
  * than a second copy of every finding.
  */
+/**
+ * A worker has picked this job up.
+ *
+ * `startedAt` exists precisely for this and was never written while every scan
+ * ran inline — createdAt and startedAt were the same instant, so the column was
+ * a lie by omission. On the queue they diverge by however long the job waited,
+ * which is the only way to tell a slow scan from a backed-up queue.
+ *
+ * Deliberately does not guard on the current status. Inngest retries, and a
+ * retry re-entering 'running' from 'running' is correct; the write is
+ * idempotent and the timestamp moving to the latest attempt is what you want
+ * when reading how long the work actually took.
+ */
+export async function markScanRunning(scanId: string): Promise<void> {
+  await db
+    .update(scans)
+    .set({ status: 'running', startedAt: new Date() })
+    .where(eq(scans.id, scanId))
+}
+
 export async function completeScan(scanId: string, result: ScanResult): Promise<void> {
   await db.transaction(async (tx) => {
     await tx.delete(findings).where(eq(findings.scanId, scanId))
@@ -169,7 +201,26 @@ export async function getScanForViewer(scanId: string, viewer: Viewer): Promise<
   const scan = await db.query.scans.findFirst({
     where: eq(scans.id, scanId),
     with: {
-      findings: true,
+      /*
+       * ORDERED, and this is load-bearing rather than cosmetic.
+       *
+       * The engine sorts worst-first and everything downstream assumes it
+       * still is: findings-list.tsx renders in array order, and redactFindings
+       * opens the first N — so on a plan that shows "the three worst", an
+       * unordered read hands out three arbitrary ones instead. The free report
+       * gets less useful and the paid one leaks, from the same missing clause.
+       *
+       * `with: { findings: true }` does not preserve insertion order. Drizzle
+       * builds the relation as a lateral join, and a join has no obligation to
+       * return rows the way they went in — this read came back low-severity
+       * first from a table whose heap order was worst-first.
+       *
+       * `asc(severity)` is correct because a Postgres enum sorts by DECLARED
+       * order, and severityEnum is declared critical → info. The checkId
+       * tiebreak matches registry.ts exactly, so two findings of equal
+       * severity land in the same place here as they did in the engine.
+       */
+      findings: { orderBy: (f, { asc }) => [asc(f.severity), asc(f.checkId)] },
       project: { columns: { ownerId: true } },
     },
   })
@@ -234,6 +285,27 @@ export async function countScansByHostSince(targetHost: string, since: Date): Pr
     .from(scans)
     .where(and(eq(scans.targetHost, targetHost), gte(scans.createdAt, since)))
   return { count: row?.n ?? 0, oldest: row?.oldest ?? null }
+}
+
+/**
+ * How many scans this ACCOUNT has started since `since`.
+ *
+ * Distinct from countScansByIpSince, and the two are not interchangeable. That
+ * one is abuse protection measured per visitor per hour; this one is the plan
+ * allowance measured per account per month, and it counts only scans a
+ * signed-in person actually caused — `requestedBy` is null on an anonymous
+ * scan, which has no allowance to spend.
+ *
+ * A cache hit is deliberately not counted anywhere, because no scan happened:
+ * the dedup in the scan route answers from a recent result without touching
+ * the target, and charging for that would be charging for nothing.
+ */
+export async function countScansForUserSince(userId: string, since: Date): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(scans)
+    .where(and(eq(scans.requestedBy, userId), gte(scans.createdAt, since)))
+  return row?.n ?? 0
 }
 
 /**

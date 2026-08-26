@@ -17,6 +17,7 @@ import { db } from '../src/client.ts'
 import { alerts, monitorEvents, monitors, users } from '../src/schema.ts'
 import { ensureUser, getUserContext } from '../src/queries/users.ts'
 import { createProject } from '../src/queries/projects.ts'
+import type { Project } from '../src/schema.ts'
 import {
   consecutiveFailures,
   dueMonitorsForScheduler,
@@ -26,6 +27,19 @@ import {
 } from '../src/queries/monitors.ts'
 import { listAlerts, recordAlertOnce } from '../src/queries/alerts.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
+
+/**
+ * createProject now takes the plan's project ceiling. These tests are about
+ * ownership and history rather than pricing, so they pass a ceiling nothing
+ * here reaches; the limit itself has its own file.
+ */
+async function makeProject(
+  viewer: Viewer,
+  input: { name: string; url: string; orgId: string },
+): Promise<Project | null> {
+  const result = await createProject(viewer, input, 100)
+  return result.ok ? result.project : null
+}
 
 const live = process.env.DARVIN_DB === '1'
 
@@ -40,7 +54,7 @@ describe.skipIf(!live)('monitors and alerts (DARVIN_DB=1)', () => {
     await ensureUser({ id, email: `m-${id}@example.test` })
     const context = await getUserContext(id)
     const owner: Viewer = { kind: 'user', userId: id }
-    const project = await createProject(owner, {
+    const project = await makeProject(owner, {
       name: 'monitored',
       url: 'https://monitored.test/',
       orgId: context!.orgId,

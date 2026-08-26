@@ -12,6 +12,11 @@
  * title, and the three worst in full, does both: the reader knows exactly what
  * they are missing rather than being shown a blurred rectangle and asked to
  * guess.
+ *
+ * NOTE: `findingsShownInFull` is what a SIGNED-IN free account gets. A reader
+ * with no account is not a plan and is not described here — see
+ * lib/entitlements.ts, which resolves them to zero open findings while still
+ * naming and rating every one.
  */
 
 export type PlanId = 'free' | 'pro'
@@ -40,8 +45,18 @@ export interface Plan {
   /** The aggregate fix prompt — the reason to pay. */
   fixPrompts: boolean
   history: boolean
+  /** CSV / Markdown / PDF download of a scan. */
   exports: boolean
+  /** Whether `/api/v1` answers this account at all. */
   apiAccess: boolean
+  /**
+   * How many keys the account may hold at once. Zero wherever `apiAccess` is
+   * false, and that is not duplication — it is what makes the ceiling the only
+   * thing the key-creation path has to check. A plan with access but no keys,
+   * or keys but no access, is a bug the two fields cannot express separately
+   * without one of them being ignored.
+   */
+  apiKeys: number
 
   /**
    * How many findings a plan without `fullFindings` sees in full. They are the
@@ -66,6 +81,7 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
     history: false,
     exports: false,
     apiAccess: false,
+    apiKeys: 0,
     findingsShownInFull: 3,
   },
   pro: {
@@ -82,6 +98,10 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
     history: true,
     exports: true,
     apiAccess: true,
+    // Enough for CI, a staging pipeline and a laptop, with room to rotate one
+    // without first revoking the one it replaces. Unbounded is not a feature:
+    // keys nobody can account for are keys nobody revokes.
+    apiKeys: 10,
     findingsShownInFull: Number.POSITIVE_INFINITY,
   },
 }

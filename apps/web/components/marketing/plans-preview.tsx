@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Section, SectionHeading } from './section.tsx'
 import { ORDERED_PLANS, formatPrice, type Plan } from '@/lib/plans.ts'
-import { TOTAL_CHECKS } from './coverage.ts'
+import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
  * Pricing, rendered from plans.ts — the same table the entitlement code reads.
@@ -21,7 +21,7 @@ function features(plan: Plan): string[] {
     plan.fixPrompts ? 'One prompt that fixes the whole site' : 'Per-finding fix prompts',
     plan.history ? 'Scan history and score changes' : 'Latest scan only',
     plan.monitors > 0 ? `${plan.monitors} monitored sites` : 'No monitoring',
-    plan.apiAccess ? 'API and MCP access' : `${plan.projects} project`,
+    `${plan.projects} ${plan.projects === 1 ? 'project' : 'projects'}`,
   ]
 }
 
@@ -75,9 +75,9 @@ export function PlansPreview() {
       </div>
 
       <p className="mt-6 max-w-[62ch] text-sm text-muted text-pretty">
-        The free report is deliberately generous about the scan and strict about the report: you get
-        every finding’s severity and title, and the worst few in full. You always know exactly what
-        you are missing rather than being asked to guess.
+        Scanning needs no account, and the score, the pillar breakdown and every finding’s title and
+        severity are public without one. A free account opens the worst few in full — the evidence
+        and the fix. You always know exactly what you are missing rather than being asked to guess.
       </p>
     </Section>
   )

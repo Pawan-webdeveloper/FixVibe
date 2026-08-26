@@ -7,8 +7,8 @@
  * convenience layer over it.
  */
 
-import { and, desc, eq, isNull } from 'drizzle-orm'
-import { randomUUID } from 'node:crypto'
+import { and, count, desc, eq, isNull } from 'drizzle-orm'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { db } from '../client.ts'
 import { monitorEvents, monitors, projects, scans, type Project, type Scan } from '../schema.ts'
 import type { Viewer } from './viewer.ts'
@@ -36,8 +36,40 @@ export async function getProject(projectId: string, viewer: Viewer): Promise<Pro
   return project ?? null
 }
 
-export async function createProject(viewer: Viewer, input: NewProjectInput): Promise<Project | null> {
-  if (viewer.kind !== 'user') return null
+export type CreateProjectResult =
+  | { readonly ok: true; readonly project: Project }
+  | { readonly ok: false; readonly reason: 'unauthenticated' | 'limit-reached' | 'failed' }
+
+/**
+ * The plan's project limit is enforced HERE, at the write, and the limit is a
+ * required argument rather than something this file looks up.
+ *
+ * Two decisions, both deliberate. It lives in the query layer because a server
+ * action is not the only caller — the public API in a later phase will create
+ * projects too, and a rule that lives in one caller is a rule the next caller
+ * forgets. And the number is passed in because plans.ts lives in the web app:
+ * this package must not learn about pricing, but it can be told a ceiling.
+ * A caller that forgets to supply one does not compile.
+ *
+ * The count and the insert are not atomic, so two simultaneous creates can
+ * both pass a limit of one. Accepted: the cost is a single extra project in a
+ * rare race, and the alternative is a transaction with a table lock on a path
+ * that runs a handful of times per account, ever.
+ */
+export async function createProject(
+  viewer: Viewer,
+  input: NewProjectInput,
+  maxProjects: number,
+): Promise<CreateProjectResult> {
+  if (viewer.kind !== 'user') return { ok: false, reason: 'unauthenticated' }
+
+  const [existing] = await db
+    .select({ n: count() })
+    .from(projects)
+    .where(eq(projects.ownerId, viewer.userId))
+
+  if ((existing?.n ?? 0) >= maxProjects) return { ok: false, reason: 'limit-reached' }
+
   const [project] = await db
     .insert(projects)
     .values({
@@ -46,9 +78,13 @@ export async function createProject(viewer: Viewer, input: NewProjectInput): Pro
       name: input.name,
       url: input.url,
       slug: slugFor(input.url),
+      // Minted here so the verification page can render instructions without
+      // writing anything during a render.
+      verificationToken: newVerificationToken(),
     })
     .returning()
-  return project ?? null
+
+  return project ? { ok: true, project } : { ok: false, reason: 'failed' }
 }
 
 /**
@@ -260,4 +296,117 @@ export async function verifiedHostForProject(projectId: string | null | undefine
   } catch {
     return null // an unparseable project URL proves nothing
   }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Domain ownership                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The secret an owner publishes in DNS to prove they control the domain.
+ *
+ * 32 bytes of randomness, prefixed so the record is self-describing when
+ * somebody finds it in a zone file two years from now and wonders what it is.
+ * It must be unguessable: predicting it is how a stranger claims a domain, and
+ * what that unlocks is permission to probe that domain's Supabase and Firebase.
+ */
+export function newVerificationToken(): string {
+  return `darvin-verify-${randomBytes(32).toString('hex')}`
+}
+
+export interface VerificationState {
+  projectId: string
+  /** The name the proof is checked against — www-stripped, matching the engine. */
+  host: string
+  token: string | null
+  verified: boolean
+  verifiedAt: Date | null
+}
+
+/**
+ * The host a project's ownership is proved for.
+ *
+ * `www.` is stripped, because that is what verifiedHostForProject returns and
+ * what mayTestActively compares. Verifying `www.example.com` while the engine
+ * asks about `example.com` would produce a project that is verified and still
+ * refused, with nothing on screen to explain why.
+ */
+export function verificationHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '') || null
+  } catch {
+    return null
+  }
+}
+
+export async function verificationState(
+  projectId: string,
+  viewer: Viewer,
+): Promise<VerificationState | null> {
+  const project = await getProject(projectId, viewer)
+  if (!project) return null
+
+  const host = verificationHost(project.url)
+  if (!host) return null
+
+  return {
+    projectId: project.id,
+    host,
+    token: project.verificationToken,
+    verified: project.verifiedDomain,
+    verifiedAt: project.verifiedAt,
+  }
+}
+
+/**
+ * Give this project a token if it does not have one, and return it either way.
+ *
+ * Idempotent on purpose. Re-issuing on every visit would invalidate a record
+ * the owner had already published and was waiting on, which is the single most
+ * frustrating way for a verification flow to fail.
+ */
+export async function ensureVerificationToken(
+  projectId: string,
+  viewer: Viewer,
+): Promise<string | null> {
+  const project = await getProject(projectId, viewer)
+  if (!project) return null
+  if (project.verificationToken) return project.verificationToken
+
+  const token = newVerificationToken()
+  await db.update(projects).set({ verificationToken: token }).where(eq(projects.id, projectId))
+  return token
+}
+
+/**
+ * Record that ownership was proved. Called only after a DNS lookup succeeded —
+ * this function does no checking of its own and must never be reachable from
+ * anything that has not done it.
+ */
+export async function markDomainVerified(projectId: string, viewer: Viewer): Promise<boolean> {
+  if (!(await getProject(projectId, viewer))) return false
+
+  await db
+    .update(projects)
+    .set({ verifiedDomain: true, verifiedAt: new Date() })
+    .where(eq(projects.id, projectId))
+  return true
+}
+
+/**
+ * Withdraw the proof.
+ *
+ * The token is kept rather than cleared: the owner may be turning active
+ * probing off temporarily, and making them re-publish a new record to turn it
+ * back on is a punishment for being careful.
+ */
+export async function revokeDomainVerification(projectId: string, viewer: Viewer): Promise<boolean> {
+  if (!(await getProject(projectId, viewer))) return false
+
+  await db
+    .update(projects)
+    .set({ verifiedDomain: false, verifiedAt: null })
+    .where(eq(projects.id, projectId))
+  return true
 }

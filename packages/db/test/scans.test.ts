@@ -25,6 +25,7 @@ import {
   failScan,
   findRecentAnonymousScan,
   getScanForViewer,
+  markScanRunning,
 } from '../src/queries/scans.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
@@ -96,15 +97,51 @@ describe.skipIf(!live)('scan queries (DARVIN_DB=1)', () => {
     await db.delete(users).where(inArray(users.id, [ownerId, strangerId]))
   })
 
-  it('opens a scan in the running state with its measurement identity recorded', async () => {
+  it('reserves a scan as queued, unstarted, with its measurement identity recorded', async () => {
     const id = await track(open())
     const row = await db.query.scans.findFirst({ where: eq(scans.id, id) })
-    expect(row?.status).toBe('running')
-    expect(row?.startedAt).toBeInstanceOf(Date)
+    // Reserved, not started. A row that claimed 'running' at reservation made
+    // a job the queue never delivered indistinguishable from one in progress,
+    // and made startedAt - createdAt — the queue latency — zero by construction.
+    expect(row?.status).toBe('queued')
+    expect(row?.startedAt).toBeNull()
     expect(row?.engineVersion).toBe('0.0.0-test')
     expect(row?.checksRun).toBe(29)
     expect(row?.profile).toBe('fast')
     expect(row?.checkErrors).toEqual([])
+  })
+
+  it('moves a reserved scan to running and stamps when the work began', async () => {
+    // The only transition out of 'queued'. Before it existed the two states
+    // were written at once, so queue latency — startedAt minus createdAt — was
+    // always zero and a scan nobody ever picked up looked like one in flight.
+    const before = Date.now()
+    const id = await track(open())
+    await markScanRunning(id)
+
+    const row = await db.query.scans.findFirst({ where: eq(scans.id, id) })
+    expect(row?.status).toBe('running')
+    // Bounded against the NODE clock, not against createdAt. That column is
+    // Postgres's defaultNow() and startedAt is new Date() here, so comparing
+    // them measures clock skew between two machines rather than anything the
+    // code decides.
+    expect(row!.startedAt!.getTime()).toBeGreaterThanOrEqual(before)
+    expect(row!.startedAt!.getTime()).toBeLessThanOrEqual(Date.now())
+  })
+
+  it('is idempotent, because Inngest retries', async () => {
+    const id = await track(open())
+    await markScanRunning(id)
+    const first = await db.query.scans.findFirst({ where: eq(scans.id, id) })
+
+    await markScanRunning(id)
+    const second = await db.query.scans.findFirst({ where: eq(scans.id, id) })
+
+    // Re-entering 'running' from 'running' is correct, and the timestamp
+    // moving to the latest attempt is what you want when reading how long the
+    // work actually took.
+    expect(second?.status).toBe('running')
+    expect(second!.startedAt!.getTime()).toBeGreaterThanOrEqual(first!.startedAt!.getTime())
   })
 
   it('stores findings and closes the scan together', async () => {
@@ -278,6 +315,68 @@ describe.skipIf(!live)('scan queries (DARVIN_DB=1)', () => {
       const id = await track(open({ requestedBy: ownerId }))
       expect(await getScanForViewer(id, { kind: 'user', userId: ownerId })).not.toBeNull()
       expect(await getScanForViewer(id, { kind: 'user', userId: strangerId })).toBeNull()
+    })
+  })
+
+  describe('the order findings come back in', () => {
+    /**
+     * Not cosmetic. redactFindings opens the FIRST N findings, so on a plan
+     * that shows "the three worst" an unordered read hands out three arbitrary
+     * ones — the free report gets less useful and the paid one leaks, from the
+     * same missing clause. findings-list.tsx renders in array order for the
+     * same reason.
+     *
+     * `with: { findings: true }` used to be the read here, and it does not
+     * preserve insertion order: Drizzle builds the relation as a lateral join,
+     * and this came back low-severity-first from a table written worst-first.
+     */
+    const ranked = (severity: Finding['severity'], checkId: string): Finding => ({
+      ...finding(checkId),
+      severity,
+    })
+
+    it('returns findings worst-first however they were written', async () => {
+      const id = await track(open())
+      await completeScan(id, {
+        scores: SCORES,
+        // Deliberately inserted in the WRONG order — the guarantee is about
+        // what comes out, not about what a caller happened to put in.
+        findings: [
+          ranked('info', 'z.info'),
+          ranked('low', 'm.low'),
+          ranked('critical', 'a.critical'),
+          ranked('medium', 'k.medium'),
+          ranked('high', 'b.high'),
+        ],
+        contextMeta: META,
+        checkErrors: [],
+        durationMs: 1,
+      })
+
+      const scan = await getScanForViewer(id, ANONYMOUS)
+      expect(scan!.findings.map((f) => f.severity)).toEqual([
+        'critical',
+        'high',
+        'medium',
+        'low',
+        'info',
+      ])
+    })
+
+    it('breaks ties on checkId, exactly as the engine does', async () => {
+      const id = await track(open())
+      await completeScan(id, {
+        scores: SCORES,
+        findings: [ranked('high', 'c.third'), ranked('high', 'a.first'), ranked('high', 'b.second')],
+        contextMeta: META,
+        checkErrors: [],
+        durationMs: 1,
+      })
+
+      const scan = await getScanForViewer(id, ANONYMOUS)
+      // registry.ts sorts `rank(a) - rank(b) || a.checkId.localeCompare(b.checkId)`.
+      // Two equal-severity findings must land here where they did there.
+      expect(scan!.findings.map((f) => f.checkId)).toEqual(['a.first', 'b.second', 'c.third'])
     })
   })
 })
