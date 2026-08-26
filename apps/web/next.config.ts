@@ -1,4 +1,13 @@
+import { config } from 'dotenv'
 import type { NextConfig } from 'next'
+
+/**
+ * The workspace keeps one .env at its root; Next looks for one beside the app.
+ * Loading it here means the CLI, drizzle-kit and the web app all read the same
+ * file, instead of three copies that drift. On a platform that injects its own
+ * environment (Vercel), this finds nothing and changes nothing.
+ */
+config({ path: new URL('../../.env', import.meta.url).pathname, quiet: true })
 
 const nextConfig: NextConfig = {
   /**

@@ -32,11 +32,27 @@ function fail(message: string): never {
 
 const args = process.argv.slice(2)
 const json = args.includes('--json')
+// The `deep` profile: follow the page's own same-origin links so the
+// crawl-powered checks have something to read. Costs extra requests against
+// the target, which is why it is opt-in here and per-profile in the web app.
+const deep = args.includes('--deep')
+// PageSpeed Insights. Separate from --deep because it is a different kind of
+// expensive: a Lighthouse run on Google's side takes 15-30 seconds, and
+// without a key the shared anonymous quota is spent most of every day.
+const psi = args.includes('--psi')
+const psiApiKey = process.env['PAGESPEED_API_KEY']
+// The browser tier. Needs apps/scanner running and both variables set; without
+// them the rendered checks are silent rather than failing.
+const browser = args.includes('--browser')
+const scannerUrl = process.env['DARVIN_SCANNER_URL']
+const scannerToken = process.env['DARVIN_SCANNER_TOKEN']
 const positional = args.filter((a) => !a.startsWith('--'))
-const unknownFlags = args.filter((a) => a.startsWith('--') && a !== '--json')
+const KNOWN_FLAGS = new Set(['--json', '--deep', '--psi', '--browser'])
+const unknownFlags = args.filter((a) => a.startsWith('--') && !KNOWN_FLAGS.has(a))
 
-if (unknownFlags.length > 0) fail(`Unknown flag: ${unknownFlags[0]}\nUsage: pnpm scan <url> [--json]`)
-if (positional.length !== 1) fail('Usage: pnpm scan <url> [--json]')
+const USAGE = 'Usage: pnpm scan <url> [--json] [--deep] [--psi] [--browser]'
+if (unknownFlags.length > 0) fail(`Unknown flag: ${unknownFlags[0]}\n${USAGE}`)
+if (positional.length !== 1) fail(USAGE)
 
 // Accept bare domains the way people type them; buildContext enforces http(s).
 const input = positional[0]!.trim()
@@ -90,7 +106,13 @@ const startedAt = performance.now()
 
 let ctx: CheckContext
 try {
-  ctx = await buildContext(target)
+  ctx = await buildContext(target, {
+    crawl: deep,
+    ...(psi ? { pageSpeed: psiApiKey ? { apiKey: psiApiKey } : {} } : {}),
+    ...(browser && scannerUrl && scannerToken
+      ? { scanner: { url: scannerUrl, token: scannerToken } }
+      : {}),
+  })
 } catch (error) {
   if (error instanceof SsrfError || error instanceof SafeFetchError) fail(`Scan failed: ${error.message}`)
   if (error instanceof TypeError) fail(`Invalid URL: ${input}`)

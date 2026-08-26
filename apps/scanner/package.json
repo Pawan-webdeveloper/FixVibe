@@ -1,5 +1,20 @@
 {
   "name": "@darvin/scanner",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/index.ts",
+    "start": "node --experimental-strip-types src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@darvin/checks": "workspace:*",
+    "axe-core": "^4.11.1",
+    "playwright-core": "^1.57.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.2",
+    "typescript": "^7.0.2"
+  }
 }

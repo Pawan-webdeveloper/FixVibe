@@ -16,6 +16,15 @@
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
 
+  /* Severity and score bands. Semantic colour, kept separate from --accent:
+     the accent identifies the product, these identify how bad something is. */
+  --color-critical: var(--critical);
+  --color-high: var(--high);
+  --color-medium: var(--medium);
+  --color-low: var(--low);
+  --color-info: var(--info);
+  --color-good: var(--good);
+
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
@@ -30,6 +39,13 @@
   --accent: #2563eb;
   --accent-ink: #ffffff;
   --danger: #b42318;
+
+  --critical: #b42318;
+  --high: #c2410c;
+  --medium: #96620a;
+  --low: #0e7490;
+  --info: #5b6270;
+  --good: #157347;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +58,13 @@
     --accent: #5b9dff;
     --accent-ink: #08101f;
     --danger: #ff9a8f;
+
+    --critical: #ff8a80;
+    --high: #ffa871;
+    --medium: #e3b341;
+    --low: #5ec8dc;
+    --info: #949cab;
+    --good: #4ade80;
   }
 }
 

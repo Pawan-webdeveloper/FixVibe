@@ -87,6 +87,13 @@ export interface ScanContextMeta {
   redirectChain: string[]
   status: number
   framework: string | null
+  /**
+   * Where the site is served from — Vercel, Netlify, Cloudflare, nginx.
+   * Stored alongside `framework` because it is the field that decides where
+   * response headers are configured, and for a header fix that matters more
+   * than which framework rendered the page.
+   */
+  platform: string | null
   /** ISO-8601 — jsonb has no Date type, so it round-trips as a string. */
   tlsExpiry: string | null
 }
@@ -185,6 +192,12 @@ export const scans = pgTable(
      * history.
      */
     url: text('url').notNull(),
+    /**
+     * Hostname of `url`, denormalised because the per-target rate limit counts
+     * scans of a SITE, not of a URL. Limiting on the full URL is no limit at
+     * all: /1, /2, /3 are three different strings pointing at one server.
+     */
+    targetHost: text('target_host').notNull(),
     profile: scanProfileEnum('profile').notNull().default('fast'),
     status: scanStatusEnum('status').notNull().default('queued'),
     /** Set when the worker picks the job up — distinct from `createdAt` (enqueued). */
@@ -227,6 +240,11 @@ export const scans = pgTable(
     // been scanned at this depth recently?") and the diff's "previous scan of
     // the same URL at the same depth".
     index('scans_url_profile_created_idx').on(t.url, t.profile, desc(t.createdAt)),
+    // The two rate-limit counters, both of which run on every scan request:
+    // "how much has this visitor asked for lately" and "how much has this site
+    // been asked about lately, by anyone".
+    index('scans_anon_ip_created_idx').on(t.anonIpHash, desc(t.createdAt)),
+    index('scans_target_host_created_idx').on(t.targetHost, desc(t.createdAt)),
   ],
 )
 
@@ -472,6 +490,9 @@ export type Membership = typeof memberships.$inferSelect
 export type NewMembership = typeof memberships.$inferInsert
 export type Project = typeof projects.$inferSelect
 export type NewProject = typeof projects.$inferInsert
+/** 'fast' | 'deep' — the enum's values, so callers never retype the union. */
+export type ScanProfile = (typeof scanProfileEnum.enumValues)[number]
+
 export type Scan = typeof scans.$inferSelect
 export type NewScan = typeof scans.$inferInsert
 /** Persisted finding row. Distinct from `@darvin/checks`'s in-memory `Finding`. */

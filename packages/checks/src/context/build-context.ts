@@ -11,28 +11,86 @@ import type { CheckContext } from '../types.ts'
 import { assertSafeUrl } from './ssrf-guard.ts'
 import { safeFetch } from './safe-fetch.ts'
 import { parseHtml } from './parse-html.ts'
+import { fetchScriptBodies } from './fetch-scripts.ts'
 import { parseSetCookies } from './cookies.ts'
 import { getTlsInfo } from './tls.ts'
 import { getDnsInfo } from './dns.ts'
 import { fetchRobots } from './robots.ts'
+import { crawlSite } from './crawl.ts'
+import { fetchPageSpeed, type PageSpeedOptions } from './psi.ts'
+import { fetchRendered, type ScannerOptions } from './rendered.ts'
 
 export interface BuildContextOptions {
   /** Budget for the main page fetch (side channels have their own, shorter ones). */
   timeoutMs?: number
+  /**
+   * The host the requester has PROVED they control, enabling active backend
+   * testing — reaching the Supabase project or Firebase database the page's
+   * own JavaScript talks to.
+   *
+   * A host rather than a boolean, and checked against `finalUrl` rather than
+   * the submitted URL, because a redirect otherwise walks straight through the
+   * gate: verify evil.test, have it 302 to victim.test, and a boolean decided
+   * before the fetch would hand `activeProbe` to a context built entirely out
+   * of victim.test's document. The comparison has to happen where the landing
+   * host is known, which is here.
+   *
+   * When it does not match, `ctx.activeProbe` is absent and the checks that
+   * need it are not merely disabled but structurally unable to run.
+   */
+  activeTesting?: { verifiedHost: string }
+  /**
+   * Whether to follow the page's own same-origin links (the `deep` profile).
+   *
+   * Off by default because it multiplies the requests a scan makes against the
+   * target: a fast scan stays one page plus a handful of probes, which is what
+   * makes the landing page's "paste a URL" flow answer in about a second.
+   */
+  crawl?: boolean
+  /**
+   * Fetch PageSpeed Insights for the final URL. Presence means "do it"; the
+   * apiKey inside is all but required, since the keyless quota is shared with
+   * every anonymous caller on the internet and is usually spent.
+   *
+   * Expensive in wall-clock terms: a PSI call runs Lighthouse server-side and
+   * takes 15-30 seconds, more than the rest of a scan by an order of
+   * magnitude. Deep, background scans only.
+   */
+  pageSpeed?: PageSpeedOptions
+  /**
+   * The browser tier (apps/scanner) to render the page with. Presence means
+   * "use it"; absence means the checks reading `ctx.rendered` stay silent.
+   *
+   * A separate process, usually a separate host, and the most failure-prone
+   * component in the system — so every outcome degrades to null rather than
+   * becoming a finding about the customer's site.
+   */
+  scanner?: ScannerOptions
 }
 
 /** Politeness cap: total extra same-origin requests all checks may make combined. */
 const MAX_PROBES_PER_SCAN = 24
 const PROBE_MAX_BODY_BYTES = 256 * 1024
 
+/**
+ * Active probes are capped far lower than same-origin ones. They are
+ * authenticated requests against a third party's API (Supabase, Firebase), and
+ * a scanner that issues dozens of them looks like an attack to whoever reads
+ * those logs — even when the customer authorised it.
+ */
+const MAX_ACTIVE_PROBES_PER_SCAN = 12
+/** Enough for a PostgREST OpenAPI document on a large project. */
+const ACTIVE_PROBE_MAX_BODY_BYTES = 1024 * 1024
+
 const EMPTY_DNS: CheckContext['dns'] = {
   txt: [],
-  caa: [],
+  caa: null,
   mx: [],
-  dnssec: false,
   emailDomain: null,
   spfTxt: [],
   dmarcTxt: [],
+  dkim: { selectors: {}, wildcard: null },
+  registration: null,
 }
 
 export async function buildContext(
@@ -45,7 +103,10 @@ export async function buildContext(
   const page = await safeFetch(url, { timeoutMs: options.timeoutMs })
   const { finalUrl } = page
 
-  const { $, scripts } = parseHtml(page.body, finalUrl)
+  const { $, scripts: referenced } = parseHtml(page.body, finalUrl)
+  // External script bodies are fetched so secrets-in-JS and source-maps have
+  // something to read. Bounded and SSRF-guarded — see fetch-scripts.ts.
+  const scripts = await fetchScriptBodies(referenced, finalUrl)
   const cookies = parseSetCookies(page.headers)
 
   const isHttps = finalUrl.protocol === 'https:'
@@ -59,12 +120,31 @@ export async function buildContext(
   // produce a false high-severity finding.
   const wantsHttpProbe = isHttps && url.protocol === 'https:' && finalUrl.port === ''
 
+  // Started here and awaited at the very end: a PSI run takes 15-30 seconds,
+  // so it overlaps the side channels AND the crawl instead of being added to
+  // them. Not inside the Promise.all below, which the crawl waits on.
+  const pageSpeedPromise = options.pageSpeed ? fetchPageSpeed(finalUrl, options.pageSpeed) : undefined
+  // Same reasoning: a headless render takes seconds, so it overlaps the side
+  // channels and the crawl rather than being added after them.
+  const renderedPromise = options.scanner ? fetchRendered(finalUrl, options.scanner) : undefined
+
   const [tls, dns, robots, httpProbe] = await Promise.all([
     isHttps ? getTlsInfo(finalUrl.hostname, tlsPort) : Promise.resolve(null),
     getDnsInfo(finalUrl.hostname).catch(() => EMPTY_DNS),
     fetchRobots(finalUrl.origin),
     wantsHttpProbe ? probeHttpVariant(finalUrl.hostname) : Promise.resolve(null),
   ])
+
+  // After robots: the crawl consults it, and after the page fetch: it follows
+  // links found in that document. Sequential on purpose, not an oversight.
+  // Judged against finalUrl, not the URL we were handed: everything in this
+  // context came from wherever the redirects ended, so that is the host the
+  // requester must have proved they own.
+  const activeTestingAllowed = mayTestActively(finalUrl, options.activeTesting)
+
+  const crawl = options.crawl ? await crawlSite($, finalUrl, robots) : undefined
+  const pageSpeed = pageSpeedPromise ? await pageSpeedPromise : undefined
+  const rendered = renderedPromise ? await renderedPromise : undefined
 
   return {
     url,
@@ -81,7 +161,33 @@ export async function buildContext(
     robots,
     httpProbe,
     probe: makeProbe(finalUrl.origin),
+    ...(crawl ? { crawl } : {}),
+    ...(pageSpeedPromise ? { pageSpeed } : {}),
+    ...(renderedPromise ? { rendered } : {}),
+    // Deliberately conditional: an unauthorised scan does not get a disabled
+    // capability, it gets no capability. See CheckContext.activeProbe.
+    ...(activeTestingAllowed ? { activeProbe: makeActiveProbe() } : {}),
   }
+}
+
+/**
+ * Whether the page we landed on is the host the requester proved they own.
+ *
+ * Exported so the rule can be tested directly. Getting it wrong grants a
+ * browser-driving, database-probing capability against somebody else's
+ * infrastructure, and the ways to get it wrong are all near-misses: a
+ * subdomain, a suffix that merely ends the same way, a differing case.
+ *
+ * Exact match, forgiving only a leading "www." — which is a presentation
+ * prefix, not a different site. Everything else is refused. Strictness is the
+ * safe direction: refusing to actively test a subdomain the user does own
+ * costs them a check, while the opposite mistake costs someone else.
+ */
+export function mayTestActively(finalUrl: URL, activeTesting: BuildContextOptions['activeTesting']): boolean {
+  if (!activeTesting?.verifiedHost) return false
+  const strip = (host: string) => host.toLowerCase().replace(/^www\./, '')
+  const landed = strip(finalUrl.hostname)
+  return landed !== '' && landed === strip(activeTesting.verifiedHost)
 }
 
 /** First response of http://host/ — status + Location, body discarded. */
@@ -95,6 +201,41 @@ async function probeHttpVariant(hostname: string): Promise<CheckContext['httpPro
     return { status: response.status, location: response.headers.get('location') }
   } catch {
     return null // port 80 closed / filtered — nothing to report on
+  }
+}
+
+/**
+ * The context's `activeProbe()`: any origin, memoised per url+headers, capped
+ * hard. Handed out only when the caller passed `activeTesting`.
+ *
+ * Still routed through safeFetch, so `assertSafeUrl` runs on the url and on
+ * every redirect hop. "The user authorised us to test their backend" is not a
+ * reason to let a redirect walk us into 169.254.169.254.
+ */
+function makeActiveProbe(): NonNullable<CheckContext['activeProbe']> {
+  const cache = new Map<string, ReturnType<NonNullable<CheckContext['activeProbe']>>>()
+  let remaining = MAX_ACTIVE_PROBES_PER_SCAN
+
+  return (url, init) => {
+    // Headers are part of the key: the same url with a different API key is a
+    // different question, and answering the second from the first would lie.
+    const key = `${url}\u0000${JSON.stringify(init?.headers ?? {})}`
+    const cached = cache.get(key)
+    if (cached) return cached
+
+    if (remaining <= 0) return Promise.resolve(null)
+    remaining -= 1
+
+    const result = safeFetch(url, {
+      timeoutMs: 8_000,
+      maxBodyBytes: ACTIVE_PROBE_MAX_BODY_BYTES,
+      headers: init?.headers,
+    }).then(
+      (response) => ({ status: response.status, body: response.body, headers: response.headers }),
+      () => null,
+    )
+    cache.set(key, result)
+    return result
   }
 }
 

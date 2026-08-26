@@ -27,6 +27,19 @@ export interface ContextOverrides {
   robots?: CheckContext['robots']
   httpProbe?: CheckContext['httpProbe']
   probe?: CheckContext['probe']
+  scripts?: CheckContext['scripts']
+  /**
+   * Supplying this is what marks a context as "authorised to test actively".
+   * Leave it out and the backend checks are structurally unable to run, which
+   * is the behaviour most of their tests assert.
+   */
+  activeProbe?: CheckContext['activeProbe']
+  /**
+   * Supplying this is what marks a context as coming from a `deep` scan.
+   * Leave it out and the crawl-powered checks stay silent, which is the
+   * behaviour their tests assert first.
+   */
+  crawl?: CheckContext['crawl']
 }
 
 const DEFAULT_HTML = '<!doctype html><html lang="en"><head><title>Test</title></head><body><h1>Test</h1></body></html>'
@@ -45,7 +58,7 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     headers,
     html,
     $: cheerio.load(html),
-    scripts: [],
+    scripts: overrides.scripts ?? [],
     // Derived from Set-Cookie through the real parser, exactly as buildContext
     // does, so a fixture describing a response gets the cookies that response
     // would actually produce.
@@ -53,9 +66,10 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     tls: overrides.tls ?? null,
     dns: {
       txt: [],
-      caa: [],
+      caa: null,
       mx: [],
-      dnssec: false,
+      dkim: { selectors: {}, wildcard: null },
+      registration: null,
       // Derived, not hardcoded: a test that overrides the URL gets the mail
       // domain its checks would really have been handed.
       emailDomain: organizationalDomain(url.hostname),
@@ -68,6 +82,61 @@ export function makeContext(overrides: ContextOverrides = {}): CheckContext {
     // Unit tests are network-free by design; a check that probes in a test
     // gets "unreachable" unless the test provides its own stub.
     probe: overrides.probe ?? (() => Promise.resolve(null)),
+    // Conditional on purpose, mirroring buildContext: an unauthorised context
+    // does not carry a disabled capability, it carries no capability.
+    ...(overrides.activeProbe ? { activeProbe: overrides.activeProbe } : {}),
+    ...(overrides.crawl ? { crawl: overrides.crawl } : {}),
+  }
+}
+
+/**
+ * A CrawlSummary with sane defaults, so a test naming three link statuses does
+ * not have to restate the coverage counters it does not care about.
+ */
+export function crawlSummary(overrides: Partial<NonNullable<CheckContext['crawl']>> = {}) {
+  const linkStatus = overrides.linkStatus ?? {}
+  return {
+    pages: [],
+    linkStatus,
+    linksFound: Object.keys(linkStatus).length,
+    linksSkipped: 0,
+    linksDisallowed: 0,
+    ...overrides,
+  }
+}
+
+/** A sub-page for crawlSummary({ pages: [...] }), with url === finalUrl by default. */
+export function crawledPage(path: string, html: string, origin = 'https://site.test') {
+  const url = new URL(path, origin).href
+  return { url, finalUrl: url, status: 200, html }
+}
+
+/** Minimal document with a title and (optionally) a meta description. */
+export function pageHtml(title: string, description?: string): string {
+  return (
+    '<!doctype html><html lang="en"><head>' +
+    `<title>${title}</title>` +
+    (description === undefined ? '' : `<meta name="description" content="${description}" />`) +
+    '</head><body><h1>x</h1></body></html>'
+  )
+}
+
+/**
+ * activeProbe() stub over a url → response map. An unlisted url resolves to
+ * null, i.e. unreachable — the same thing the real capability does when a
+ * request fails or the budget runs out.
+ */
+export function activeProbeStub(
+  responses: Record<string, { status: number; body?: string; headers?: Record<string, string> }>,
+): NonNullable<CheckContext['activeProbe']> {
+  return (url) => {
+    const response = responses[url]
+    if (!response) return Promise.resolve(null)
+    return Promise.resolve({
+      status: response.status,
+      body: response.body ?? '',
+      headers: new Headers(response.headers ?? {}),
+    })
   }
 }
 
@@ -94,13 +163,38 @@ export const CLEAN_SEO_HTML = `<!doctype html>
     <meta property="og:image" content="https://site.test/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <script type="application/ld+json">
-      { "@context": "https://schema.org", "@type": "WebSite", "name": "Darvin", "url": "https://site.test/" }
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          { "@type": "WebSite", "name": "Darvin", "url": "https://site.test/" },
+          {
+            "@type": "Organization",
+            "name": "Darvin",
+            "url": "https://site.test/",
+            "sameAs": ["https://github.com/darvin", "https://www.linkedin.com/company/darvin"]
+          }
+        ]
+      }
     </script>
   </head>
   <body>
     <h1>Darvin scanner fixture</h1>
   </body>
 </html>`
+
+/**
+ * An llms.txt a well-configured site would serve. Markdown, not HTML — the
+ * check treats an app shell at this path as a finding of its own.
+ */
+export const LLMS_TXT = [
+  '# Darvin',
+  '',
+  '> A synthetic fixture site used by the engine tests.',
+  '',
+  '## Docs',
+  '- [Checks](https://site.test/checks): what the scanner looks for',
+  '',
+].join('\n')
 
 /** Minimal valid sitemap body for a probe stub. */
 export const SITEMAP_XML =
@@ -127,8 +221,21 @@ export function permissiveRobots(sitemapUrl = 'https://site.test/sitemap.xml'): 
  */
 export const HEALTHY_DNS: Partial<CheckContext['dns']> = {
   emailDomain: 'site.test',
+  mx: ['aspmx.l.google.com'],
   spfTxt: ['v=spf1 include:_spf.google.com include:sendgrid.net ~all'],
   dmarcTxt: ['v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@site.test'],
+  // A real (short) RSA key, not a placeholder: the DKIM check distinguishes a
+  // published key from a revoked one by whether p= has a value.
+  dkim: {
+    selectors: {
+      google: ['v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4T1PE2vh5xqRGzOrDnkoi'],
+    },
+    wildcard: null,
+  },
+  caa: {
+    name: 'site.test',
+    records: ['issue "letsencrypt.org"', 'issuewild "letsencrypt.org"', 'iodef "mailto:security@site.test"'],
+  },
 }
 
 /**
