@@ -85,6 +85,52 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Committed-dark palette for the landing page. The utilities (bg-canvas,
+ * text-muted, …) resolve through the same custom properties, so redefining
+ * them inside this scope flips every token at once without touching markup.
+ */
+.theme-dark {
+  --canvas: #100f0d;
+  --surface: #1a1815;
+  --ink: #f2efe9;
+  --muted: #a39c90;
+  --line: #2b2823;
+  --accent: #7db4ff;
+  --accent-ink: #0b1220;
+}
+
+/* Landing-page motion. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Hidden state only applies once JS has mounted (html.js-ready), so content
+   stays visible for no-JS visitors and full-page captures. */
+/* Same specificity as the [data-visible='true'] rule below, which is later in
+   the file and therefore wins once an element has been revealed. */
+.js-ready .reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+.grid-backdrop {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--line) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--line) 60%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
