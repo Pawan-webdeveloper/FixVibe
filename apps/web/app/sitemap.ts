@@ -1,0 +1,40 @@
+/**
+ * /sitemap.xml
+ *
+ * Only the two pages this product actually wants ranked. A sitemap is a
+ * statement about what matters, not an inventory: padding it with every URL
+ * that returns 200 spreads crawl budget across pages we then ask robots.txt
+ * not to crawl, and the two contradict each other.
+ *
+ * Public status pages are left out on purpose even though they ARE crawlable.
+ * They belong to customers, they appear and disappear with those customers,
+ * and a sitemap that lists them would go stale the first time somebody deletes
+ * a project. Search engines find them from the links customers post, which is
+ * how they are meant to be found.
+ *
+ * `lastModified` is the deploy time rather than a hardcoded date, because that
+ * is what is true: these are static pages, so they change when the build does.
+ */
+
+import type { MetadataRoute } from 'next'
+import { serverEnv } from '@/lib/env.ts'
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const base = serverEnv.appUrl
+  const lastModified = new Date()
+
+  return [
+    {
+      url: base,
+      lastModified,
+      changeFrequency: 'weekly',
+      priority: 1,
+    },
+    {
+      url: `${base}/pricing`,
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+  ]
+}

@@ -10,7 +10,8 @@
     "scan": "pnpm --filter @darvin/cli exec tsx src/index.ts",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "razorpay:check": "node scripts/razorpay-preflight.mjs"
+    "razorpay:check": "node scripts/razorpay-preflight.mjs",
+    "db:deploy": "pnpm --filter @darvin/db db:deploy"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
