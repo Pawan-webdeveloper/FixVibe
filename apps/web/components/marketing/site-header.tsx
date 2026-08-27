@@ -12,7 +12,7 @@ import { BrandMark } from './brand-mark.tsx'
  * to scan yet.
  *
  * No session read. Calling getViewer() from the layout would opt the entire
- * (marketing) group into dynamic rendering and spend a Supabase round trip on
+ * (marketing) group into dynamic rendering and spend an identity round trip on
  * every anonymous visit, to relabel one link. The landing page is the one page
  * whose Core Web Vitals this product is judged on by its own engine, so it
  * stays static; a signed-in visitor who clicks "Sign in" lands on /login,

@@ -41,6 +41,16 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
+/**
+ * Deliberately reads nothing per-request — no cookies, no session, no identity.
+ *
+ * Convex Auth's server provider belongs BELOW this, in the (auth) and (app)
+ * layouts, because it calls `cookies()` and anything under a component that
+ * does is rendered dynamically. Mounted here it turned the landing page and
+ * the pricing page — the two a stranger sees first, both statically
+ * prerendered — into a server render on every view, to read a cookie neither
+ * of them consults.
+ */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={mono.variable}>

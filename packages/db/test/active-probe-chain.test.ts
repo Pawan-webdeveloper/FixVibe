@@ -52,8 +52,8 @@ describe.skipIf(!live)('verification reaches the engine (DARVIN_DB=1)', () => {
   })
 
   it('grants activeProbe only after the domain is verified', { timeout: 60_000 }, async () => {
-    const id = randomUUID()
-    await ensureUser({ id, email: `chain-${id}@example.test` })
+    // The provider's subject is what identity is keyed on; the app id comes back.
+    const id = await ensureUser({ subject: randomUUID(), email: `chain-${randomUUID()}@example.test` })
     created.push(id)
 
     const viewer: Viewer = { kind: 'user', userId: id }

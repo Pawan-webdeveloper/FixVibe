@@ -1,11 +1,14 @@
 /**
- * The app's own record of a person, mirrored from Supabase Auth.
+ * The app's own record of a person, mirrored from the identity provider.
  *
- * Identity has one source of truth: `users.id` is COPIED from Supabase's
- * auth.users.id rather than generated here, so the two stay joinable and there
- * is never a question of which row is the real one. No password or name
- * columns either — Supabase owns those, and a duplicated credential is a
- * liability with no upside.
+ * The provider proves WHO is asking; this table decides what they own. The two
+ * are joined on `authSubject`, never on the email — an email changes, and an
+ * account keyed on one silently becomes a different account the day it does.
+ *
+ * `users.id` is generated here rather than copied from the provider. It was
+ * copied, from Supabase, and that made a vendor's identifier the primary key of
+ * six tables — so moving to Convex would have meant migrating every one of
+ * them. One indirection column is the price of never doing that again.
  */
 
 import type { Category } from '@darvin/checks'
@@ -15,8 +18,8 @@ import { memberships, organizations, subscriptions, users } from '../schema.ts'
 import type { Viewer } from './viewer.ts'
 
 export interface AuthIdentity {
-  /** Supabase auth.users.id. Never invent one here. */
-  id: string
+  /** The provider's stable id for this person. Never invent one here. */
+  subject: string
   email: string
 }
 
@@ -30,37 +33,71 @@ export interface AuthIdentity {
  * already, so "add teams later" is screens rather than a migration and a
  * backfill of every row in the database.
  */
-export async function ensureUser(identity: AuthIdentity): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx
+export async function ensureUser(identity: AuthIdentity): Promise<string> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
       .insert(users)
-      .values({ id: identity.id, email: identity.email })
-      // The email can change upstream; the id never does, so it is the target.
-      .onConflictDoUpdate({ target: users.id, set: { email: identity.email } })
+      .values({ authSubject: identity.subject, email: identity.email })
+      /*
+       * The SUBJECT is the conflict target, not the email and not the id.
+       *
+       * On the email, one person signing in with Google and then with GitHub —
+       * same address, two provider identities — would collide and each
+       * sign-in would silently overwrite the other's subject, handing whoever
+       * signed in last the other's projects.
+       *
+       * The email is still updated, because it does change upstream and the
+       * alerts this account receives go to whatever is stored here.
+       */
+      .onConflictDoUpdate({ target: users.authSubject, set: { email: identity.email } })
+      .returning({ id: users.id })
+
+    if (!row) throw new Error('ensureUser: upsert returned no row')
+    const userId = row.id
 
     const existingOrg = await tx.query.organizations.findFirst({
-      where: eq(organizations.ownerId, identity.id),
+      where: eq(organizations.ownerId, userId),
       columns: { id: true },
     })
 
     if (!existingOrg) {
       const [org] = await tx
         .insert(organizations)
-        .values({ name: personalOrgName(identity.email), ownerId: identity.id })
+        .values({ name: personalOrgName(identity.email), ownerId: userId })
         .returning({ id: organizations.id })
 
       if (org) {
         await tx
           .insert(memberships)
-          .values({ orgId: org.id, userId: identity.id, role: 'owner' })
+          .values({ orgId: org.id, userId, role: 'owner' })
           .onConflictDoNothing()
       }
     }
 
-    // Free plan by default. Nobody touches Stripe until they choose to pay, so
-    // this row exists from signup and entitlement lookups never handle a null.
-    await tx.insert(subscriptions).values({ userId: identity.id }).onConflictDoNothing()
+    // Free plan by default. Nobody reaches the payment processor until they
+    // choose to, so this row exists from signup and entitlement lookups never
+    // have to handle a null.
+    await tx.insert(subscriptions).values({ userId }).onConflictDoNothing()
+
+    return userId
   })
+}
+
+/**
+ * The provider's id, resolved to this application's user id.
+ *
+ * Called on every request that needs to know who is asking, so it reads one
+ * indexed column and returns one value. Null means the token is valid but no
+ * app row was ever created for it — which getViewer treats as signed out
+ * rather than as an error, because the repair is to send them through the
+ * callback that runs ensureUser.
+ */
+export async function userIdForAuthSubject(subject: string): Promise<string | null> {
+  const row = await db.query.users.findFirst({
+    where: eq(users.authSubject, subject),
+    columns: { id: true },
+  })
+  return row?.id ?? null
 }
 
 /** "sahil's workspace" — a placeholder name, renameable once there is a team UI. */

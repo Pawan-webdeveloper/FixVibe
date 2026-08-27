@@ -3,121 +3,219 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client.ts'
+import { useAuthActions } from '@convex-dev/auth/react'
 import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { GitHubMark, GoogleMark } from '@/components/auth/provider-marks.tsx'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 /**
- * Two ways in, both passwordless.
+ * Three ways in, none of them a password.
  *
- * GitHub because the audience is developers and it is one click with no
- * credential for us to store. A magic link for everyone else — also nothing
- * stored. There is no password field anywhere in this product, which removes
- * an entire category of breach.
+ * Google and GitHub are one click and leave no credential of ours to store. For
+ * everyone else, a six-digit code to the address they type — a CODE rather than
+ * a magic link, because a link has to survive a corporate mail scanner
+ * rewriting it, opening in whichever browser the mail client prefers, and being
+ * clicked in the same session it was asked for. A code is read with the eyes
+ * and typed into the tab that is already open.
+ *
+ * There is no password field anywhere in this product, which removes an entire
+ * category of breach: no hashing to get wrong, no reset flow to phish, and
+ * nothing in a database dump worth cracking.
  */
+
+const BUTTON =
+  'label inline-flex h-11 w-full items-center justify-center gap-3 px-6 transition-colors duration-150'
+const PRIMARY = `${BUTTON} border border-ink bg-ink text-canvas hover:bg-transparent hover:text-ink`
+const SECONDARY = `${BUTTON} border border-line hover:bg-surface`
+const FIELD =
+  'h-11 w-full border border-line bg-canvas px-4 text-sm placeholder:text-muted ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
+
+/** What the URL says went wrong, in words the person can act on. */
+const ERRORS: Record<string, string> = {
+  'sign-in-failed': 'That sign-in did not complete. Try again.',
+  'account-setup-failed': 'We could not finish setting up your account. Try again in a moment.',
+  'no-email':
+    'That account did not share an email address with us. Make your GitHub email public, or sign in with a code instead.',
+}
+
 function LoginForm() {
   const params = useSearchParams()
   const next = params.get('next') ?? ''
+  const { signIn } = useAuthActions()
+
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const [step, setStep] = useState<'start' | 'code'>('start')
+  const [pending, setPending] = useState<'google' | 'github' | 'email' | null>(null)
+  const [error, setError] = useState<string | null>(ERRORS[params.get('error') ?? ''] ?? null)
 
-  /** The callback validates this again server-side; it is not trusted here. */
-  const callback = () => {
-    const url = new URL('/callback', window.location.origin)
-    if (next) url.searchParams.set('next', next)
-    return url.toString()
-  }
+  /** Where Convex Auth sends the browser once the session cookie is set. */
+  const redirectTo = next ? `/callback?next=${encodeURIComponent(next)}` : '/callback'
 
-  async function sendMagicLink(event: React.FormEvent) {
-    event.preventDefault()
-    setPending(true)
+  async function withProvider(provider: 'google' | 'github') {
+    setPending(provider)
     setError(null)
-    const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: callback() },
-    })
-    setPending(false)
-    if (error) setError(error.message)
-    else setSent(true)
-  }
-
-  async function signInWithGithub() {
-    setPending(true)
-    setError(null)
-    const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: { redirectTo: callback() },
-    })
-    if (error) {
-      setPending(false)
-      setError(error.message)
+    try {
+      await signIn(provider, { redirectTo })
+    } catch (cause) {
+      setPending(null)
+      setError(describe(cause))
     }
   }
 
-  if (sent) {
+  async function requestCode(event: React.FormEvent) {
+    event.preventDefault()
+    setPending('email')
+    setError(null)
+    try {
+      const form = new FormData()
+      form.set('email', email)
+      await signIn('resend-otp', form)
+      setStep('code')
+    } catch (cause) {
+      setError(describe(cause))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  async function submitCode(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setPending('email')
+    setError(null)
+    try {
+      const form = new FormData(event.currentTarget)
+      // The address goes back with the code on purpose. The provider checks
+      // that the code was issued for THIS address, so a code read from someone
+      // else's screen cannot be redeemed against another account.
+      form.set('email', email)
+      form.set('redirectTo', redirectTo)
+      await signIn('resend-otp', form)
+    } catch {
+      // Deliberately not the provider's message. "Token not found" is what an
+      // expired code and a mistyped one both produce, and neither is worth
+      // translating into something that sounds like our fault.
+      setError('That code is not right, or it has expired. Ask for a new one.')
+      setPending(null)
+    }
+  }
+
+  if (step === 'code') {
     return (
-      <div className="border border-line bg-surface p-6">
-        <h2 className="font-medium">Check your inbox</h2>
-        <p className="mt-2 text-sm text-muted">
-          A sign-in link is on its way to <span className="font-mono">{email}</span>. It expires in an
-          hour and can only be used once.
+      <>
+        <p className="text-[15px] leading-relaxed text-muted text-pretty">
+          We sent a six-digit code to <span className="text-ink">{email}</span>. It expires in 15
+          minutes and works once.
         </p>
-      </div>
+
+        <form onSubmit={submitCode} className="mt-6 flex flex-col gap-3">
+          <label htmlFor="code" className="label text-muted">
+            Code
+          </label>
+          <input
+            id="code"
+            name="code"
+            required
+            autoFocus
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            // Six digits, digits only. The pattern is what makes a phone show a
+            // number pad and what lets the browser offer the code it just saw
+            // arrive in a message.
+            pattern="[0-9]{6}"
+            maxLength={6}
+            placeholder="000000"
+            className={`${FIELD} text-center text-lg tracking-[0.4em]`}
+          />
+          <button type="submit" disabled={pending !== null} className={`${PRIMARY} disabled:opacity-60`}>
+            {pending ? 'Checking…' : 'Sign in'}
+          </button>
+        </form>
+
+        <Problem message={error} />
+
+        <button
+          type="button"
+          onClick={() => {
+            setStep('start')
+            setError(null)
+          }}
+          className="label mt-6 text-muted transition-colors hover:text-ink"
+        >
+          ← Use a different address
+        </button>
+      </>
     )
   }
 
   return (
     <>
-      <button
-        type="button"
-        onClick={signInWithGithub}
-        disabled={pending}
-        className="w-full bg-ink px-4 py-3 text-sm font-medium text-canvas disabled:opacity-60"
-      >
-        Continue with GitHub
-      </button>
-
-      <div className="my-6 flex items-center gap-3 text-xs text-muted">
-        <span className="h-px flex-1 bg-line" />
-        or
-        <span className="h-px flex-1 bg-line" />
+      <div className="flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={() => withProvider('google')}
+          disabled={pending !== null}
+          className={`${PRIMARY} disabled:opacity-60`}
+        >
+          <GoogleMark />
+          {pending === 'google' ? 'Opening Google…' : 'Continue with Google'}
+        </button>
+        <button
+          type="button"
+          onClick={() => withProvider('github')}
+          disabled={pending !== null}
+          className={`${SECONDARY} disabled:opacity-60`}
+        >
+          <GitHubMark />
+          {pending === 'github' ? 'Opening GitHub…' : 'Continue with GitHub'}
+        </button>
       </div>
 
-      <form onSubmit={sendMagicLink} className="flex flex-col gap-3">
-        <label htmlFor="email" className="label">
+      <div className="my-6 flex items-center gap-3">
+        <span aria-hidden="true" className="h-px flex-1 bg-line" />
+        <span className="label text-muted">or</span>
+        <span aria-hidden="true" className="h-px flex-1 bg-line" />
+      </div>
+
+      <form onSubmit={requestCode} className="flex flex-col gap-3">
+        <label htmlFor="email" className="label text-muted">
           Email
         </label>
         <input
           id="email"
+          name="email"
           type="email"
           required
           autoComplete="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={pending}
+          onChange={(event) => setEmail(event.target.value)}
+          disabled={pending !== null}
           placeholder="you@example.com"
-          className="border border-line bg-surface px-4 py-3 text-base disabled:opacity-60"
+          className={`${FIELD} disabled:opacity-60`}
         />
-        <button
-          type="submit"
-          disabled={pending}
-          className="border border-line px-4 py-3 text-sm font-medium hover:bg-surface disabled:opacity-60"
-        >
-          {pending ? 'Sending…' : 'Email me a sign-in link'}
+        <button type="submit" disabled={pending !== null} className={`${SECONDARY} disabled:opacity-60`}>
+          {pending === 'email' ? 'Sending…' : 'Email me a code'}
         </button>
       </form>
 
-      {error && (
-        <p role="alert" className="mt-3 text-sm text-danger">
-          {error}
-        </p>
-      )}
+      <Problem message={error} />
     </>
   )
+}
+
+function Problem({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <p role="alert" className="mt-4 border border-line bg-surface px-4 py-3 text-sm">
+      ▲ {message}
+    </p>
+  )
+}
+
+function describe(cause: unknown): string {
+  return cause instanceof Error && cause.message
+    ? cause.message
+    : 'That did not work. Try again in a moment.'
 }
 
 export default function LoginPage() {
@@ -130,15 +228,14 @@ export default function LoginPage() {
       <div className="mt-8">
         <LabeledRule label="Sign in" trailing="no password" />
       </div>
-      <h1 className="mt-5 mb-8 text-2xl font-semibold tracking-[-0.02em]">
-        Keep your reports
-      </h1>
+      <h1 className="mt-5 mb-8 text-2xl font-semibold tracking-[-0.02em]">Keep your reports</h1>
       {/* useSearchParams needs a Suspense boundary to keep the page static. */}
       <Suspense fallback={null}>
         <LoginForm />
       </Suspense>
       <p className="mt-8 text-sm text-muted">
-        No password, ever. Scanning works without an account — signing in is for keeping your reports.
+        No password, ever. Scanning works without an account — signing in is for keeping your
+        reports.
       </p>
     </div>
   )

@@ -49,9 +49,9 @@ describe.skipIf(!live)('monitors and alerts (DARVIN_DB=1)', () => {
   let projectId: string
 
   const newProject = async () => {
-    const id = randomUUID()
+    // The provider's subject is what identity is keyed on; the app id comes back.
+    const id = await ensureUser({ subject: randomUUID(), email: `m-${randomUUID()}@example.test` })
     createdUsers.push(id)
-    await ensureUser({ id, email: `m-${id}@example.test` })
     const context = await getUserContext(id)
     const owner: Viewer = { kind: 'user', userId: id }
     const project = await makeProject(owner, {

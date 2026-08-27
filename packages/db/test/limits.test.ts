@@ -30,8 +30,8 @@ describe.skipIf(!live)('plan limits (DARVIN_DB=1)', () => {
   const scanIds: string[] = []
 
   async function newAccount(): Promise<{ viewer: Viewer & { kind: 'user' }; orgId: string }> {
-    const id = randomUUID()
-    await ensureUser({ id, email: `limits-${id}@example.test` })
+    // The provider's subject is what identity is keyed on; the app id comes back.
+    const id = await ensureUser({ subject: randomUUID(), email: `limits-${randomUUID()}@example.test` })
     created.push(id)
     const context = await getUserContext(id)
     return { viewer: { kind: 'user', userId: id }, orgId: context!.orgId }

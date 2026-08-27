@@ -103,13 +103,30 @@ export interface ScanContextMeta {
 /* -------------------------------------------------------------------------- */
 
 /**
- * App-level user row. `id` is NOT generated here — it is copied from Supabase
- * `auth.users.id` so the two stay joinable and identity has one source of
- * truth. No password/name columns: Supabase Auth owns those, and duplicating a
- * credential is a liability with no upside.
+ * App-level user row.
+ *
+ * `id` is the APPLICATION's own identifier and is generated here. It used to be
+ * copied from Supabase `auth.users.id`, which made the primary key of six
+ * tables a foreign vendor's identifier — and moving to Convex would then have
+ * meant migrating every one of them. `authSubject` carries the provider's id
+ * instead, so the next swap is one column rather than a schema rewrite.
+ *
+ * No password or name columns. The identity provider owns credentials, and a
+ * duplicated credential is a liability with no upside.
  */
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
+  /**
+   * The identity provider's stable id for this person — a Convex user id today.
+   *
+   * Unique, so two app rows can never claim one identity. Nullable only so the
+   * column could be added to an existing table; every row written since carries
+   * one, and getViewer refuses anyone it cannot match.
+   *
+   * Deliberately NOT the email. An email changes, and an account keyed on one
+   * silently becomes a different account the day it does.
+   */
+  authSubject: text('auth_subject').unique(),
   email: text('email').notNull().unique(),
   /**
    * The pillars this person said they care about, asked once after their first

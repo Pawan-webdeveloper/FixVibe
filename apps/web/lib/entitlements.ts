@@ -19,8 +19,9 @@
  * plan, and resolving them to "free" — as this used to — would hand out the
  * free tier's three open findings to someone with no account at all.
  *
- * Nothing here reads Supabase. It takes a Viewer, which lib/authz.ts produces,
- * and that is the single seam an auth provider swap has to touch.
+ * Nothing here reads the identity provider. It takes a Viewer, which
+ * lib/authz.ts produces, and that is the single seam an auth provider swap has
+ * to touch — as the move from Supabase to Convex demonstrated.
  */
 
 import 'server-only'
