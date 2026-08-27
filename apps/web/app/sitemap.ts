@@ -36,5 +36,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.8,
     },
+    /*
+     * Listed at a low priority rather than left out. Nobody searches for these,
+     * but a payment processor's review looks for them and an unlisted page is
+     * one more thing for a reviewer to fail to find.
+     */
+    {
+      url: `${base}/privacy`,
+      lastModified,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
+      url: `${base}/terms`,
+      lastModified,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
   ]
 }
