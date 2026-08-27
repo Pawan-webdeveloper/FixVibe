@@ -30,3 +30,28 @@ pnpm-debug.log*
 *.swp
 # Added by code-review-graph
 .code-review-graph/
+
+# Local AI-assistant and editor config.
+#
+# Each of these is a setting for one person's tools on one machine — which
+# agent is wired to which MCP server, which skills that agent has locally.
+# None of it changes what the product does, and a contributor using a
+# different editor would have to keep deleting it.
+.claude/
+.codebuddy/
+.cursor/
+.gemini/
+.kiro/
+.qoder/
+.vscode/
+.cursorrules
+.windsurfrules
+.mcp.json
+opencode.jsonc
+AGENTS.md
+CLAUDE.md
+CODEBUDDY.md
+GEMINI.md
+QODER.md
+# Generated instructions, not workflows — .github/workflows stays committable.
+.github/instructions/
