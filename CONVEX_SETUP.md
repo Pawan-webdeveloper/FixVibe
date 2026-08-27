@@ -115,7 +115,43 @@ again — the scan will start and route to `/scan/<id>`.
 
 ## Email codes (Resend)
 
-Resend's free tier only delivers from `onboarding@resend.dev` to the address
-that owns the Resend account. Before testing the email flow, either verify
-your own domain in Resend and update `AUTH_EMAIL_FROM`, or add your
-destination address as a test recipient on the Resend dashboard.
+While `AUTH_EMAIL_FROM` is Resend's sandbox sender (`onboarding@resend.dev`),
+Resend delivers **only to the address that owns the Resend account** and
+refuses everything else. Anyone else asking for a code gets a failure.
+
+That is fine for testing and fatal in production, so it is worth being precise
+about which of the two failures you are looking at — they are different HTTP
+statuses with different fixes:
+
+| Status | Resend says | Means |
+| --- | --- | --- |
+| 403 | "You can only send testing emails to your own email address" | The key is live and working; the recipient is simply not the account owner. Sandbox limit. |
+| 422 | "Invalid `to` field ... domains like `example.com`" | The recipient address is one Resend refuses outright. |
+| 401 | "API key is invalid" | Wrong key, or `AUTH_RESEND_KEY` is unset on the deployment. |
+
+Neither message reaches the person signing in — the 403 body names the account
+owner's own email address, so all of them are logged and replaced with a fixed
+sentence. See `components/auth/sign-in-error.ts`. Read the real reason in the
+Convex logs, under `[ResendOTP] delivery failed`.
+
+**The key has to be the one belonging to the Resend account you intend to
+send from**, and it lives on the Convex deployment rather than in `.env` —
+`AUTH_RESEND_KEY` in the repo's `.env` is not what Convex functions read. When
+sign-in emails fail for one address and work for another, check that the two
+are the same key:
+
+```sh
+cd apps/web && npx convex env get AUTH_RESEND_KEY
+```
+
+### Going to production
+
+Verify a domain at resend.com/domains, then point the sender at it:
+
+```sh
+cd apps/web
+npx convex env set AUTH_EMAIL_FROM "Darvin <auth@yourdomain.com>"
+```
+
+Until that is done the email option works for exactly one person, and Google
+and GitHub are the only sign-in methods anybody else can use.
