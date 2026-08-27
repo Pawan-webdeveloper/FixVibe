@@ -59,6 +59,40 @@ function generateCode(): string {
   }
 }
 
+/**
+ * What to tell the person, given only the status Resend replied with.
+ *
+ * The split matters because two of these are OUR fault and one is theirs, and
+ * a single sentence has to pick. Saying "check it for typos" to somebody whose
+ * address is perfectly fine — which is what a 403 means — sends them to look
+ * for a mistake that is not there, and then to look again, while the actual
+ * problem is that this deployment cannot send mail to anyone yet.
+ *
+ * 403 is Resend refusing to send from an unverified sender to anybody except
+ * the account owner. It is a configuration state of ours, it applies to every
+ * visitor equally, and nothing the person types will change it — so the honest
+ * thing is to say the method is unavailable and point at the two that work.
+ *
+ * 422 is Resend rejecting the recipient itself. That one really is about what
+ * was typed.
+ *
+ * Everything else — a bad key, a quota, Resend being down — is ours and is
+ * usually temporary, so it asks them to try again rather than to change
+ * anything.
+ */
+function reasonFor(status: number): string {
+  if (status === 403) {
+    return (
+      'Sign-in by email is not available yet on this site. ' +
+      'Continue with Google or GitHub instead.'
+    )
+  }
+  if (status === 422) {
+    return 'That address was rejected. Check it for typos, or continue with Google or GitHub.'
+  }
+  return 'We could not send the code just now. Try again, or continue with Google or GitHub.'
+}
+
 export const ResendOTP = Email({
   id: 'resend-otp',
   apiKey: process.env.AUTH_RESEND_KEY,
@@ -96,10 +130,7 @@ export const ResendOTP = Email({
 
       // Prefixed so the client can tell a sentence we wrote for the person
       // apart from an internal failure it must not render. See sign-in-error.ts.
-      throw new Error(
-        `${SAFE_PREFIX}We could not send a code to that address. ` +
-          'Check it for typos, or continue with Google or GitHub instead.',
-      )
+      throw new Error(SAFE_PREFIX + reasonFor(response.status))
     }
   },
 })

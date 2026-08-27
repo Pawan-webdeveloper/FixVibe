@@ -92,26 +92,30 @@ describe('corruptTokenKeys', () => {
 describe('describeSignInError', () => {
   it('shows a sentence we marked as written for the reader', () => {
     const cause = new Error(
-      'darvin:We could not send a code to that address. Check it for typos, or continue with Google or GitHub instead.',
+      'darvin:Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.',
     )
 
     expect(describeSignInError(cause)).toBe(
-      'We could not send a code to that address. Check it for typos, or continue with Google or GitHub instead.',
+      'Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.',
     )
   })
 
   it('finds the marked sentence inside Convex’s own wrapper', () => {
-    // Convex prefixes a request id and "Server Error" before the thrown message.
+    // Convex prefixes a request id and "Server Error" before the thrown message,
+    // and appends its own stack after it. This is the real shape, from the logs.
     const cause = new Error(
-      '[Request ID: 03e71a95ab7b64c2] Server Error\nUncaught Error: darvin:We could not send a code to that address.\n    at sendVerificationRequest (../../convex/ResendOTP.ts:77:4)',
+      '[Request ID: 9e2a6dcfa567bf1b] Server Error\nUncaught Error: darvin:Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.\n    at sendVerificationRequest (../../convex/ResendOTP.ts:99:22)',
     )
 
-    expect(describeSignInError(cause)).toBe('We could not send a code to that address.')
+    expect(describeSignInError(cause)).toBe(
+      'Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.',
+    )
   })
 
   it('never repeats an unmarked provider message', () => {
     // The regression this guards: Resend's 403 names the ACCOUNT OWNER's email
     // address, and it was being rendered on a public sign-in page verbatim.
+    // Every operator's own address would end up here — that is the whole point.
     const cause = new Error(
       'Uncaught Error: Could not send the sign-in code (HTTP 403). {"statusCode":403,"name":"validation_error","message":"You can only send testing emails to your own email address (owner@example.com). To send emails to other recipients, please verify a domain at resend.com/domains"}',
     )
