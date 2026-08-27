@@ -28,6 +28,15 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 /** Long enough to find the mail, short enough that a leaked code is stale. */
 const EXPIRY_SECONDS = 15 * 60
 
+/**
+ * Marks a message as written FOR the person signing in, and therefore safe to
+ * put on screen. Anything without it is an internal failure whose text belongs
+ * in the logs. Kept in sync with components/auth/sign-in-error.ts, which is
+ * where the client reads it; it cannot be imported from there because Convex
+ * functions are bundled separately from the Next.js app.
+ */
+const SAFE_PREFIX = 'darvin:'
+
 const DIGITS = 6
 const CEILING = 10 ** DIGITS
 
@@ -74,7 +83,23 @@ export const ResendOTP = Email({
     // waits, retries, and blames their spam filter.
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
-      throw new Error(`Could not send the sign-in code (HTTP ${response.status}). ${detail}`.trim())
+
+      /*
+       * The provider's own words go to the logs and nowhere else. Resend's 403
+       * for an unverified domain names the ACCOUNT OWNER's email address, and
+       * that message was reaching the sign-in screen verbatim — handing any
+       * stranger who typed an address the operator's personal one. The same
+       * applies to quota and suspension messages, which describe our account
+       * rather than anything the person asking can act on.
+       */
+      console.error(`[ResendOTP] delivery failed (HTTP ${response.status}): ${detail}`)
+
+      // Prefixed so the client can tell a sentence we wrote for the person
+      // apart from an internal failure it must not render. See sign-in-error.ts.
+      throw new Error(
+        `${SAFE_PREFIX}We could not send a code to that address. ` +
+          'Check it for typos, or continue with Google or GitHub instead.',
+      )
     }
   },
 })
