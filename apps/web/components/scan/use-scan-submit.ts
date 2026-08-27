@@ -111,6 +111,36 @@ export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
     inputRef?.current?.focus()
   }, [restore, isAuthenticated, inputRef])
 
+  /*
+   * A submission that went through the Server Action — the no-JavaScript path,
+   * or a click that landed before hydration — cannot render its own rejection,
+   * so it comes back as ?scan_error and is picked up here.
+   *
+   * Read from window.location rather than useSearchParams on purpose: this page
+   * is statically prerendered, and useSearchParams would demand a Suspense
+   * boundary or opt the whole landing page into dynamic rendering to serve the
+   * few visitors who arrive without JavaScript.
+   */
+  useEffect(() => {
+    if (!restore || typeof window === 'undefined') return
+
+    const params = new URLSearchParams(window.location.search)
+    const failed = params.get('scan_error')
+    if (failed === null || failed === '') return
+
+    setError(failed)
+
+    // Stripped from the address bar so a reload does not raise an error the
+    // visitor has already read and acted on.
+    params.delete('scan_error')
+    const query = params.toString()
+    window.history.replaceState(
+      null,
+      '',
+      window.location.pathname + (query ? `?${query}` : '') + window.location.hash,
+    )
+  }, [restore])
+
   function setValue(next: string) {
     setValueState(next)
     // Typing is how somebody answers a rejection, so the rejection goes as
