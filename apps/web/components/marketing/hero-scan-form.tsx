@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
+import { useId, useRef } from 'react'
 import Link from 'next/link'
 import { useScanSubmit } from '@/components/scan/use-scan-submit.ts'
 import { ArrowRight, Globe } from './icons.tsx'
@@ -35,12 +35,16 @@ export function HeroScanForm() {
   const inputId = useId()
   const errorId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [value, setValue] = useState('')
-  const { pending, error, clearError, submit } = useScanSubmit()
+  // The hero is where a visitor returning from sign-in lands, so it is the
+  // form that reclaims the URL they typed before they were sent away.
+  const { value, setValue, pending, error, submit } = useScanSubmit({
+    restore: true,
+    inputRef,
+  })
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const started = await submit(value)
+    const started = await submit()
     if (!started) inputRef.current?.focus()
   }
 
@@ -82,10 +86,7 @@ export function HeroScanForm() {
           spellCheck={false}
           placeholder="https://your-site.com"
           value={value}
-          onChange={(event) => {
-            setValue(event.target.value)
-            if (error) clearError()
-          }}
+          onChange={(event) => setValue(event.target.value)}
           disabled={pending}
           aria-invalid={error !== null}
           aria-describedby={error ? errorId : undefined}
