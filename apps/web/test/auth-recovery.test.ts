@@ -28,6 +28,14 @@ describe('isParsableRefreshToken', () => {
   it('rejects an empty value', () => {
     expect(isParsableRefreshToken('')).toBe(false)
   })
+
+  it('accepts the Next.js sentinel "dummy"', () => {
+    // The regression this guards: in the Next.js flow the real refresh token is
+    // in a cookie and localStorage holds "dummy". Treating that as corrupt
+    // deleted a live session's JWT on the next page load and bounced a
+    // just-signed-in user back to /login.
+    expect(isParsableRefreshToken('dummy')).toBe(true)
+  })
 })
 
 describe('corruptTokenKeys', () => {
@@ -35,6 +43,19 @@ describe('corruptTokenKeys', () => {
     const entries = [
       ['__convexAuthRefreshToken_httpsshinysparrow790convexcloud', GOOD],
       ['__convexAuthJWT_httpsshinysparrow790convexcloud', 'header.payload.signature'],
+    ] as const
+
+    expect(corruptTokenKeys(entries)).toEqual([])
+  })
+
+  it('leaves a signed-in Next.js session alone (the "dummy" sentinel)', () => {
+    // The real-world shape from a working sign-in: localStorage holds "dummy"
+    // and a JWT, the real refresh token is in a cookie. None of it is corrupt.
+    const ns = '_httpsreminiscentmockingbird621euwest1convexcloud'
+    const entries = [
+      [`__convexAuthRefreshToken${ns}`, 'dummy'],
+      [`__convexAuthJWT${ns}`, 'eyJhbGciOiJSUzI1NiJ9.payload.sig'],
+      [`__convexAuthServerStateFetchTime${ns}`, '1787857481681'],
     ] as const
 
     expect(corruptTokenKeys(entries)).toEqual([])

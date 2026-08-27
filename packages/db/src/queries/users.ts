@@ -23,6 +23,66 @@ export interface AuthIdentity {
   email: string
 }
 
+/** Any transaction handle — narrowed to the two calls resolveUserId makes. */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * The application user id for a sign-in, creating the row the first time.
+ *
+ * The subject is the provider's id and the email is the person. Both are unique
+ * columns, and a returning person can arrive with a NEW subject against an
+ * existing email — because the subject is only stable within one Convex
+ * deployment, and pointing the app at a new deployment renumbers everyone. A
+ * plain `insert ... on conflict (auth_subject)` cannot express that: the new
+ * subject does not collide, so the insert hits the EMAIL unique constraint
+ * instead and throws, which is the "could not create the account row" failure
+ * that locked every returning user out after the deployment moved.
+ *
+ * So resolve by identity explicitly, in order:
+ *
+ *   1. Known subject — the ordinary repeat sign-in. Refresh the email, which
+ *      can change upstream and is where this account's alerts are sent.
+ *   2. Known email, new subject — the same person, proven again by a provider
+ *      that now names them differently (a new deployment, or Google after
+ *      GitHub). Adopt the new subject; the account follows the address.
+ *   3. Neither — a genuinely new person. Insert.
+ *
+ * Adopting a subject by email is safe precisely because there is no password:
+ * every provider here (Google, GitHub, emailed code) proves control of the
+ * address before it issues a subject, so a matching email IS proof of the same
+ * person. The account is keyed on who can read the inbox, which is the only
+ * identity this product ever had.
+ */
+async function resolveUserId(tx: Tx, identity: AuthIdentity): Promise<string> {
+  const bySubject = await tx.query.users.findFirst({
+    where: eq(users.authSubject, identity.subject),
+    columns: { id: true, email: true },
+  })
+  if (bySubject) {
+    if (bySubject.email !== identity.email) {
+      await tx.update(users).set({ email: identity.email }).where(eq(users.id, bySubject.id))
+    }
+    return bySubject.id
+  }
+
+  const byEmail = await tx.query.users.findFirst({
+    where: eq(users.email, identity.email),
+    columns: { id: true },
+  })
+  if (byEmail) {
+    await tx.update(users).set({ authSubject: identity.subject }).where(eq(users.id, byEmail.id))
+    return byEmail.id
+  }
+
+  const [row] = await tx
+    .insert(users)
+    .values({ authSubject: identity.subject, email: identity.email })
+    .returning({ id: users.id })
+
+  if (!row) throw new Error('ensureUser: insert returned no row')
+  return row.id
+}
+
 /**
  * Called on every sign-in, so it must be idempotent rather than merely
  * first-run-safe.
@@ -35,25 +95,7 @@ export interface AuthIdentity {
  */
 export async function ensureUser(identity: AuthIdentity): Promise<string> {
   return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(users)
-      .values({ authSubject: identity.subject, email: identity.email })
-      /*
-       * The SUBJECT is the conflict target, not the email and not the id.
-       *
-       * On the email, one person signing in with Google and then with GitHub —
-       * same address, two provider identities — would collide and each
-       * sign-in would silently overwrite the other's subject, handing whoever
-       * signed in last the other's projects.
-       *
-       * The email is still updated, because it does change upstream and the
-       * alerts this account receives go to whatever is stored here.
-       */
-      .onConflictDoUpdate({ target: users.authSubject, set: { email: identity.email } })
-      .returning({ id: users.id })
-
-    if (!row) throw new Error('ensureUser: upsert returned no row')
-    const userId = row.id
+    const userId = await resolveUserId(tx, identity)
 
     const existingOrg = await tx.query.organizations.findFirst({
       where: eq(organizations.ownerId, userId),

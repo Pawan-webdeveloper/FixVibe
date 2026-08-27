@@ -92,6 +92,21 @@ function LoginForm() {
       form.set('email', email)
       form.set('redirectTo', redirectTo)
       await signIn('resend-otp', form)
+
+      /*
+       * Navigate ourselves, because signIn will not. On the OAuth path it does
+       * a window.location redirect from inside the library; on the code path it
+       * verifies, sets the session token, and returns WITHOUT redirecting —
+       * `redirectTo` is only consulted by the OAuth flow. Left to itself the
+       * page just sits on /login with a valid session and never runs /callback,
+       * so ensureUser never creates the account row and every signed-in page
+       * then bounces back here.
+       *
+       * A full-document navigation rather than a client push: /callback is a
+       * server route that reads the freshly set auth cookie, and the request
+       * for it has to carry that cookie.
+       */
+      window.location.assign(redirectTo)
     } catch {
       // Deliberately not the provider's message. "Token not found" is what an
       // expired code and a mistyped one both produce, and neither is worth

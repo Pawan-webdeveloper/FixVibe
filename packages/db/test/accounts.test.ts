@@ -17,7 +17,7 @@ import { eq, inArray } from 'drizzle-orm'
 import type { ScanScores } from '@scanlyfix/checks'
 import { db } from '../src/client.ts'
 import { memberships, organizations, projects, scans, subscriptions, users } from '../src/schema.ts'
-import { ensureUser, getUserContext } from '../src/queries/users.ts'
+import { ensureUser, getUserContext, userIdForAuthSubject } from '../src/queries/users.ts'
 import {
   verifiedHostForProject,
   claimScan,
@@ -120,18 +120,30 @@ describe.skipIf(!live)('accounts and projects (SCANLYFIX_DB=1)', () => {
       expect((await getUserContext(identity.id))?.email).toContain('changed-')
     })
 
-    it('keeps two providers with the same address apart', async () => {
+    it('adopts a new subject for a known address, keeping one account', async () => {
       /*
-       * One person signing in with Google and then with GitHub is two provider
-       * identities. Were the email the conflict target, the second sign-in
-       * would overwrite the first account's subject and hand whoever signed in
-       * last the other's projects.
+       * The same person, proven again by a provider that now names them
+       * differently — a new Convex deployment renumbering every subject, or
+       * Google after GitHub. Because every provider here verifies control of
+       * the address before issuing a subject, a matching email is proof of the
+       * same person, so the account follows the address rather than forking or
+       * throwing. Throwing was the "could not create the account row" failure
+       * that locked returning users out after the deployment moved.
        */
       const shared = `shared-${randomUUID()}@example.test`
-      const first = await ensureUser({ subject: randomUUID(), email: shared })
+      const firstSubject = randomUUID()
+      const secondSubject = randomUUID()
+
+      const first = await ensureUser({ subject: firstSubject, email: shared })
       createdUsers.push(first)
 
-      await expect(ensureUser({ subject: randomUUID(), email: shared })).rejects.toThrow()
+      const second = await ensureUser({ subject: secondSubject, email: shared })
+
+      // One account, not two, and not an error.
+      expect(second).toBe(first)
+      // The new subject now resolves to it; the old one no longer does.
+      expect(await userIdForAuthSubject(secondSubject)).toBe(first)
+      expect(await userIdForAuthSubject(firstSubject)).toBeNull()
     })
 
     it('returns null for a user that was never created', async () => {

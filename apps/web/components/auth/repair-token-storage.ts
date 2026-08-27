@@ -42,14 +42,35 @@ const JWT_KEY = '__convexAuthJWT'
 const DIVIDER = '|'
 
 /**
- * Whether the server would be able to read this refresh token.
+ * The placeholder the Next.js integration writes into localStorage in place of
+ * the refresh token.
  *
- * Mirrors `parseRefreshToken`: split on the divider and require both halves to
- * be non-empty. Deliberately a shape check and not a validity check — whether
- * the session still exists is the server's question, and a well-formed token
- * for a deleted session fails cleanly as "signed out" instead of throwing.
+ * In the Next.js flow the real refresh token lives in a cookie that the proxy
+ * middleware rotates server-side; the client is handed the sentinel "dummy" and
+ * never the real value (see the library's nextjs/server/proxy: "The client has
+ * a dummy refreshToken, the real one is only [in the cookie]"). So "dummy" is
+ * not corruption — it is the normal, signed-IN state of this app, and deleting
+ * it signs a working session out on the next page load. This is exactly the bug
+ * this module caused: it read "dummy", saw no divider, and threw the session
+ * away along with a perfectly valid JWT.
+ */
+const NEXTJS_SENTINEL = 'dummy'
+
+/**
+ * Whether the stored refresh token is one the app can keep using.
+ *
+ * Two shapes are fine. The sentinel "dummy" is the Next.js flow's normal state,
+ * where the real token is in a cookie. A two-part `id|sessionId` value is the
+ * React flow's real token — mirrors `parseRefreshToken`: split on the divider,
+ * require both halves. Everything else is a value from an older format or a
+ * different deployment that the server cannot read, and only those are cleared.
+ *
+ * Deliberately a shape check, not a validity check: whether the session still
+ * exists is the server's question, and a well-formed token for a deleted
+ * session already fails cleanly as "signed out" rather than throwing.
  */
 export function isParsableRefreshToken(value: string): boolean {
+  if (value === NEXTJS_SENTINEL) return true
   const [refreshTokenId, sessionId] = value.split(DIVIDER)
   return Boolean(refreshTokenId) && Boolean(sessionId)
 }
