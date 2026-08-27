@@ -13,11 +13,17 @@ export const metadata = { title: 'What should we lead with' }
  * to read a report they already ran is not in the mood for four screens, and
  * every additional step is a place to abandon.
  *
- * It is also honest about what the answer does. Coverage does NOT change —
- * every scan runs every check on every plan, which is the promise the pricing
- * page makes — so this decides ORDER and EMPHASIS, and the copy says exactly
- * that. Selling a preference as a scope would be the same lie as a blurred
- * paywall.
+ * It is also honest about what the answer does, and the distinction is fine
+ * enough to be worth stating twice. Coverage does NOT change: every scan runs
+ * every check on every plan, which is the promise the pricing page makes. What
+ * changes is the REPORT — the pillars picked here are what it opens with, and
+ * the rest fold into a disclosure that says how many findings are inside and
+ * how bad the worst one is.
+ *
+ * So nothing is hidden, but something IS collapsed, and the copy below says
+ * so. Selling a preference as a scope would be the same lie as a blurred
+ * paywall; so would implying a report shows everything when it opens showing
+ * two pillars of six.
  *
  * Reachable again later, with the current answer pre-ticked, so it doubles as
  * the settings screen for this rather than needing a second one.
@@ -45,8 +51,10 @@ export default async function WelcomePage({
 
       <p className="mt-5 max-w-[64ch] text-[15px] leading-relaxed text-muted text-pretty">
         Every scan runs all {TOTAL_CHECKS} checks regardless of what you pick — this does not
-        narrow what we look at. It decides what the report puts first, and what an alert wakes you
-        up for when a monitored site changes.
+        narrow what we look at. It decides what your report opens with: the pillars you pick are
+        shown in full, and the rest fold into one line you can expand, which tells you how many
+        findings are in there and how bad the worst one is. It also decides what an alert wakes
+        you up for when a monitored site changes.
       </p>
 
       <form action={savePrioritiesAction} className="mt-10">
@@ -96,7 +104,7 @@ export default async function WelcomePage({
             className="label inline-flex h-11 items-center border border-ink bg-ink px-6 text-canvas
                        transition-colors duration-150 hover:bg-transparent hover:text-ink"
           >
-            Continue →
+            Show me these
           </button>
 
           <button
@@ -106,7 +114,7 @@ export default async function WelcomePage({
             className="label inline-flex h-11 items-center border border-line px-6
                        transition-colors duration-150 hover:bg-surface"
           >
-            All of it
+            Show me everything
           </button>
 
           {!returning && (

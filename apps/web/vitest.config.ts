@@ -15,6 +15,11 @@ export default defineConfig({
       // See test/stubs/server-only.ts — the real package throws outside an RSC
       // build, which is what makes it useful and what makes it untestable.
       'server-only': fileURLToPath(new URL('./test/stubs/server-only.ts', import.meta.url)),
+      // Next resolves `@/` from tsconfig paths; vitest does not read those, so
+      // a module under test that imports a sibling through the alias fails to
+      // load. Mirrored here rather than rewritten to relative imports, so the
+      // source keeps one import style.
+      '@': fileURLToPath(new URL('.', import.meta.url)),
     },
   },
 })

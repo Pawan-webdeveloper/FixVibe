@@ -149,6 +149,19 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
               403 is a worse discovery of the paywall than not offering one. */}
           {entitlements.plan.exports && <ExportLinks scanId={scan.id} />}
 
+          {/* Only when an answer is actually filtering the view. A reader who
+              never chose sees everything already, and offering to change a
+              preference they have not set is a question, not a control. */}
+          {entitlements.priorities !== null && entitlements.priorities.length > 0 && (
+            <p className="mt-10 text-sm text-muted">
+              This report opens with the pillars you picked.{' '}
+              <Link href={`/welcome?next=/scan/${scan.id}`} className="link text-ink">
+                Change that
+              </Link>
+              .
+            </p>
+          )}
+
           <div className="mt-10">
             <FindingsList
               findings={report.findings as FindingView[]}
