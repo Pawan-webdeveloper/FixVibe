@@ -13,10 +13,12 @@
  */
 'use client'
 
+import { useState } from 'react'
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import { ConvexReactClient } from 'convex/react'
 import { publicEnv } from '@/lib/public-env.ts'
 import { repairTokenStorage } from './repair-token-storage.ts'
+import { landingAuthStorage } from './landing-auth-storage.ts'
 
 // This provider is the one on the LANDING page, so it is where an unusable
 // stored token does the most damage — a stranger's first visit throwing before
@@ -26,5 +28,18 @@ repairTokenStorage()
 const convex = new ConvexReactClient(publicEnv.convexUrl())
 
 export function ConvexClientAuthProvider({ children }: { children: React.ReactNode }) {
-  return <ConvexAuthProvider client={convex}>{children}</ConvexAuthProvider>
+  /*
+   * One storage instance for the life of the provider. The refresh token is
+   * hidden from it so this client-only provider cannot try to refresh the
+   * cookie flow's "dummy" sentinel against Convex and crash — see
+   * landing-auth-storage.ts. Built lazily in state so it is only touched on the
+   * client, never during SSR.
+   */
+  const [storage] = useState(landingAuthStorage)
+
+  return (
+    <ConvexAuthProvider client={convex} storage={storage}>
+      {children}
+    </ConvexAuthProvider>
+  )
 }
