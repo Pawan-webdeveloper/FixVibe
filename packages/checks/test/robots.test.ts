@@ -11,9 +11,9 @@ import { parseRobots } from '../src/context/robots.ts'
 describe('parseRobots', () => {
   it('applies a basic disallow to the wildcard group', () => {
     const robots = parseRobots('User-agent: *\nDisallow: /admin')
-    expect(robots.allows('DarvinScanner', '/admin')).toBe(false)
-    expect(robots.allows('DarvinScanner', '/admin/users')).toBe(false)
-    expect(robots.allows('DarvinScanner', '/public')).toBe(true)
+    expect(robots.allows('ScanlyFixScanner', '/admin')).toBe(false)
+    expect(robots.allows('ScanlyFixScanner', '/admin/users')).toBe(false)
+    expect(robots.allows('ScanlyFixScanner', '/public')).toBe(true)
   })
 
   it('merges rules from repeated groups for the same agent (RFC 9309)', () => {
@@ -21,24 +21,24 @@ describe('parseRobots', () => {
     const robots = parseRobots(
       ['User-agent: *', 'Disallow: /admin', '', 'User-agent: *', 'Disallow: /private'].join('\n'),
     )
-    expect(robots.allows('DarvinScanner', '/admin')).toBe(false)
-    expect(robots.allows('DarvinScanner', '/private')).toBe(false)
-    expect(robots.allows('DarvinScanner', '/public')).toBe(true)
+    expect(robots.allows('ScanlyFixScanner', '/admin')).toBe(false)
+    expect(robots.allows('ScanlyFixScanner', '/private')).toBe(false)
+    expect(robots.allows('ScanlyFixScanner', '/public')).toBe(true)
   })
 
   it('prefers the most specific agent group over *', () => {
     const robots = parseRobots(
-      ['User-agent: *', 'Disallow: /', '', 'User-agent: darvin', 'Disallow: /private'].join('\n'),
+      ['User-agent: *', 'Disallow: /', '', 'User-agent: scanlyfix', 'Disallow: /private'].join('\n'),
     )
     // Our group allows everything except /private; the * group's total ban must not apply.
-    expect(robots.allows('DarvinScanner/0.1', '/anything')).toBe(true)
-    expect(robots.allows('DarvinScanner/0.1', '/private')).toBe(false)
+    expect(robots.allows('ScanlyFixScanner/0.1', '/anything')).toBe(true)
+    expect(robots.allows('ScanlyFixScanner/0.1', '/private')).toBe(false)
     expect(robots.allows('SomeOtherBot', '/anything')).toBe(false)
   })
 
   it('matches agent tokens case-insensitively as substrings', () => {
-    const robots = parseRobots('User-agent: DARVIN\nDisallow: /x')
-    expect(robots.allows('mozilla-compatible darvinscanner', '/x')).toBe(false)
+    const robots = parseRobots('User-agent: SCANLYFIX\nDisallow: /x')
+    expect(robots.allows('mozilla-compatible scanlyfixscanner', '/x')).toBe(false)
   })
 
   it('lets consecutive User-agent lines share one rule group', () => {

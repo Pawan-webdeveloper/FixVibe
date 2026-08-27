@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { verificationState } from '@darvin/db'
+import { verificationState } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { recordName } from '@/lib/domain-verification.ts'

@@ -1,8 +1,8 @@
 /**
- * Darvin database schema (Drizzle / Postgres).
+ * ScanlyFix database schema (Drizzle / Postgres).
  *
  * Design rule: this schema is a *projection of the engine's types*, not an
- * independent model. Every field `@darvin/checks` produces — each `Finding`
+ * independent model. Every field `@scanlyfix/checks` produces — each `Finding`
  * property, each `ScanScores` pillar — has a column or a typed jsonb slot here.
  * If the two drift, a scan silently loses data between "computed" and "stored",
  * so the severity/category enums below are compile-time locked to the unions in
@@ -13,7 +13,7 @@
  * foreign-keys to.
  */
 
-import type { Category, ScanScores, Severity } from '@darvin/checks'
+import type { Category, ScanScores, Severity } from '@scanlyfix/checks'
 import { desc, relations } from 'drizzle-orm'
 import {
   boolean,
@@ -197,7 +197,7 @@ export const projects = pgTable(
     verifiedDomain: boolean('verified_domain').notNull().default(false),
     /**
      * The secret half of the DNS proof: the value the owner publishes at
-     * `_darvin.<host>`. Generated once per project and kept afterwards — a
+     * `_scanlyfix.<host>`. Generated once per project and kept afterwards — a
      * token that rotated on every visit would invalidate a record somebody had
      * already added and was waiting to propagate.
      *
@@ -564,7 +564,7 @@ export type ScanProfile = (typeof scanProfileEnum.enumValues)[number]
 
 export type Scan = typeof scans.$inferSelect
 export type NewScan = typeof scans.$inferInsert
-/** Persisted finding row. Distinct from `@darvin/checks`'s in-memory `Finding`. */
+/** Persisted finding row. Distinct from `@scanlyfix/checks`'s in-memory `Finding`. */
 export type FindingRow = typeof findings.$inferSelect
 export type NewFindingRow = typeof findings.$inferInsert
 export type Monitor = typeof monitors.$inferSelect

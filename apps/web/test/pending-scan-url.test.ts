@@ -85,8 +85,8 @@ describe('takePendingUrl', () => {
 
   it('round-trips what stashPendingUrl wrote', () => {
     const store = fakeStore()
-    stashPendingUrl(store, 'https://darvin.test/path?q=1')
-    expect(takePendingUrl(store)).toBe('https://darvin.test/path?q=1')
+    stashPendingUrl(store, 'https://scanlyfix.test/path?q=1')
+    expect(takePendingUrl(store)).toBe('https://scanlyfix.test/path?q=1')
   })
 })
 

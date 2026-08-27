@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type { MonitorType } from '@darvin/db'
+import type { MonitorType } from '@scanlyfix/db'
 
 /**
  * One monitor, with its switch.

@@ -11,7 +11,7 @@
  * measured would repeat the exact mistake the scoring change was made to fix.
  */
 
-import { allChecks, type Category, type ScanScores } from '@darvin/checks'
+import { allChecks, type Category, type ScanScores } from '@scanlyfix/checks'
 import { scoreColor } from './score-ring.tsx'
 
 const LABEL: Record<Category, string> = {

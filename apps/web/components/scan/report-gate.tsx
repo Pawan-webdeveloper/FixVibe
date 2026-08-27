@@ -16,7 +16,7 @@
  */
 
 import Link from 'next/link'
-import type { Severity } from '@darvin/checks'
+import type { Severity } from '@scanlyfix/checks'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 const SEVERITY_STYLE: Record<Severity, string> = {

@@ -217,9 +217,9 @@ function Problem({ message }: { message: string | null }) {
 export default function LoginPage() {
   return (
     <div className="mx-auto max-w-sm px-6 py-24">
-      <Link href="/" className="flex items-center gap-2" aria-label="Darvin — home">
+      <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
         <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
-        <span className="text-[15px] font-semibold tracking-tight">darvin</span>
+        <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
       </Link>
       <div className="mt-8">
         <LabeledRule label="Sign in" trailing="no password" />

@@ -131,9 +131,9 @@ function HeroNav() {
       aria-label="Main"
       className="relative z-30 flex items-center gap-4 border-b border-hero-ink px-4 py-3 sm:px-8"
     >
-      <Link href="/" className="flex items-center gap-2" aria-label="Darvin — home">
+      <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
         <BrandMark size={16} track="rgb(var(--hero-ink-rgb) / 0.28)" arc="var(--hero-ink)" />
-        <span className="font-mono text-sm font-semibold tracking-tight">darvin</span>
+        <span className="font-mono text-sm font-semibold tracking-tight">scanlyfix</span>
       </Link>
 
       <div className="flex-1" />
@@ -184,7 +184,7 @@ function Wordmark() {
     <div className="hero-rise flex items-center justify-between gap-4 border border-hero-ink bg-brand px-4 py-3">
       <div className="flex items-center gap-3">
         <BrandMark size={20} track="rgb(var(--hero-ink-rgb) / 0.28)" arc="var(--hero-ink)" />
-        <span className="font-mono text-base font-semibold tracking-tight sm:text-lg">DARVIN</span>
+        <span className="font-mono text-base font-semibold tracking-tight sm:text-lg">SCANLYFIX</span>
         <span className={`border border-hero-ink px-1.5 py-0.5 ${LABEL}`}>Beta</span>
       </div>
 

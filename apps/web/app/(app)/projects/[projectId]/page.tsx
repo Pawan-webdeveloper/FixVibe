@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
 import type { Metadata } from 'next'
-import { getProject, listScansForProject, type Scan } from '@darvin/db'
+import { getProject, listScansForProject, type Scan } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { scoreColor } from '@/components/scan/score-ring.tsx'
 import { rescanAction } from './actions.ts'
@@ -34,7 +34,7 @@ const loadProject = cache(async (projectId: string) => {
 
 /**
  * The project's own name in the tab, because somebody tracking several sites
- * has several of these open and "Darvin" on every one of them tells them
+ * has several of these open and "ScanlyFix" on every one of them tells them
  * nothing about which is which.
  *
  * A project the viewer cannot see gets the neutral title rather than a 404

@@ -16,7 +16,7 @@
  */
 
 import 'server-only'
-import { alertForDelivery, markAlertSent } from '@darvin/db'
+import { alertForDelivery, markAlertSent } from '@scanlyfix/db'
 import { render } from './alert-message.ts'
 import { sendEmail, type SendResult } from './email.ts'
 

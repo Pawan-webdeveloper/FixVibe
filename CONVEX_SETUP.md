@@ -48,7 +48,7 @@ npx convex env set AUTH_GITHUB_SECRET  "<github oauth app client secret>"
 npx convex env set AUTH_GOOGLE_ID      "<google oauth client id>"
 npx convex env set AUTH_GOOGLE_SECRET  "<google oauth client secret>"
 npx convex env set AUTH_RESEND_KEY     "<resend api key>"
-npx convex env set AUTH_EMAIL_FROM     "Darvin <onboarding@resend.dev>"
+npx convex env set AUTH_EMAIL_FROM     "ScanlyFix <onboarding@resend.dev>"
 npx convex env set SITE_URL            "<the app's own origin>"
 ```
 
@@ -80,11 +80,11 @@ Add these to each provider's OAuth app:
 | GitHub   | `https://shiny-sparrow-790.convex.site/api/auth/callback/github`        |
 | Google   | `https://shiny-sparrow-790.convex.site/api/auth/callback/google`        |
 
-**GitHub**: Settings → Developer settings → OAuth Apps → Darvin →
+**GitHub**: Settings → Developer settings → OAuth Apps → ScanlyFix →
 Authorization callback URL. Save.
 
 **Google**: Google Cloud Console → APIs & Services → Credentials → OAuth 2.0
-Client IDs → the Darvin client → Authorized redirect URIs. Add the URL.
+Client IDs → the ScanlyFix client → Authorized redirect URIs. Add the URL.
 Save.
 
 For production, also add the production Convex site's URL when the
@@ -150,7 +150,7 @@ Verify a domain at resend.com/domains, then point the sender at it:
 
 ```sh
 cd apps/web
-npx convex env set AUTH_EMAIL_FROM "Darvin <auth@yourdomain.com>"
+npx convex env set AUTH_EMAIL_FROM "ScanlyFix <auth@yourdomain.com>"
 ```
 
 Until that is done the email option works for exactly one person, and Google

@@ -15,7 +15,7 @@ const alertForDelivery = vi.fn()
 const markAlertSent = vi.fn()
 const sendEmail = vi.fn()
 
-vi.mock('@darvin/db', () => ({ alertForDelivery, markAlertSent }))
+vi.mock('@scanlyfix/db', () => ({ alertForDelivery, markAlertSent }))
 vi.mock('../lib/email.ts', () => ({ sendEmail, emailConfigured: () => true }))
 
 const { deliverAlert } = await import('../lib/alert-email.ts')
@@ -25,9 +25,9 @@ const row = {
   kind: 'downtime',
   payload: { streak: 3, statusCode: 503 },
   sentAt: null as Date | null,
-  projectName: 'Darvin',
-  projectUrl: 'https://darvin.test/',
-  projectSlug: 'darvin-test',
+  projectName: 'ScanlyFix',
+  projectUrl: 'https://scanlyfix.test/',
+  projectSlug: 'scanlyfix-test',
   recipientEmail: 'owner@example.test',
 }
 
@@ -48,7 +48,7 @@ describe('deliverAlert', () => {
 
     const message = sendEmail.mock.calls[0]?.[0]
     expect(message.to).toBe('owner@example.test')
-    expect(message.subject).toBe('darvin.test is not responding')
+    expect(message.subject).toBe('scanlyfix.test is not responding')
     expect(message.text).toContain('failed 3 consecutive checks')
     // The HTML is a mirror of the text, so it must carry the same facts.
     expect(message.html).toContain('failed 3 consecutive checks')

@@ -31,7 +31,7 @@ const ENV_PATH = new URL('../.env', import.meta.url).pathname
 /** Must equal `priceMonthly` in apps/web/lib/plans.ts, in the smallest unit. */
 const AMOUNT_PAISE = 1499 * 100
 const CURRENCY = 'INR'
-const PLAN_NAME = 'Darvin Pro'
+const PLAN_NAME = 'ScanlyFix Pro'
 
 const raw = readFileSync(ENV_PATH, 'utf8')
 const env = Object.fromEntries(

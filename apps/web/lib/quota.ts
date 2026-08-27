@@ -17,7 +17,7 @@
  */
 
 import 'server-only'
-import { countScansForUserSince, type Viewer } from '@darvin/db'
+import { countScansForUserSince, type Viewer } from '@scanlyfix/db'
 import { periodStart, resetsOn } from './billing-period.ts'
 import { entitlementsFor } from './entitlements.ts'
 

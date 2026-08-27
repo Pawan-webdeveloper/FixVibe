@@ -1,7 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { setUserPriorities } from '@darvin/db'
+import { setUserPriorities } from '@scanlyfix/db'
 import { getViewer, safeNextPath } from '@/lib/authz.ts'
 import { coveredCategories, isCoveredCategory } from '@/lib/pillars.ts'
 

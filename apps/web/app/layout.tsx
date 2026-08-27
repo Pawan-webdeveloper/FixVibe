@@ -18,8 +18,8 @@ const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono', dis
 export const metadata: Metadata = {
   metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] ?? 'http://localhost:3000'),
   title: {
-    default: 'Darvin — everything wrong with your website, and the prompt that fixes it',
-    template: '%s · Darvin',
+    default: 'ScanlyFix — everything wrong with your website, and the prompt that fixes it',
+    template: '%s · ScanlyFix',
   },
   description:
     'Paste a URL and get 63 read-only checks across security, SEO, AI answer engines, performance, ' +
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     'coding agent. Scanning is free.',
   openGraph: {
     type: 'website',
-    siteName: 'Darvin',
+    siteName: 'ScanlyFix',
     title: 'Everything wrong with your website — and the prompt that fixes it',
     description:
       '63 read-only checks across security, SEO, AI answer engines, performance, accessibility and ' +

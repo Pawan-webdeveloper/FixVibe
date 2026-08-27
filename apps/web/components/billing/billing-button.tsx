@@ -113,7 +113,7 @@ export function BillingButton({
     const razorpay = new window.Razorpay({
       key: session.keyId,
       subscription_id: session.subscriptionId,
-      name: 'Darvin',
+      name: 'ScanlyFix',
       description: `${session.planName} — monthly`,
       ...(session.email ? { prefill: { email: session.email } } : {}),
       // Only fires on success. Everything else goes through the two handlers

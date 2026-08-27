@@ -55,7 +55,7 @@ export default function GlobalError({
               color: '#666',
             }}
           >
-            darvin — 500
+            scanlyfix — 500
           </p>
 
           <h1 style={{ margin: '1rem 0 0', fontSize: '1.5rem', letterSpacing: '-0.02em' }}>

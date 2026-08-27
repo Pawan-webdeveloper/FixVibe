@@ -12,7 +12,7 @@
  * the thing that fails.
  */
 
-import { dueMonitorsForScheduler } from '@darvin/db'
+import { dueMonitorsForScheduler } from '@scanlyfix/db'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 
 /**

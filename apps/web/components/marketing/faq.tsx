@@ -30,7 +30,7 @@ const QA: ReadonlyArray<{ q: string; a: string }> = [
   },
   {
     q: 'Can I run it in CI or from my editor?',
-    a: 'Yes. There is a CLI with JSON output, and Darvin is an MCP server — point Claude Code or Cursor at it and the agent runs the scan and applies the fixes itself.',
+    a: 'Yes. There is a CLI with JSON output, and ScanlyFix is an MCP server — point Claude Code or Cursor at it and the agent runs the scan and applies the fixes itself.',
   },
   {
     q: 'Why did my score change when I did not change anything?',

@@ -5,7 +5,7 @@ import { legal, operator } from '@/lib/legal.ts'
 export const metadata: Metadata = {
   title: 'Privacy',
   description:
-    'What Darvin stores, what it does not, who else sees it, and how to have it deleted.',
+    'What ScanlyFix stores, what it does not, who else sees it, and how to have it deleted.',
 }
 
 /**

@@ -16,7 +16,7 @@
  */
 
 import { and, count, desc, eq, gte, isNull, min } from 'drizzle-orm'
-import type { Finding, ScanScores } from '@darvin/checks'
+import type { Finding, ScanScores } from '@scanlyfix/checks'
 import { db } from '../client.ts'
 import {
   findings,

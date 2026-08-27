@@ -16,7 +16,7 @@ const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const
 export const getScan: Tool = {
   name: 'get_scan',
   description:
-    'Read a Darvin scan by id: status, pillar scores, and a severity summary of its findings. ' +
+    'Read a ScanlyFix scan by id: status, pillar scores, and a severity summary of its findings. ' +
     'Use this to poll a deep scan that was still running, or to re-read a scan found via list_projects. ' +
     'For the findings themselves call list_findings; for the change list call get_fix_prompt.',
   inputSchema: {
@@ -96,7 +96,7 @@ export function formatReport(report: ScanReport): string {
     // Our failures, not the site's. A model told "17 of 63 checks could not
     // run" reports a partial audit instead of a clean bill of health.
     lines.push('')
-    lines.push(`${scan.checkErrors.length} checks could not run (a Darvin-side failure, not a site issue):`)
+    lines.push(`${scan.checkErrors.length} checks could not run (a ScanlyFix-side failure, not a site issue):`)
     for (const e of scan.checkErrors.slice(0, 5)) lines.push(`  ${e.checkId}: ${e.message}`)
   }
 

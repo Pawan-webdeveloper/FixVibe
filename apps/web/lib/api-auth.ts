@@ -2,9 +2,9 @@
  * Authenticating a machine.
  *
  * lib/authz.ts turns a BROWSER into a Viewer by resolving the identity provider's
- * session cookie. This turns a `Authorization: Bearer dv_…` header into the same
+ * session cookie. This turns a `Authorization: Bearer sf_…` header into the same
  * Viewer union, so everything downstream — quota, rate limits, every query in
- * @darvin/db — is the identical code path whether a person or a CI job asked.
+ * @scanlyfix/db — is the identical code path whether a person or a CI job asked.
  *
  * WHAT THIS DELIBERATELY DOES NOT DO: fall back to the session cookie.
  *
@@ -22,7 +22,7 @@
  */
 
 import 'server-only'
-import { resolveApiKey, type Viewer } from '@darvin/db'
+import { resolveApiKey, type Viewer } from '@scanlyfix/db'
 import { entitlementsFor } from './entitlements.ts'
 import type { Plan } from './plans.ts'
 
@@ -56,7 +56,7 @@ export async function authenticateApiRequest(request: Request): Promise<ApiAuth>
     return {
       ok: false,
       status: 401,
-      error: 'Send your key as: Authorization: Bearer dv_…',
+      error: 'Send your key as: Authorization: Bearer sf_…',
     }
   }
 

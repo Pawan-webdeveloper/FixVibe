@@ -20,7 +20,7 @@
  */
 
 import 'server-only'
-import type { Category, Severity } from '@darvin/checks'
+import type { Category, Severity } from '@scanlyfix/checks'
 import type { Entitlements } from './entitlements.ts'
 
 /** What every reader sees, at every tier: enough to know what they are missing. */

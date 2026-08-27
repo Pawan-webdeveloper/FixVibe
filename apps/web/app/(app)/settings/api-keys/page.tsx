@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { listApiKeys } from '@darvin/db'
+import { listApiKeys } from '@scanlyfix/db'
 import { requireUser } from '@/lib/authz.ts'
 import { planFor } from '@/lib/plans.ts'
 import { KeysPanel } from './keys-panel.tsx'
@@ -66,15 +66,15 @@ function Usage() {
   const examples: ReadonlyArray<[string, string]> = [
     [
       'Start a scan',
-      `curl -X POST https://darvin.dev/api/v1/scan \\
-  -H "Authorization: Bearer dv_…" \\
+      `curl -X POST https://scanlyfix.com/api/v1/scan \\
+  -H "Authorization: Bearer sf_…" \\
   -H "content-type: application/json" \\
   -d '{"url":"https://example.com","profile":"deep"}'`,
     ],
     [
       'Read it back',
-      `curl https://darvin.dev/api/v1/scan/<id> \\
-  -H "Authorization: Bearer dv_…"`,
+      `curl https://scanlyfix.com/api/v1/scan/<id> \\
+  -H "Authorization: Bearer sf_…"`,
     ],
   ]
 

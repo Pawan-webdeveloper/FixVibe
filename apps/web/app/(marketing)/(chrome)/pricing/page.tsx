@@ -7,7 +7,7 @@
  */
 
 import Link from 'next/link'
-import { allChecks } from '@darvin/checks'
+import { allChecks } from '@scanlyfix/checks'
 import { ORDERED_PLANS, formatPrice, type Plan } from '@/lib/plans.ts'
 import { BillingButton } from '@/components/billing/billing-button.tsx'
 

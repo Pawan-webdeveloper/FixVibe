@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getSubscription, getUserContext, updateSubscription } from '@darvin/db'
+import { getSubscription, getUserContext, updateSubscription } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { serverEnv } from '@/lib/env.ts'
 import { createSubscription, RazorpayError } from '@/lib/razorpay.ts'

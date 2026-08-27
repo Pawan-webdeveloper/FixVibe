@@ -1,5 +1,5 @@
 import type { FindingView } from '@/components/scan/finding-card.tsx'
-import type { ScanScores } from '@darvin/checks'
+import type { ScanScores } from '@scanlyfix/checks'
 
 /**
  * A real scan, recorded — not a mockup.

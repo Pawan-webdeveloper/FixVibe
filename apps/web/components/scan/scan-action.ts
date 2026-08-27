@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
-import { findRecentAnonymousScan } from '@darvin/db'
+import { findRecentAnonymousScan } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { normalizeScanTarget } from '@/lib/url.ts'
 import { clientIpHash } from '@/lib/request.ts'

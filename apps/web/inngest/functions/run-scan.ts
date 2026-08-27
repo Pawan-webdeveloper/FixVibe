@@ -15,7 +15,7 @@
  * would double every finding and halve the site's apparent score.
  */
 
-import type { ScanProfile } from '@darvin/db'
+import type { ScanProfile } from '@scanlyfix/db'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import { executeScan } from '@/lib/scan/run-scan-job.ts'
 

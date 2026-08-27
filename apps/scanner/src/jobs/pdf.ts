@@ -32,7 +32,7 @@ export async function renderPdf(page: Page): Promise<Buffer> {
     footerTemplate:
       '<div style="width:100%;font-size:8px;font-family:monospace;color:#666;padding:0 12mm;' +
       'display:flex;justify-content:space-between;">' +
-      '<span>darvin.dev</span>' +
+      '<span>scanlyfix.com</span>' +
       '<span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
   })
 

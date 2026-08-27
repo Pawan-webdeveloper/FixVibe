@@ -1,5 +1,5 @@
 {
-  "name": "@darvin/scanner",
+  "name": "@scanlyfix/scanner",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@darvin/checks": "workspace:*",
+    "@scanlyfix/checks": "workspace:*",
     "axe-core": "^4.11.1",
     "playwright-core": "^1.57.0"
   },

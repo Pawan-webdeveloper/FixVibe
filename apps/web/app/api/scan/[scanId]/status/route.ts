@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getScanForViewer } from '@darvin/db'
+import { getScanForViewer } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 
 export const runtime = 'nodejs'

@@ -1,5 +1,5 @@
 {
-  "name": "@darvin/web",
+  "name": "@scanlyfix/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
   "dependencies": {
     "@auth/core": "^0.41.3",
     "@convex-dev/auth": "^0.0.95",
-    "@darvin/checks": "workspace:*",
-    "@darvin/db": "workspace:*",
+    "@scanlyfix/checks": "workspace:*",
+    "@scanlyfix/db": "workspace:*",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
     "convex": "^1.45.0",

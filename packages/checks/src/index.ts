@@ -1,5 +1,5 @@
 /**
- * @darvin/checks — public surface.
+ * @scanlyfix/checks — public surface.
  *
  * Consumers (CLI today; the web app's scan job and the MCP server later) should
  * need exactly three calls: buildContext(url) → runChecks(ctx) → computeScores().

@@ -1,7 +1,7 @@
 /**
  * Domain ownership — against a real Postgres.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * This flag is the gate on the only two checks that send a request to somebody
  * else's backend, so the cases that matter are the ones where it must NOT be
@@ -32,7 +32,7 @@ import {
 } from '../src/queries/projects.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
 describe('verificationHost', () => {
   it('strips www., because that is what the engine compares', () => {
@@ -56,8 +56,8 @@ describe('verificationHost', () => {
 describe('newVerificationToken', () => {
   it('is namespaced and long enough not to be guessed', () => {
     const token = newVerificationToken()
-    expect(token.startsWith('darvin-verify-')).toBe(true)
-    expect(token).toHaveLength('darvin-verify-'.length + 64)
+    expect(token.startsWith('scanlyfix-verify-')).toBe(true)
+    expect(token).toHaveLength('scanlyfix-verify-'.length + 64)
   })
 
   it('never repeats', () => {
@@ -66,7 +66,7 @@ describe('newVerificationToken', () => {
   })
 })
 
-describe.skipIf(!live)('ownership state (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('ownership state (SCANLYFIX_DB=1)', () => {
   const created: string[] = []
 
   async function newAccount() {
@@ -94,7 +94,7 @@ describe.skipIf(!live)('ownership state (DARVIN_DB=1)', () => {
 
   it('mints a token at creation, so the page never writes during a render', async () => {
     const { project } = await newProject()
-    expect(project.verificationToken?.startsWith('darvin-verify-')).toBe(true)
+    expect(project.verificationToken?.startsWith('scanlyfix-verify-')).toBe(true)
   })
 
   it('starts unverified', async () => {
@@ -148,7 +148,7 @@ describe.skipIf(!live)('ownership state (DARVIN_DB=1)', () => {
   })
 })
 
-describe.skipIf(!live)('ownership cannot be claimed by a stranger (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('ownership cannot be claimed by a stranger (SCANLYFIX_DB=1)', () => {
   const created: string[] = []
 
   async function newAccount() {

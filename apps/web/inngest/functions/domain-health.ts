@@ -11,8 +11,8 @@
  * a number that takes a handshake to learn.
  */
 
-import { getTlsInfo } from '@darvin/checks'
-import { recordAlertOnce, recordMonitorRun } from '@darvin/db'
+import { getTlsInfo } from '@scanlyfix/checks'
+import { recordAlertOnce, recordMonitorRun } from '@scanlyfix/db'
 import { deliverAlert } from '@/lib/alert-email.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import type { MonitorDueEvent } from './types.ts'

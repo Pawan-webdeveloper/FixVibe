@@ -12,8 +12,8 @@
  * sender, after which the message that mattered never arrives either.
  */
 
-import { safeFetch } from '@darvin/checks'
-import { consecutiveFailures, recordAlertOnce, recordMonitorRun } from '@darvin/db'
+import { safeFetch } from '@scanlyfix/checks'
+import { consecutiveFailures, recordAlertOnce, recordMonitorRun } from '@scanlyfix/db'
 import { deliverAlert } from '@/lib/alert-email.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import type { MonitorDueEvent } from './types.ts'

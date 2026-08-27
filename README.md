@@ -1,6 +1,6 @@
-# Darvin
+# ScanlyFix
 
-Darvin Application scanner — paste a URL, get 100+ read-only checks across security, SEO, AEO, performance, accessibility, and compliance, each with severity, evidence, remediation, and a copy-paste fix prompt.
+ScanlyFix Application scanner — paste a URL, get 100+ read-only checks across security, SEO, AEO, performance, accessibility, and compliance, each with severity, evidence, remediation, and a copy-paste fix prompt.
 
 Monorepo (Turborepo + pnpm, Node ≥22). **Phase 0 (engine + CLI) is implemented**; the web app, DB and MCP server are scaffolds for the next phases.
 
@@ -19,7 +19,7 @@ A scan fetches the page once, builds a `CheckContext` (headers, HTML, cookies, T
 ```sh
 pnpm typecheck                          # strict tsc across packages
 pnpm test                               # network-free unit tests (vitest)
-cd packages/checks && DARVIN_LIVE=1 pnpm test   # + live end-to-end smoke
+cd packages/checks && SCANLYFIX_LIVE=1 pnpm test   # + live end-to-end smoke
 ```
 
 Key layout:

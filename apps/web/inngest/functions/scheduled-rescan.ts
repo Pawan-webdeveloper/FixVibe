@@ -11,8 +11,8 @@
  * saying a site got worse on a day it did not change.
  */
 
-import { recentScansForScheduler, recordAlertOnce, recordMonitorRun, type ScanProfile } from '@darvin/db'
-import type { Category } from '@darvin/checks'
+import { recentScansForScheduler, recordAlertOnce, recordMonitorRun, type ScanProfile } from '@scanlyfix/db'
+import type { Category } from '@scanlyfix/checks'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import { runScanJob } from '@/lib/scan/run-scan-job.ts'
 import { deliverAlert } from '@/lib/alert-email.ts'

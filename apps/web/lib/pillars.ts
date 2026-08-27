@@ -1,4 +1,4 @@
-import { allChecks, type Category } from '@darvin/checks'
+import { allChecks, type Category } from '@scanlyfix/checks'
 
 /**
  * Everything the product says about its own coverage, derived from the registry.

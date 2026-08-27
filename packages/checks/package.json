@@ -1,5 +1,5 @@
 {
-  "name": "@darvin/checks",
+  "name": "@scanlyfix/checks",
   "version": "0.0.0",
   "private": true,
   "type": "module",

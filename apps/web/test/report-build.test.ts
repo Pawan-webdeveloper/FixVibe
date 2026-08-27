@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { ScanScores } from '@darvin/checks'
+import type { ScanScores } from '@scanlyfix/checks'
 import { buildCsv, buildHtml, buildMarkdown, filename, type ReportInput, type ReportScan } from '../lib/report/build.ts'
 import type { PublicFinding } from '../lib/redact.ts'
 
@@ -73,7 +73,7 @@ const input = (findings: PublicFinding[], overrides: Partial<ReportInput> = {}):
 
 describe('filename', () => {
   it('is sortable and names the host', () => {
-    expect(filename(scan(), 'csv')).toBe('darvin-example.com-2026-08-27.csv')
+    expect(filename(scan(), 'csv')).toBe('scanlyfix-example.com-2026-08-27.csv')
   })
 
   it('cannot escape the downloads folder', () => {
@@ -165,7 +165,7 @@ describe('buildMarkdown', () => {
   it('marks failed checks as ours, not the site’s', () => {
     const errors = [{ checkId: 'security.tls', message: 'handshake timeout' }]
     const md = buildMarkdown(input([open()], { scan: scan({ checkErrors: errors }) }))
-    expect(md).toContain('Darvin-side failures, not issues with the site')
+    expect(md).toContain('ScanlyFix-side failures, not issues with the site')
     expect(md).toContain('security.tls')
   })
 })

@@ -29,7 +29,7 @@
  * risk acceptable, since only our own backend can reach this service.
  */
 
-import { assertSafeUrl, isPrivateAddress, resolvePublicAddresses, SsrfError, unbracket } from '@darvin/checks'
+import { assertSafeUrl, isPrivateAddress, resolvePublicAddresses, SsrfError, unbracket } from '@scanlyfix/checks'
 import { isIP } from 'node:net'
 
 /** Chromium speaks more schemes than we ever want followed. */

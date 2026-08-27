@@ -191,7 +191,7 @@ function txtRecords(name: string): Promise<TxtRecords> {
  * A selector nobody would ever configure. If THIS name answers, the zone has a
  * wildcard under `_domainkey` and every selector we try will "match".
  */
-const WILDCARD_CONTROL = 'darvin-wildcard-control'
+const WILDCARD_CONTROL = 'scanlyfix-wildcard-control'
 
 /**
  * All selectors plus the control are tried at once. Twenty-six DNS lookups

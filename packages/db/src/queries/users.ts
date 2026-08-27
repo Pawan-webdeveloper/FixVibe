@@ -11,7 +11,7 @@
  * them. One indirection column is the price of never doing that again.
  */
 
-import type { Category } from '@darvin/checks'
+import type { Category } from '@scanlyfix/checks'
 import { eq } from 'drizzle-orm'
 import { db } from '../client.ts'
 import { memberships, organizations, subscriptions, users } from '../schema.ts'

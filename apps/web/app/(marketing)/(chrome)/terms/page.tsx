@@ -6,7 +6,7 @@ import { legal, operator } from '@/lib/legal.ts'
 export const metadata: Metadata = {
   title: 'Terms',
   description:
-    'The rules for using Darvin: what you may scan, what the findings are worth, and how billing works.',
+    'The rules for using ScanlyFix: what you may scan, what the findings are worth, and how billing works.',
 }
 
 /**
@@ -21,7 +21,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       label="Terms"
-      title="The agreement for using Darvin"
+      title="The agreement for using ScanlyFix"
       effective={legal.effective}
       intro={`Short, because the service is narrow: you give ${legal.service} a URL and it reports
         what a browser can already see. These are the rules that go with that.`}

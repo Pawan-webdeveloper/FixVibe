@@ -12,7 +12,7 @@
  */
 export const legal = {
   /** The product, as the reader knows it. */
-  service: 'Darvin',
+  service: 'ScanlyFix',
 
   /** Where privacy requests, disputes and support all land. */
   contactEmail: 'scanlyfix@gmail.com',

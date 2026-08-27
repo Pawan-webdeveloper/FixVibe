@@ -12,7 +12,7 @@ import { describeFailure, type Tool } from './types.ts'
 export const listProjects: Tool = {
   name: 'list_projects',
   description:
-    'List the Darvin projects this API key can see, with each one\'s latest scan and score. ' +
+    'List the ScanlyFix projects this API key can see, with each one\'s latest scan and score. ' +
     'Start here when you need a projectId, or to find an existing scan instead of running a new one.',
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   async run(_args, { client }) {

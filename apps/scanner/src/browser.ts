@@ -37,12 +37,12 @@ export const RENDER_TIMEOUT_MS = 45_000
 const VIEWPORT = { width: 1280, height: 900 }
 /**
  * Mobile-shaped user agent is deliberately NOT used: the engine's own fetches
- * identify as DarvinScanner, and a service that lied about being a phone would
+ * identify as ScanlyFixScanner, and a service that lied about being a phone would
  * produce a report about a page nobody was served.
  */
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-  'Chrome/131.0.0.0 Safari/537.36 DarvinScanner/0.1 (+https://darvin.dev)'
+  'Chrome/131.0.0.0 Safari/537.36 ScanlyFixScanner/0.1 (+https://scanlyfix.com)'
 
 let browserPromise: Promise<Browser> | null = null
 
@@ -52,7 +52,7 @@ function launch(): Promise<Browser> {
     // Chromium's own sandbox is redundant inside a container that is already
     // confined, and it cannot start without extra kernel capabilities there.
     // Kept ON outside containers, where it is a real boundary.
-    ...(process.env['DARVIN_DISABLE_BROWSER_SANDBOX'] === '1' ? ['--no-sandbox'] : []),
+    ...(process.env['SCANLYFIX_DISABLE_BROWSER_SANDBOX'] === '1' ? ['--no-sandbox'] : []),
     '--disable-dev-shm-usage', // /dev/shm is tiny in containers; without this Chromium crashes
     '--disable-gpu',
   ]

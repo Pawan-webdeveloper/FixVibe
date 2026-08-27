@@ -13,7 +13,7 @@
 
 import 'server-only'
 import { redirect } from 'next/navigation'
-import { ANONYMOUS, getUserContext, userIdForAuthSubject, type UserContext, type Viewer } from '@darvin/db'
+import { ANONYMOUS, getUserContext, userIdForAuthSubject, type UserContext, type Viewer } from '@scanlyfix/db'
 import { currentIdentity } from './auth/convex.ts'
 
 export async function getViewer(): Promise<Viewer> {

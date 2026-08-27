@@ -1,4 +1,4 @@
-import type { MonitorType } from '@darvin/db'
+import type { MonitorType } from '@scanlyfix/db'
 
 /**
  * The payload the sweep emits, once per due monitor.

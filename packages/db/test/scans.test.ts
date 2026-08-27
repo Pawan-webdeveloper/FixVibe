@@ -3,7 +3,7 @@
  *
  * These need a live database, so they run only when asked:
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * Most of what follows is about getScanForViewer, because this module is the
  * ONLY thing standing between one account's scans and another's. Drizzle
@@ -14,7 +14,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq, inArray } from 'drizzle-orm'
-import type { Finding, ScanScores } from '@darvin/checks'
+import type { Finding, ScanScores } from '@scanlyfix/checks'
 import { db } from '../src/client.ts'
 import { organizations, projects, scans, users, type ScanContextMeta } from '../src/schema.ts'
 import {
@@ -29,7 +29,7 @@ import {
 } from '../src/queries/scans.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
 const SCORES: ScanScores = {
   security: 70, seo: 100, aeo: 100, performance: 100,
@@ -64,7 +64,7 @@ const open = (overrides: Partial<Parameters<typeof createScan>[0]> = {}) =>
     ...overrides,
   })
 
-describe.skipIf(!live)('scan queries (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('scan queries (SCANLYFIX_DB=1)', () => {
   const createdScans: string[] = []
   let ownerId: string
   let strangerId: string

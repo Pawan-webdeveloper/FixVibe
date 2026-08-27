@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createApiKey, revokeApiKey } from '@darvin/db'
+import { createApiKey, revokeApiKey } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { entitlementsFor } from '@/lib/entitlements.ts'
 

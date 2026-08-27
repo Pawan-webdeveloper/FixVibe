@@ -2,7 +2,7 @@
  * The Convex deployment's schema — auth state and nothing else.
  *
  * Convex is the identity provider here and NOT the database. Every scan,
- * finding, project and subscription lives in Postgres behind @darvin/db, where
+ * finding, project and subscription lives in Postgres behind @scanlyfix/db, where
  * the authorization rules are, and this deployment holds only what proving an
  * identity requires: accounts, sessions, verification codes, refresh tokens.
  *

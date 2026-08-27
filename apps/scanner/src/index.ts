@@ -10,7 +10,7 @@
  * A service that points a real browser at a URL you give it and returns what
  * it saw is an SSRF proxy with extra steps. Behind a company VPN or on a cloud
  * host it can reach metadata endpoints, internal admin panels and databases.
- * So DARVIN_SCANNER_TOKEN is REQUIRED: with no token configured this process
+ * So SCANLYFIX_SCANNER_TOKEN is REQUIRED: with no token configured this process
  * refuses to start rather than listening without authentication. There is no
  * development escape hatch, because the development escape hatch is what ends
  * up deployed.
@@ -22,7 +22,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
-import { SsrfError } from '@darvin/checks'
+import { SsrfError } from '@scanlyfix/checks'
 import { closeBrowser, RENDER_TIMEOUT_MS, withHtmlPage, withPage } from './browser.ts'
 import { assertRenderable } from './guard.ts'
 import { axeAudit, type AxeSummary } from './jobs/axe-audit.ts'
@@ -31,7 +31,7 @@ import { screenshot, type Screenshot } from './jobs/screenshot.ts'
 import { renderPdf } from './jobs/pdf.ts'
 
 const PORT = Number(process.env['PORT'] ?? 8080)
-const TOKEN = process.env['DARVIN_SCANNER_TOKEN'] ?? ''
+const TOKEN = process.env['SCANLYFIX_SCANNER_TOKEN'] ?? ''
 
 /**
  * Chromium holds a lot of memory per context. Two at a time keeps a 1 GB
@@ -73,7 +73,7 @@ export interface RenderResponse {
 
 if (!TOKEN) {
   console.error(
-    'DARVIN_SCANNER_TOKEN is not set. This service drives a real browser to arbitrary URLs and\n' +
+    'SCANLYFIX_SCANNER_TOKEN is not set. This service drives a real browser to arbitrary URLs and\n' +
       'returns what it sees; without a shared secret anyone who can reach the port can read any\n' +
       'URL this host can reach, including internal ones. Refusing to start.',
   )
@@ -277,4 +277,4 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   })
 }
 
-server.listen(PORT, () => console.log(`darvin scanner listening on :${PORT}`))
+server.listen(PORT, () => console.log(`scanlyfix scanner listening on :${PORT}`))

@@ -25,9 +25,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="sticky top-0 z-50 border-b border-line bg-canvas
                          supports-[backdrop-filter]:bg-canvas/80 supports-[backdrop-filter]:backdrop-blur-md">
         <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-6">
-          <Link href="/dashboard" className="flex items-center gap-2" aria-label="Darvin — projects">
+          <Link href="/dashboard" className="flex items-center gap-2" aria-label="ScanlyFix — projects">
             <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
-            <span className="text-[15px] font-semibold tracking-tight">darvin</span>
+            <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
           </Link>
           <Link href="/dashboard" className="label text-muted transition-colors hover:text-ink">
             Projects

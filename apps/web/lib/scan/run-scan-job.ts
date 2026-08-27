@@ -24,7 +24,7 @@ import {
   runChecks,
   SafeFetchError,
   SsrfError,
-} from '@darvin/checks'
+} from '@scanlyfix/checks'
 import {
   verifiedHostForProject,
   completeScan,
@@ -33,7 +33,7 @@ import {
   markScanRunning,
   type ScanContextMeta,
   type ScanProfile,
-} from '@darvin/db'
+} from '@scanlyfix/db'
 
 /**
  * Optional. Absent means deep scans skip PageSpeed Insights entirely rather
@@ -49,8 +49,8 @@ const PAGESPEED_API_KEY = process.env['PAGESPEED_API_KEY']
  * DOM stay silent rather than reporting our missing infrastructure as the
  * customer's problem.
  */
-const SCANNER_URL = process.env['DARVIN_SCANNER_URL']
-const SCANNER_TOKEN = process.env['DARVIN_SCANNER_TOKEN']
+const SCANNER_URL = process.env['SCANLYFIX_SCANNER_URL']
+const SCANNER_TOKEN = process.env['SCANLYFIX_SCANNER_TOKEN']
 
 export interface ScanRequest {
   /** Already normalized by lib/url.ts. This layer does not parse user input. */

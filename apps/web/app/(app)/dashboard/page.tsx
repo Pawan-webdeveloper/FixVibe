@@ -8,7 +8,7 @@
  */
 
 import Link from 'next/link'
-import { listProjectSummaries, type ProjectSummary } from '@darvin/db'
+import { listProjectSummaries, type ProjectSummary } from '@scanlyfix/db'
 import { getViewer, requireUser } from '@/lib/authz.ts'
 import { NewProjectForm } from './new-project-form.tsx'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'

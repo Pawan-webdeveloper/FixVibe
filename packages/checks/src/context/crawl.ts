@@ -65,7 +65,7 @@ const PAGE_TIMEOUT_MS = 8_000
 const PAGE_MAX_BODY_BYTES = 512 * 1024
 
 /** The token a robots.txt would name us by (see SCANNER_USER_AGENT). */
-const ROBOTS_TOKEN = 'darvinscanner'
+const ROBOTS_TOKEN = 'scanlyfixscanner'
 
 export interface CrawlResult {
   /**

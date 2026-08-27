@@ -1,5 +1,5 @@
 /**
- * The Darvin API, from a machine.
+ * The ScanlyFix API, from a machine.
  *
  * Plain `fetch` against /api/v1 rather than an SDK, matching how every other
  * external service in this repo is spoken to — lib/email.ts calls Resend
@@ -13,8 +13,8 @@
  * path carries the API's machine-readable `code` all the way up.
  */
 
-/** Public plans live at darvin.dev; a self-hosted or local instance overrides it. */
-const DEFAULT_BASE_URL = 'https://darvin.dev'
+/** Public plans live at scanlyfix.com; a self-hosted or local instance overrides it. */
+const DEFAULT_BASE_URL = 'https://scanlyfix.com'
 
 export interface ApiFailure {
   ok: false
@@ -37,12 +37,12 @@ export interface ClientConfig {
  * there is no prompt to ask on.
  */
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ClientConfig | null {
-  const apiKey = env['DARVIN_API_KEY']?.trim()
+  const apiKey = env['SCANLYFIX_API_KEY']?.trim()
   if (!apiKey) return null
 
   // Trailing slash stripped so `${base}/api/v1/...` cannot produce a double
   // slash, which some hosts answer with a redirect and others with a 404.
-  const baseUrl = (env['DARVIN_API_URL']?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '')
+  const baseUrl = (env['SCANLYFIX_API_URL']?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '')
   return { apiKey, baseUrl }
 }
 
@@ -108,14 +108,14 @@ export interface ProjectSummary {
  * simpler one. The interface is what tools depend on; nothing constructs it
  * except createClient.
  */
-export interface DarvinClient {
+export interface ScanlyFixClient {
   startScan(input: { url: string; profile: 'fast' | 'deep'; projectId?: string }): Promise<ApiResult<{ scan: ScanRef }>>
   getScan(scanId: string): Promise<ApiResult<ScanReport>>
   getFixPrompt(scanId: string): Promise<ApiResult<{ prompt: string; issueCount: number; url: string }>>
   listProjects(): Promise<ApiResult<{ projects: ProjectSummary[] }>>
 }
 
-export function createClient(config: ClientConfig): DarvinClient {
+export function createClient(config: ClientConfig): ScanlyFixClient {
   async function send<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<ApiResult<T>> {
     let response: Response
     try {
@@ -129,7 +129,7 @@ export function createClient(config: ClientConfig): DarvinClient {
       })
     } catch (error) {
       // A network failure is not an API error and must not be dressed as one:
-      // the commonest cause is DARVIN_API_URL pointing at a server that is not
+      // the commonest cause is SCANLYFIX_API_URL pointing at a server that is not
       // running, and saying so saves the reader from checking their key.
       return {
         ok: false,

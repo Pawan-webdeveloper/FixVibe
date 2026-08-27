@@ -1,7 +1,7 @@
 /**
  * Onboarding priorities — against a real Postgres.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * Two things are worth a test here and neither is the happy path.
  *
@@ -23,9 +23,9 @@ import { memberships, organizations, subscriptions, users } from '../src/schema.
 import { ensureUser, getUserContext, setUserPriorities } from '../src/queries/users.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
-describe.skipIf(!live)('user priorities (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('user priorities (SCANLYFIX_DB=1)', () => {
   const created: string[] = []
 
   async function newUser(): Promise<Viewer & { kind: 'user' }> {

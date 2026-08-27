@@ -13,9 +13,9 @@ import { describe, expect, it } from 'vitest'
 import { render, type AlertSubject } from '../lib/alert-message.ts'
 
 const project = {
-  projectName: 'Darvin',
-  projectUrl: 'https://darvin.test/app',
-  projectSlug: 'darvin-test',
+  projectName: 'ScanlyFix',
+  projectUrl: 'https://scanlyfix.test/app',
+  projectSlug: 'scanlyfix-test',
 }
 
 const alert = (kind: string, payload: Record<string, unknown> | null): AlertSubject => ({
@@ -28,7 +28,7 @@ describe('downtime', () => {
   it('names the host and the streak, and quotes the status code', () => {
     const { subject, text } = render(alert('downtime', { streak: 3, statusCode: 503, detail: null }))
 
-    expect(subject).toBe('darvin.test is not responding')
+    expect(subject).toBe('scanlyfix.test is not responding')
     expect(text).toContain('failed 3 consecutive checks')
     expect(text).toContain('Observed: HTTP 503')
   })
@@ -54,14 +54,14 @@ describe('certificate expiry', () => {
   it('counts down when the certificate is still valid', () => {
     const { subject, text } = render(alert('certificate-expiry-7', { daysLeft: 7, expired: false }))
 
-    expect(subject).toBe('darvin.test certificate expires in 7 days')
+    expect(subject).toBe('scanlyfix.test certificate expires in 7 days')
     expect(text).toContain('expires in 7 days')
   })
 
   it('changes the sentence entirely once it has expired', () => {
     const { subject, text } = render(alert('certificate-expiry-0', { daysLeft: -2, expired: true }))
 
-    expect(subject).toBe('darvin.test has an expired TLS certificate')
+    expect(subject).toBe('scanlyfix.test has an expired TLS certificate')
     expect(text).toContain('Browsers are showing a warning')
     expect(text).not.toContain('expires in')
   })
@@ -79,7 +79,7 @@ describe('score drop', () => {
       alert('score-drop', { before: 87, after: 75, delta: -12, scanId: 'abc-123' }),
     )
 
-    expect(subject).toBe('darvin.test dropped 12 points')
+    expect(subject).toBe('scanlyfix.test dropped 12 points')
     expect(text).toContain('scored 75')
     expect(text).toContain('down from 87')
     expect(text).toContain('/scan/abc-123')
@@ -96,10 +96,10 @@ describe('an unrecognised kind', () => {
   it('still produces a sendable message rather than dropping the alert', () => {
     const { subject, text } = render(alert('some-future-alert', { anything: true }))
 
-    expect(subject).toContain('darvin.test')
+    expect(subject).toContain('scanlyfix.test')
     expect(subject).toContain('some future alert')
-    expect(text).toContain('https://darvin.test/app')
-    expect(text).toContain('/status/darvin-test')
+    expect(text).toContain('https://scanlyfix.test/app')
+    expect(text).toContain('/status/scanlyfix-test')
   })
 
   it('survives a null payload', () => {

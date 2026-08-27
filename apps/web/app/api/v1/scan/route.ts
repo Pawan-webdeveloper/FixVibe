@@ -1,8 +1,8 @@
 /**
  * POST /api/v1/scan — start a scan from a machine.
  *
- *   curl -X POST https://darvin.dev/api/v1/scan \
- *        -H 'Authorization: Bearer dv_…' \
+ *   curl -X POST https://scanlyfix.com/api/v1/scan \
+ *        -H 'Authorization: Bearer sf_…' \
  *        -H 'content-type: application/json' \
  *        -d '{"url":"https://example.com","profile":"deep"}'
  *
@@ -28,7 +28,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getProject, getScanForViewer, type ScanProfile } from '@darvin/db'
+import { getProject, getScanForViewer, type ScanProfile } from '@scanlyfix/db'
 import { authenticateApiRequest } from '@/lib/api-auth.ts'
 import { apiError, scanPath } from '@/lib/api-response.ts'
 import { assertServerEnv } from '@/lib/env.ts'

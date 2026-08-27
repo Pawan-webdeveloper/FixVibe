@@ -9,7 +9,7 @@
 
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getProject, getUserContext, listMonitors, recentEvents, type MonitorType } from '@darvin/db'
+import { getProject, getUserContext, listMonitors, recentEvents, type MonitorType } from '@scanlyfix/db'
 import { getViewer, requireUser } from '@/lib/authz.ts'
 import { planFor } from '@/lib/plans.ts'
 import { MonitorRow } from '@/components/monitors/monitor-row.tsx'

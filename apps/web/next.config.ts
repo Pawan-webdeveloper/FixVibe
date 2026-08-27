@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
    * and import each other with explicit `.ts` extensions, so Next has to compile
    * them rather than treat them as prebuilt dependencies.
    */
-  transpilePackages: ['@darvin/checks', '@darvin/db'],
+  transpilePackages: ['@scanlyfix/checks', '@scanlyfix/db'],
 
   // typedRoutes is deliberately off until the routes it would check actually
   // exist — right now most page files are empty placeholders, so it would only

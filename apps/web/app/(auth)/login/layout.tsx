@@ -15,7 +15,7 @@ import type { Metadata } from 'next'
  */
 export const metadata: Metadata = {
   title: 'Sign in',
-  description: 'Sign in to Darvin with Google, GitHub, or a code sent to your email.',
+  description: 'Sign in to ScanlyFix with Google, GitHub, or a code sent to your email.',
   robots: { index: false, follow: true },
 }
 

@@ -76,7 +76,7 @@ describe('corruptTokenKeys', () => {
 
   it('ignores keys that are not Convex Auth refresh tokens', () => {
     const entries = [
-      ['darvin:pending-scan-url', 'https://example.com/'],
+      ['scanlyfix:pending-scan-url', 'https://example.com/'],
       ['__convexAuthOAuthVerifier_ns', 'anything'],
       ['__convexAuthServerStateFetchTime_ns', '1700000000000'],
     ] as const
@@ -92,7 +92,7 @@ describe('corruptTokenKeys', () => {
 describe('describeSignInError', () => {
   it('shows a sentence we marked as written for the reader', () => {
     const cause = new Error(
-      'darvin:Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.',
+      'scanlyfix:Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.',
     )
 
     expect(describeSignInError(cause)).toBe(
@@ -104,7 +104,7 @@ describe('describeSignInError', () => {
     // Convex prefixes a request id and "Server Error" before the thrown message,
     // and appends its own stack after it. This is the real shape, from the logs.
     const cause = new Error(
-      '[Request ID: 9e2a6dcfa567bf1b] Server Error\nUncaught Error: darvin:Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.\n    at sendVerificationRequest (../../convex/ResendOTP.ts:99:22)',
+      '[Request ID: 9e2a6dcfa567bf1b] Server Error\nUncaught Error: scanlyfix:Sign-in by email is not available yet on this site. Continue with Google or GitHub instead.\n    at sendVerificationRequest (../../convex/ResendOTP.ts:99:22)',
     )
 
     expect(describeSignInError(cause)).toBe(
@@ -142,14 +142,14 @@ describe('describeSignInError', () => {
     expect(describeSignInError('a string')).toBe('That did not work. Try again in a moment.')
     expect(describeSignInError(null)).toBe('That did not work. Try again in a moment.')
     expect(describeSignInError(undefined)).toBe('That did not work. Try again in a moment.')
-    expect(describeSignInError({ message: 'darvin:not an Error' })).toBe(
+    expect(describeSignInError({ message: 'scanlyfix:not an Error' })).toBe(
       'That did not work. Try again in a moment.',
     )
   })
 
   it('falls back when the marker is there but the sentence is empty', () => {
-    expect(describeSignInError(new Error('darvin:'))).toBe('That did not work. Try again in a moment.')
-    expect(describeSignInError(new Error('darvin:   '))).toBe(
+    expect(describeSignInError(new Error('scanlyfix:'))).toBe('That did not work. Try again in a moment.')
+    expect(describeSignInError(new Error('scanlyfix:   '))).toBe(
       'That did not work. Try again in a moment.',
     )
   })

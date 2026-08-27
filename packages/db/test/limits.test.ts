@@ -1,7 +1,7 @@
 /**
  * Plan limits — against a real Postgres.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * These two functions are the difference between a price list and a plan.
  * `createProject` refuses at the WRITE rather than in a server action, because
@@ -23,9 +23,9 @@ import { createProject } from '../src/queries/projects.ts'
 import { countScansForUserSince, createScan } from '../src/queries/scans.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
-describe.skipIf(!live)('plan limits (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('plan limits (SCANLYFIX_DB=1)', () => {
   const created: string[] = []
   const scanIds: string[] = []
 

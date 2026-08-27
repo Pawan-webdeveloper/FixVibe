@@ -129,7 +129,7 @@ export function render(alert: AlertSubject): Rendered {
   return {
     subject: `${host}: ${alert.kind.replace(/[-_]/g, ' ')}`,
     text: lines([
-      `Darvin raised a "${alert.kind}" alert for ${alert.projectName}.`,
+      `ScanlyFix raised a "${alert.kind}" alert for ${alert.projectName}.`,
       '',
       `Site: ${alert.projectUrl}`,
       `Status page: ${status}`,
