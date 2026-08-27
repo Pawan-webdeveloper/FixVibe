@@ -22,7 +22,7 @@
  */
 
 /** Written for the person signing in. Kept in sync with convex/ResendOTP.ts. */
-const SAFE_PREFIX = 'darvin:'
+const SAFE_PREFIX = 'scanlyfix:'
 
 /** What anything unrecognised becomes. Says what to do, blames nobody. */
 const FALLBACK = 'That did not work. Try again in a moment.'

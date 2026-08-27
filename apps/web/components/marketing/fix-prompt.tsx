@@ -60,7 +60,7 @@ export function FixPrompt() {
           </Point>
 
           <Point title="Or skip the paste entirely">
-            Darvin is also an MCP server. Point your editor at it and the agent runs the scan,
+            ScanlyFix is also an MCP server. Point your editor at it and the agent runs the scan,
             reads the findings and applies the fixes without a report ever being opened.
           </Point>
         </div>

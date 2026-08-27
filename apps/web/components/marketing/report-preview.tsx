@@ -1,4 +1,4 @@
-import { ENGINE_VERSION } from '@darvin/checks'
+import { ENGINE_VERSION } from '@scanlyfix/checks'
 import { ScoreRing } from '@/components/scan/score-ring.tsx'
 import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingCard } from '@/components/scan/finding-card.tsx'

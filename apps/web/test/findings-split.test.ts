@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { Category } from '@darvin/checks'
+import type { Category } from '@scanlyfix/checks'
 import { describeRest, splitPillars, type PillarFinding } from '../components/scan/pillar-view.ts'
 
 const finding = (category: Category, severity: string): PillarFinding => ({ category, severity })

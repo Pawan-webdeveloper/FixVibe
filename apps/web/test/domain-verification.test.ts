@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import { checkDnsProof, recordName, RECORD_PREFIX, type TxtResolver } from '../lib/domain-verification.ts'
 
-const TOKEN = 'darvin-verify-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+const TOKEN = 'scanlyfix-verify-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 
 const answers = (records: string[][]): TxtResolver => async () => records
 const fails = (code: string): TxtResolver => async () => {
@@ -59,8 +59,8 @@ describe('a wrong record never passes', () => {
     expect(result.ok).toBe(false)
   })
 
-  it('rejects somebody else’s darvin token', async () => {
-    const theirs = 'darvin-verify-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+  it('rejects somebody else’s scanlyfix token', async () => {
+    const theirs = 'scanlyfix-verify-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
     const result = await checkDnsProof('example.com', TOKEN, answers([[theirs]]))
     expect(result.ok).toBe(false)
   })
@@ -74,7 +74,7 @@ describe('what a failure tells the reader', () => {
     if (result.ok) return
     expect(result.found).toEqual(['v=spf1 ~all', 'other'])
     expect(result.reason).toContain('2 TXT records')
-    expect(result.reason).toContain('_darvin.example.com')
+    expect(result.reason).toContain('_scanlyfix.example.com')
   })
 
   it('blames propagation, not the reader, when the name does not resolve', async () => {

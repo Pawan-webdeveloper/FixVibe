@@ -1,10 +1,10 @@
 /**
- * Darvin CLI — Phase 0 surface of the scan engine.
+ * ScanlyFix CLI — Phase 0 surface of the scan engine.
  *
  *   pnpm scan <url> [--json]
  *
  * Deliberately thin: URL in → buildContext → runChecks → computeScores → print.
- * All scanning logic lives in @darvin/checks; if something here grows beyond
+ * All scanning logic lives in @scanlyfix/checks; if something here grows beyond
  * argument parsing and formatting, it belongs in the engine instead.
  */
 
@@ -19,7 +19,7 @@ import {
   type Category,
   type CheckContext,
   type Severity,
-} from '@darvin/checks'
+} from '@scanlyfix/checks'
 
 // ---------------------------------------------------------------------------
 // Arguments
@@ -44,8 +44,8 @@ const psiApiKey = process.env['PAGESPEED_API_KEY']
 // The browser tier. Needs apps/scanner running and both variables set; without
 // them the rendered checks are silent rather than failing.
 const browser = args.includes('--browser')
-const scannerUrl = process.env['DARVIN_SCANNER_URL']
-const scannerToken = process.env['DARVIN_SCANNER_TOKEN']
+const scannerUrl = process.env['SCANLYFIX_SCANNER_URL']
+const scannerToken = process.env['SCANLYFIX_SCANNER_TOKEN']
 const positional = args.filter((a) => !a.startsWith('--'))
 const KNOWN_FLAGS = new Set(['--json', '--deep', '--psi', '--browser'])
 const unknownFlags = args.filter((a) => a.startsWith('--') && !KNOWN_FLAGS.has(a))
@@ -152,7 +152,7 @@ if (json) {
 // ---------------------------------------------------------------------------
 
 console.log('')
-console.log(`${bold('Darvin')} — ${ctx.finalUrl.href}`)
+console.log(`${bold('ScanlyFix')} — ${ctx.finalUrl.href}`)
 const redirectNote = ctx.redirectChain.length > 0 ? `, ${ctx.redirectChain.length} redirect(s)` : ''
 console.log(
   dim(

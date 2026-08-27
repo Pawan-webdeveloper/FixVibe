@@ -6,7 +6,7 @@ import {
   markDomainVerified,
   revokeDomainVerification,
   verificationState,
-} from '@darvin/db'
+} from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { checkDnsProof } from '@/lib/domain-verification.ts'
 

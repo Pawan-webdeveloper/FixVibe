@@ -15,7 +15,7 @@
 export type JsonSchema = Record<string, unknown>
 
 export interface ToolContext {
-  client: import('../client.ts').DarvinClient
+  client: import('../client.ts').ScanlyFixClient
 }
 
 /**
@@ -122,5 +122,5 @@ export function requireScanId(args: Record<string, unknown>): string {
  * matching on prose.
  */
 export function describeFailure(api: { code: string; message: string; status: number }): ToolFailure {
-  return failure(`Darvin API error (${api.code}${api.status ? `, HTTP ${api.status}` : ''}): ${api.message}`)
+  return failure(`ScanlyFix API error (${api.code}${api.status ? `, HTTP ${api.status}` : ''}): ${api.message}`)
 }

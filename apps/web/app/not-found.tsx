@@ -18,9 +18,9 @@ export const metadata = { title: 'Not found' }
 export default function NotFound() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-6 py-10">
-      <Link href="/" className="flex items-center gap-2" aria-label="Darvin — home">
+      <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
         <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
-        <span className="text-[15px] font-semibold tracking-tight">darvin</span>
+        <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
       </Link>
 
       <div className="mt-20">

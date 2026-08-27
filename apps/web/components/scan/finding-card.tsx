@@ -11,7 +11,7 @@
  * accepting it now costs one conditional.
  */
 
-import type { Category, Severity } from '@darvin/checks'
+import type { Category, Severity } from '@scanlyfix/checks'
 import { CopyButton } from './copy-button.tsx'
 
 export interface FindingView {

@@ -27,7 +27,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { findRecentAnonymousScan, type ScanProfile } from '@darvin/db'
+import { findRecentAnonymousScan, type ScanProfile } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import { checkScanQuota } from '@/lib/quota.ts'

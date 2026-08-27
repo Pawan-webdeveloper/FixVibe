@@ -29,7 +29,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { findUserByBillingSubscription, updateSubscription } from '@darvin/db'
+import { findUserByBillingSubscription, updateSubscription } from '@scanlyfix/db'
 import { serverEnv } from '@/lib/env.ts'
 import { isPaidStatus, verifyWebhookSignature, type RazorpaySubscription } from '@/lib/razorpay.ts'
 

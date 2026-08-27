@@ -1,7 +1,7 @@
 /**
  * Who an alert reaches — against a real Postgres.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * This query joins alerts to projects to users, and the join is the whole
  * risk: get it wrong and a customer is told about somebody else's site, or
@@ -20,9 +20,9 @@ import { createProject } from '../src/queries/projects.ts'
 import { alertForDelivery, markAlertSent, recordAlertOnce } from '../src/queries/alerts.ts'
 import type { Viewer } from '../src/queries/viewer.ts'
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
-describe.skipIf(!live)('alert delivery lookup (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('alert delivery lookup (SCANLYFIX_DB=1)', () => {
   const created: string[] = []
 
   async function newProject(label: string) {

@@ -1,7 +1,7 @@
 /**
  * Monitors and alert delivery, against a real Postgres.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * Weighted almost entirely toward the two rules that decide whether this is a
  * monitoring product or a nuisance: one alert per kind per day, and two
@@ -41,9 +41,9 @@ async function makeProject(
   return result.ok ? result.project : null
 }
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
-describe.skipIf(!live)('monitors and alerts (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('monitors and alerts (SCANLYFIX_DB=1)', () => {
   const createdUsers: string[] = []
   let viewer: Viewer
   let projectId: string

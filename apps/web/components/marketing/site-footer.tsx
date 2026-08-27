@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ENGINE_VERSION } from '@darvin/checks'
+import { ENGINE_VERSION } from '@scanlyfix/checks'
 import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
@@ -35,7 +35,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-5xl px-6 py-12">
         <div className="flex flex-wrap items-start justify-between gap-8">
           <p className="max-w-[52ch] text-sm text-muted text-pretty">
-            Darvin reads only what a browser would read. It never logs in, submits forms, or
+            ScanlyFix reads only what a browser would read. It never logs in, submits forms, or
             attempts anything a site owner has not already made public.
           </p>
 

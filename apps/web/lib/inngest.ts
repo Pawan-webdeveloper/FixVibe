@@ -21,7 +21,7 @@ import { Inngest } from 'inngest'
  */
 const isDev = process.env.NODE_ENV !== 'production' && !process.env.INNGEST_SIGNING_KEY
 
-export const inngest = new Inngest({ id: 'darvin', isDev })
+export const inngest = new Inngest({ id: 'scanlyfix', isDev })
 
 /**
  * Event names, in one place. A typo in an event string is a job that silently
@@ -29,16 +29,16 @@ export const inngest = new Inngest({ id: 'darvin', isDev })
  */
 export const EVENTS = {
   /** One per due monitor, emitted by the sweep. */
-  monitorDue: 'darvin/monitor.due',
+  monitorDue: 'scanlyfix/monitor.due',
   /**
    * A scan that has been reserved but not run. Emitted by the scan endpoint
    * for the deep profile, which cannot finish inside a request.
    */
-  scanRequested: 'darvin/scan.requested',
+  scanRequested: 'scanlyfix/scan.requested',
   /**
    * A report to build and deliver out of band. Emitted for the deliveries
    * nobody is waiting on — a scheduled digest, or a retry after the browser
    * tier was busy. The download route does not use it.
    */
-  reportRequested: 'darvin/report.requested',
+  reportRequested: 'scanlyfix/report.requested',
 } as const

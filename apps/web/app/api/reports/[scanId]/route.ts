@@ -22,7 +22,7 @@
  * silently short.
  */
 
-import { getScanForViewer, resolveApiKey, type Viewer } from '@darvin/db'
+import { getScanForViewer, resolveApiKey, type Viewer } from '@scanlyfix/db'
 import { bearerToken } from '@/lib/api-auth.ts'
 import { apiError } from '@/lib/api-response.ts'
 import { getViewer } from '@/lib/authz.ts'

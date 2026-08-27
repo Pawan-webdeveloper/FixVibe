@@ -33,11 +33,11 @@ export function SiteHeader() {
       <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-6 sm:gap-6">
         <Link
           href="/"
-          aria-label="Darvin — home"
+          aria-label="ScanlyFix — home"
           className="flex items-center gap-2 transition-opacity hover:opacity-80"
         >
           <BrandMark size={18} track="var(--line)" arc="var(--ink)" />
-          <span className="text-[15px] font-semibold tracking-tight">darvin</span>
+          <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
         </Link>
 
         <div className="flex-1" />

@@ -3,7 +3,7 @@
  * correctly, in seconds. Network tests are flaky by nature, so this runs only
  * when explicitly requested:
  *
- *   DARVIN_LIVE=1 pnpm test
+ *   SCANLYFIX_LIVE=1 pnpm test
  *
  * example.com is the target: tiny, stable, and famously bare of security
  * headers, so we can assert real findings without depending on anyone's
@@ -15,7 +15,7 @@ import { buildContext } from '../src/context/build-context.ts'
 import { allChecks, runChecks } from '../src/registry.ts'
 import { computeScores } from '../src/scoring.ts'
 
-describe.skipIf(process.env.DARVIN_LIVE !== '1')('live smoke (DARVIN_LIVE=1)', () => {
+describe.skipIf(process.env.SCANLYFIX_LIVE !== '1')('live smoke (SCANLYFIX_LIVE=1)', () => {
   it('scans example.com end-to-end within the Phase 0 budget', async () => {
     const startedAt = Date.now()
     const ctx = await buildContext('https://example.com')

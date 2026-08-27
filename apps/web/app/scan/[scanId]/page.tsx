@@ -13,8 +13,8 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { buildFixPrompt } from '@darvin/checks'
-import { getScanForViewer, type ScanWithFindings, type Viewer } from '@darvin/db'
+import { buildFixPrompt } from '@scanlyfix/checks'
+import { getScanForViewer, type ScanWithFindings, type Viewer } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { claimScanAction } from './actions.ts'
 import { ScoreRing } from '@/components/scan/score-ring.tsx'
@@ -75,8 +75,8 @@ export async function generateMetadata({
     title: score === undefined ? `Scan of ${host}` : `${host} scored ${score}/100`,
     description:
       scan.status === 'done'
-        ? `Security and SEO findings for ${host}, measured by Darvin.`
-        : `Darvin could not complete a scan of ${host}.`,
+        ? `Security and SEO findings for ${host}, measured by ScanlyFix.`
+        : `ScanlyFix could not complete a scan of ${host}.`,
   }
 }
 
@@ -98,9 +98,9 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header>
         <div className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2" aria-label="Darvin — home">
+          <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
             <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
-            <span className="text-[15px] font-semibold tracking-tight">darvin</span>
+            <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
           </Link>
           <Link href="/" className="label link text-muted transition-colors hover:text-ink">
             Scan another site
@@ -197,14 +197,14 @@ function FailedScan({ url, error, at }: { url: string; error: string | null; at:
     <section className="my-10 border border-line bg-surface p-6">
       <h2 className="text-lg font-semibold">This scan could not be completed</h2>
       <p className="mt-2 text-sm text-muted">
-        Darvin tried to read <code className="font-mono">{url}</code> at {stamp(at)} and stopped.
+        ScanlyFix tried to read <code className="font-mono">{url}</code> at {stamp(at)} and stopped.
       </p>
       {error && (
         <p className="mt-3 border border-line bg-canvas px-3 py-2 font-mono text-sm">{error}</p>
       )}
       <p className="mt-4 text-sm text-muted">
         If the address was a typo, correct it and try again. If the site is behind a login or blocks
-        automated requests, Darvin cannot read it — it only ever reads what a browser would.
+        automated requests, ScanlyFix cannot read it — it only ever reads what a browser would.
       </p>
       <Link href="/" className="mt-4 inline-block text-sm link">
         Try another address

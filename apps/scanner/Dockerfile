@@ -14,7 +14,7 @@ ENV NODE_ENV=production \
     # Chromium's own sandbox needs kernel capabilities a hardened container
     # does not grant, and the container IS the boundary here. Outside a
     # container this stays unset and the sandbox stays on — see browser.ts.
-    DARVIN_DISABLE_BROWSER_SANDBOX=1
+    SCANLYFIX_DISABLE_BROWSER_SANDBOX=1
 RUN corepack enable
 
 WORKDIR /app
@@ -24,8 +24,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/scanner/package.json ./apps/scanner/
 COPY packages/checks/package.json ./packages/checks/
 
-# --filter pulls in @darvin/checks, which this service uses for the SSRF guard.
-RUN pnpm install --frozen-lockfile --filter @darvin/scanner...
+# --filter pulls in @scanlyfix/checks, which this service uses for the SSRF guard.
+RUN pnpm install --frozen-lockfile --filter @scanlyfix/scanner...
 
 COPY packages/checks ./packages/checks
 COPY apps/scanner ./apps/scanner
@@ -38,6 +38,6 @@ EXPOSE 8080
 # Runs as the image's non-root `pwuser`. Nothing here needs to write to disk.
 USER pwuser
 
-# DARVIN_SCANNER_TOKEN must be supplied at run time. The process refuses to
+# SCANLYFIX_SCANNER_TOKEN must be supplied at run time. The process refuses to
 # start without it rather than listening unauthenticated — see src/index.ts.
 CMD ["node", "--experimental-strip-types", "src/index.ts"]

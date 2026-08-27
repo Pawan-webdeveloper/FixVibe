@@ -1,4 +1,4 @@
-# Deploying Darvin
+# Deploying ScanlyFix
 
 Four things ship, and they are independent: the **web app** (Next.js), the
 **scanner** (a headless Chromium service), **Convex** (identity only), and
@@ -38,7 +38,7 @@ Copy `.env.example` and fill it in. Three are load-bearing beyond the obvious:
 | `IP_HASH_SALT` | A long random string. Without a salt an IPv4 hash is reversible in minutes — there are only four billion of them. |
 | `INNGEST_SIGNING_KEY` | Its presence is what switches Inngest out of dev mode. Set it in production and **never** locally. |
 
-`DARVIN_SCANNER_URL` / `DARVIN_SCANNER_TOKEN` are optional but gate real
+`SCANLYFIX_SCANNER_URL` / `SCANLYFIX_SCANNER_TOKEN` are optional but gate real
 features: without them deep scans skip the rendered-DOM and accessibility
 checks, and PDF export fails while CSV and Markdown keep working.
 
@@ -80,7 +80,7 @@ affected — anonymous scanning still works.
 
 ## 4. Scanner
 
-`apps/scanner/Dockerfile` builds it. It needs `DARVIN_SCANNER_TOKEN` — a shared
+`apps/scanner/Dockerfile` builds it. It needs `SCANLYFIX_SCANNER_TOKEN` — a shared
 secret you choose — and refuses to start without one, because it drives a real
 browser at any URL it is handed. Give the web app the same token and the
 service's internal URL.

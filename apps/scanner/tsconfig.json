@@ -5,7 +5,7 @@
     // axe-core runs inside the page, so its rule types describe browser
     // globals this service never touches itself.
     "paths": {
-      "@darvin/checks": ["../../packages/checks/src/index.ts"]
+      "@scanlyfix/checks": ["../../packages/checks/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

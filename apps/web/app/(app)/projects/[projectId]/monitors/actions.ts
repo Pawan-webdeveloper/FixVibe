@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getUserContext, setMonitor, type MonitorType } from '@darvin/db'
+import { getUserContext, setMonitor, type MonitorType } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { planFor } from '@/lib/plans.ts'
 

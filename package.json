@@ -1,5 +1,5 @@
 {
-  "name": "darvin",
+  "name": "scanlyfix",
   "version": "0.0.0",
   "private": true,
   "packageManager": "pnpm@11.22.0",
@@ -7,11 +7,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "scan": "pnpm --filter @darvin/cli exec tsx src/index.ts",
+    "scan": "pnpm --filter @scanlyfix/cli exec tsx src/index.ts",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "razorpay:check": "node scripts/razorpay-preflight.mjs",
-    "db:deploy": "pnpm --filter @darvin/db db:deploy"
+    "db:deploy": "pnpm --filter @scanlyfix/db db:deploy"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

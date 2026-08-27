@@ -20,8 +20,8 @@
 
 import 'server-only'
 
-const SCANNER_URL = process.env['DARVIN_SCANNER_URL']
-const SCANNER_TOKEN = process.env['DARVIN_SCANNER_TOKEN']
+const SCANNER_URL = process.env['SCANLYFIX_SCANNER_URL']
+const SCANNER_TOKEN = process.env['SCANLYFIX_SCANNER_TOKEN']
 
 /** A one-page document should take a second or two; past this it is wedged. */
 const TIMEOUT_MS = 45_000
@@ -40,7 +40,7 @@ export async function renderReportPdf(html: string): Promise<PdfResult> {
       ok: false,
       retryable: false,
       reason:
-        'PDF export needs the browser tier. Set DARVIN_SCANNER_URL and DARVIN_SCANNER_TOKEN, ' +
+        'PDF export needs the browser tier. Set SCANLYFIX_SCANNER_URL and SCANLYFIX_SCANNER_TOKEN, ' +
         'and run apps/scanner. CSV and Markdown work without it.',
     }
   }

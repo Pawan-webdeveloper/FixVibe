@@ -35,7 +35,7 @@ const EXPIRY_SECONDS = 15 * 60
  * where the client reads it; it cannot be imported from there because Convex
  * functions are bundled separately from the Next.js app.
  */
-const SAFE_PREFIX = 'darvin:'
+const SAFE_PREFIX = 'scanlyfix:'
 
 const DIGITS = 6
 const CEILING = 10 ** DIGITS
@@ -104,9 +104,9 @@ export const ResendOTP = Email({
       method: 'POST',
       headers: { authorization: `Bearer ${provider.apiKey}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        from: process.env.AUTH_EMAIL_FROM ?? 'Darvin <onboarding@resend.dev>',
+        from: process.env.AUTH_EMAIL_FROM ?? 'ScanlyFix <onboarding@resend.dev>',
         to: [email],
-        subject: `${token} is your Darvin sign-in code`,
+        subject: `${token} is your ScanlyFix sign-in code`,
         text: signInText(token),
         html: signInHtml(token),
       }),
@@ -141,7 +141,7 @@ export const ResendOTP = Email({
  */
 function signInText(token: string): string {
   return [
-    `${token} is your Darvin sign-in code.`,
+    `${token} is your ScanlyFix sign-in code.`,
     '',
     'It expires in 15 minutes and works once.',
     '',
@@ -151,7 +151,7 @@ function signInText(token: string): string {
 
 function signInHtml(token: string): string {
   return `<div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#0b0d10;line-height:1.6">
-  <p style="margin:0 0 20px">Your Darvin sign-in code:</p>
+  <p style="margin:0 0 20px">Your ScanlyFix sign-in code:</p>
   <p style="margin:0 0 20px;font-size:30px;letter-spacing:0.22em;font-weight:700">${token}</p>
   <p style="margin:0 0 8px;color:#5a626b;font-size:14px">It expires in 15 minutes and works once.</p>
   <p style="margin:0;color:#5a626b;font-size:14px">If you did not ask to sign in, nothing has happened and you can ignore this.</p>

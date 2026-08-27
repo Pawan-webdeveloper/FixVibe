@@ -8,7 +8,7 @@
  */
 
 import Link from 'next/link'
-import { getSubscription } from '@darvin/db'
+import { getSubscription } from '@scanlyfix/db'
 import { requireUser } from '@/lib/authz.ts'
 import { formatPrice, planFor } from '@/lib/plans.ts'
 import { serverEnv } from '@/lib/env.ts'

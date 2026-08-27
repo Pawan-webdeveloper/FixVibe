@@ -20,7 +20,7 @@ importers:
 
   apps/cli:
     dependencies:
-      '@darvin/checks':
+      '@scanlyfix/checks':
         specifier: workspace:*
         version: link:../../packages/checks
     devDependencies:
@@ -30,7 +30,7 @@ importers:
 
   apps/scanner:
     dependencies:
-      '@darvin/checks':
+      '@scanlyfix/checks':
         specifier: workspace:*
         version: link:../../packages/checks
       axe-core:
@@ -55,10 +55,10 @@ importers:
       '@convex-dev/auth':
         specifier: ^0.0.95
         version: 0.0.95(@auth/core@0.41.3)(convex@1.45.0(react@19.2.8))(react@19.2.8)
-      '@darvin/checks':
+      '@scanlyfix/checks':
         specifier: workspace:*
         version: link:../../packages/checks
-      '@darvin/db':
+      '@scanlyfix/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@upstash/ratelimit':
@@ -132,7 +132,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@darvin/checks':
+      '@scanlyfix/checks':
         specifier: workspace:*
         version: link:../checks
       dotenv:

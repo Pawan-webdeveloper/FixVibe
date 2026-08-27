@@ -19,7 +19,7 @@ import {
   countScansByIpSince,
   countScansForUserSince,
   type WindowUsage,
-} from '@darvin/db'
+} from '@scanlyfix/db'
 
 const HOUR_MS = 3_600_000
 

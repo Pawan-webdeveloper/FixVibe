@@ -1,7 +1,7 @@
 /**
  * Accounts, projects, and the claim funnel — against a real Postgres.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * Weighted toward two things. First, authorization: like queries/scans.ts these
  * functions are the only barrier between one account and another's data,
@@ -14,7 +14,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq, inArray } from 'drizzle-orm'
-import type { ScanScores } from '@darvin/checks'
+import type { ScanScores } from '@scanlyfix/checks'
 import { db } from '../src/client.ts'
 import { memberships, organizations, projects, scans, subscriptions, users } from '../src/schema.ts'
 import { ensureUser, getUserContext } from '../src/queries/users.ts'
@@ -43,7 +43,7 @@ async function makeProject(
   return result.ok ? result.project : null
 }
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
 const scores = (overall: number, degraded: ScanScores['degraded'] = []): ScanScores => ({
   security: overall, seo: overall, aeo: 100, performance: 100,
@@ -52,7 +52,7 @@ const scores = (overall: number, degraded: ScanScores['degraded'] = []): ScanSco
 
 const META = { finalUrl: 'https://x.test/', redirectChain: [], status: 200, framework: null, tlsExpiry: null }
 
-describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('accounts and projects (SCANLYFIX_DB=1)', () => {
   const createdUsers: string[] = []
   /**
    * Anonymous scans have no project and no requester, so deleting the test

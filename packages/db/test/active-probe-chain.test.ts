@@ -1,7 +1,7 @@
 /**
  * The whole point of Phase 10, proved end to end.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * Verification is only worth anything if it actually reaches the engine, and
  * the chain has four links: mark verified → verifiedHostForProject returns a
@@ -25,7 +25,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, describe, expect, it } from 'vitest'
 import { inArray } from 'drizzle-orm'
-import { buildContext } from '@darvin/checks'
+import { buildContext } from '@scanlyfix/checks'
 import { db } from '../src/client.ts'
 import { memberships, organizations, projects, subscriptions, users } from '../src/schema.ts'
 import { ensureUser, getUserContext } from '../src/queries/users.ts'
@@ -37,9 +37,9 @@ import {
 } from '../src/queries/projects.ts'
 import type { Viewer } from '../src/queries/viewer.ts'
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
-describe.skipIf(!live)('verification reaches the engine (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('verification reaches the engine (SCANLYFIX_DB=1)', () => {
   const created: string[] = []
 
   afterAll(async () => {

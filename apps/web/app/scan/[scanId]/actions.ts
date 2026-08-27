@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { claimScan, getUserContext } from '@darvin/db'
+import { claimScan, getUserContext } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 
 /**

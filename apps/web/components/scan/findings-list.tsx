@@ -13,7 +13,7 @@
  * sections, so a reader who arrived from that page is reading the same grammar.
  */
 
-import type { Category } from '@darvin/checks'
+import type { Category } from '@scanlyfix/checks'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { FindingCard, type FindingView } from './finding-card.tsx'
 import { describeRest, PILLAR_LABEL as LABEL, splitPillars } from './pillar-view.ts'

@@ -155,10 +155,10 @@ export const CLEAN_SEO_HTML = `<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Darvin — Website Scanner Test Fixture Page</title>
-    <meta name="description" content="A synthetic fixture page used by the Darvin engine tests to represent a site with no SEO problems at all." />
+    <title>ScanlyFix — Website Scanner Test Fixture Page</title>
+    <meta name="description" content="A synthetic fixture page used by the ScanlyFix engine tests to represent a site with no SEO problems at all." />
     <link rel="canonical" href="https://site.test/" />
-    <meta property="og:title" content="Darvin — Website Scanner Test Fixture" />
+    <meta property="og:title" content="ScanlyFix — Website Scanner Test Fixture" />
     <meta property="og:description" content="A synthetic fixture page with complete social metadata." />
     <meta property="og:image" content="https://site.test/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -166,19 +166,19 @@ export const CLEAN_SEO_HTML = `<!doctype html>
       {
         "@context": "https://schema.org",
         "@graph": [
-          { "@type": "WebSite", "name": "Darvin", "url": "https://site.test/" },
+          { "@type": "WebSite", "name": "ScanlyFix", "url": "https://site.test/" },
           {
             "@type": "Organization",
-            "name": "Darvin",
+            "name": "ScanlyFix",
             "url": "https://site.test/",
-            "sameAs": ["https://github.com/darvin", "https://www.linkedin.com/company/darvin"]
+            "sameAs": ["https://github.com/scanlyfix", "https://www.linkedin.com/company/scanlyfix"]
           }
         ]
       }
     </script>
   </head>
   <body>
-    <h1>Darvin scanner fixture</h1>
+    <h1>ScanlyFix scanner fixture</h1>
   </body>
 </html>`
 
@@ -187,7 +187,7 @@ export const CLEAN_SEO_HTML = `<!doctype html>
  * check treats an app shell at this path as a finding of its own.
  */
 export const LLMS_TXT = [
-  '# Darvin',
+  '# ScanlyFix',
   '',
   '> A synthetic fixture site used by the engine tests.',
   '',

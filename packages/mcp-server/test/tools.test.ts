@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { ApiResult, DarvinClient, ScanReport } from '../src/client.ts'
+import type { ApiResult, ScanlyFixClient, ScanReport } from '../src/client.ts'
 import { configFromEnv } from '../src/client.ts'
 import { BadArgument, isFailure, type ToolOutput } from '../src/tools/types.ts'
 import { runScan } from '../src/tools/run-scan.ts'
@@ -56,7 +56,7 @@ function report(overrides: Partial<ScanReport['scan']> = {}, findings: ScanRepor
   }
 }
 
-function stub(overrides: Partial<DarvinClient> = {}): DarvinClient {
+function stub(overrides: Partial<ScanlyFixClient> = {}): ScanlyFixClient {
   const notCalled = () => {
     throw new Error('unexpected client call')
   }
@@ -66,7 +66,7 @@ function stub(overrides: Partial<DarvinClient> = {}): DarvinClient {
     getFixPrompt: notCalled,
     listProjects: notCalled,
     ...overrides,
-  } as DarvinClient
+  } as ScanlyFixClient
 }
 
 const finding = (severity: string, category: string, checkId: string) => ({
@@ -83,14 +83,14 @@ const finding = (severity: string, category: string, checkId: string) => ({
 describe('configFromEnv', () => {
   it('needs a key and nothing else', () => {
     expect(configFromEnv({})).toBeNull()
-    expect(configFromEnv({ DARVIN_API_KEY: '   ' })).toBeNull()
-    expect(configFromEnv({ DARVIN_API_KEY: 'dv_x' })?.baseUrl).toBe('https://darvin.dev')
+    expect(configFromEnv({ SCANLYFIX_API_KEY: '   ' })).toBeNull()
+    expect(configFromEnv({ SCANLYFIX_API_KEY: 'sf_x' })?.baseUrl).toBe('https://scanlyfix.com')
   })
 
   it('strips trailing slashes from the base url', () => {
     // `${base}/api/v1/...` with a doubled slash is a redirect on some hosts
     // and a 404 on others, and neither failure names its cause.
-    const config = configFromEnv({ DARVIN_API_KEY: 'dv_x', DARVIN_API_URL: 'http://localhost:3000///' })
+    const config = configFromEnv({ SCANLYFIX_API_KEY: 'sf_x', SCANLYFIX_API_URL: 'http://localhost:3000///' })
     expect(config?.baseUrl).toBe('http://localhost:3000')
   })
 })

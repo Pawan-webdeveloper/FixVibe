@@ -1,7 +1,7 @@
 /**
  * GET /api/v1/scan/:id — read a scan, and poll a queued one.
  *
- *   curl https://darvin.dev/api/v1/scan/<id> -H 'Authorization: Bearer dv_…'
+ *   curl https://scanlyfix.com/api/v1/scan/<id> -H 'Authorization: Bearer sf_…'
  *
  * One endpoint rather than two. A deep scan comes back 202 from POST and the
  * caller polls this until `status` leaves 'queued'/'running'; at that point the
@@ -17,7 +17,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getScanForViewer } from '@darvin/db'
+import { getScanForViewer } from '@scanlyfix/db'
 import { authenticateApiRequest } from '@/lib/api-auth.ts'
 import { apiError } from '@/lib/api-response.ts'
 import { entitlementsFor } from '@/lib/entitlements.ts'

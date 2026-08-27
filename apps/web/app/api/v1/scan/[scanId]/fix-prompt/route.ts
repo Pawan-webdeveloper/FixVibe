@@ -12,8 +12,8 @@
  */
 
 import { NextResponse } from 'next/server'
-import { buildFixPrompt } from '@darvin/checks'
-import { getScanForViewer } from '@darvin/db'
+import { buildFixPrompt } from '@scanlyfix/checks'
+import { getScanForViewer } from '@scanlyfix/db'
 import { authenticateApiRequest } from '@/lib/api-auth.ts'
 import { apiError } from '@/lib/api-response.ts'
 import { entitlementsFor } from '@/lib/entitlements.ts'

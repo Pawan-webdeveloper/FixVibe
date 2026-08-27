@@ -33,7 +33,7 @@ const TERMINAL = new Set(['done', 'failed'])
 export const runScan: Tool = {
   name: 'run_scan',
   description:
-    'Run a Darvin scan of a URL and return the report. ' +
+    'Run a ScanlyFix scan of a URL and return the report. ' +
     'profile "fast" is HTTP-only and finishes in seconds; profile "deep" also crawls the site, renders it ' +
     'in a real browser and measures Core Web Vitals, takes a minute or more, and makes many more requests ' +
     'against the target — use "deep" only when the extra depth is actually wanted. ' +

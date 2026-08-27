@@ -14,7 +14,7 @@
  *     difference is actionable: 401 means "your credential is wrong, check
  *     it", 403 means "your credential is fine, your plan is not".
  *
- * @darvin/db and entitlements are mocked because what is under test is the
+ * @scanlyfix/db and entitlements are mocked because what is under test is the
  * branching, not the lookups — both are covered against a real Postgres in
  * packages/db/test/api-keys.test.ts.
  */
@@ -26,12 +26,12 @@ import type { Entitlements } from '../lib/entitlements.ts'
 const resolveApiKey = vi.fn<(plaintext: string) => Promise<{ userId: string; keyId: string } | null>>()
 const entitlementsFor = vi.fn<() => Promise<Entitlements>>()
 
-vi.mock('@darvin/db', () => ({ resolveApiKey: (k: string) => resolveApiKey(k) }))
+vi.mock('@scanlyfix/db', () => ({ resolveApiKey: (k: string) => resolveApiKey(k) }))
 vi.mock('../lib/entitlements.ts', () => ({ entitlementsFor: () => entitlementsFor() }))
 
 const { authenticateApiRequest, bearerToken } = await import('../lib/api-auth.ts')
 
-const KEY = `dv_${'a'.repeat(64)}`
+const KEY = `sf_${'a'.repeat(64)}`
 
 function entitlements(planId: 'free' | 'pro'): Entitlements {
   const plan = planFor(planId)
@@ -44,7 +44,7 @@ function entitlements(planId: 'free' | 'pro'): Entitlements {
 }
 
 function request(headers: Record<string, string> = {}): Request {
-  return new Request('https://darvin.test/api/v1/scan', { headers })
+  return new Request('https://scanlyfix.test/api/v1/scan', { headers })
 }
 
 beforeEach(() => {

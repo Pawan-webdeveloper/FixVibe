@@ -20,7 +20,7 @@
  * for the browser render a second time.
  */
 
-import { getScanForViewer, getUserContext } from '@darvin/db'
+import { getScanForViewer, getUserContext } from '@scanlyfix/db'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import { entitlementsFor } from '@/lib/entitlements.ts'
 import { redactFindings } from '@/lib/redact.ts'
@@ -127,9 +127,9 @@ export const generateReport = inngest.createFunction(
     const sent = await step.run('send', () =>
       sendEmail({
         to: built.email,
-        subject: `Darvin report — ${built.url}`,
+        subject: `ScanlyFix report — ${built.url}`,
         text:
-          `Your Darvin report for ${built.url} is attached as ${built.name}.\n\n` +
+          `Your ScanlyFix report for ${built.url} is attached as ${built.name}.\n\n` +
           'It reflects the scan at the moment it was generated; re-run the scan for a current reading.',
         attachments: [{ filename: built.name, contentBase64: base64, contentType: CONTENT_TYPE[format] }],
       }),

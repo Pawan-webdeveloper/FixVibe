@@ -1,5 +1,5 @@
 {
-  "name": "@darvin/db",
+  "name": "@scanlyfix/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@darvin/checks": "workspace:*",
+    "@scanlyfix/checks": "workspace:*",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "pg": "^8.23.0",

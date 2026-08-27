@@ -9,7 +9,7 @@
  * FIRST. It must never decide what they can see at all.
  */
 
-import type { Category } from '@darvin/checks'
+import type { Category } from '@scanlyfix/checks'
 import { coveredCategories } from '@/lib/pillars.ts'
 
 export const PILLAR_LABEL: Record<Category, string> = {

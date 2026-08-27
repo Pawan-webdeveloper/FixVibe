@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { cache } from 'react'
-import { getPublicProjectBySlug, publicUptimeEvents } from '@darvin/db'
+import { getPublicProjectBySlug, publicUptimeEvents } from '@scanlyfix/db'
 import { UptimeChart } from '@/components/monitors/uptime-chart.tsx'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
@@ -76,7 +76,7 @@ export default async function StatusPage({ params }: { params: Promise<{ slug: s
       <p className="mt-8 text-sm text-muted">
         Checked every minute by{' '}
         <Link href="/" className="link">
-          Darvin
+          ScanlyFix
         </Link>
         .
       </p>

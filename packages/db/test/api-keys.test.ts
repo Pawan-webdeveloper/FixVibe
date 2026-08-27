@@ -1,7 +1,7 @@
 /**
  * API keys — against a real Postgres.
  *
- *   DARVIN_DB=1 pnpm --filter @darvin/db test
+ *   SCANLYFIX_DB=1 pnpm --filter @scanlyfix/db test
  *
  * A key is the one credential this product hands out, so the tests here are
  * about what must NEVER be true rather than about what the happy path returns:
@@ -33,36 +33,36 @@ import {
 } from '../src/queries/api-keys.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
 
-const live = process.env.DARVIN_DB === '1'
+const live = process.env.SCANLYFIX_DB === '1'
 
 type UserViewer = Viewer & { kind: 'user' }
 
 describe('key shape (no database)', () => {
-  it('accepts only dv_ followed by 64 hex characters', () => {
+  it('accepts only sf_ followed by 64 hex characters', () => {
     const hex64 = 'a'.repeat(64)
-    expect(looksLikeApiKey(`dv_${hex64}`)).toBe(true)
+    expect(looksLikeApiKey(`sf_${hex64}`)).toBe(true)
 
     // Every one of these is a real thing a caller sends, and every one of them
     // must be rejected before it costs a query.
     expect(looksLikeApiKey('')).toBe(false)
     expect(looksLikeApiKey(hex64)).toBe(false) // no prefix
-    expect(looksLikeApiKey(`dv_${'a'.repeat(63)}`)).toBe(false) // one short
-    expect(looksLikeApiKey(`dv_${'a'.repeat(65)}`)).toBe(false) // one long
-    expect(looksLikeApiKey(`dv_${'A'.repeat(64)}`)).toBe(false) // uppercase hex
-    expect(looksLikeApiKey(`dv_${'g'.repeat(64)}`)).toBe(false) // not hex
-    expect(looksLikeApiKey(` dv_${hex64}`)).toBe(false) // untrimmed
-    expect(looksLikeApiKey(`dv_${hex64}\n`)).toBe(false) // trailing newline
+    expect(looksLikeApiKey(`sf_${'a'.repeat(63)}`)).toBe(false) // one short
+    expect(looksLikeApiKey(`sf_${'a'.repeat(65)}`)).toBe(false) // one long
+    expect(looksLikeApiKey(`sf_${'A'.repeat(64)}`)).toBe(false) // uppercase hex
+    expect(looksLikeApiKey(`sf_${'g'.repeat(64)}`)).toBe(false) // not hex
+    expect(looksLikeApiKey(` sf_${hex64}`)).toBe(false) // untrimmed
+    expect(looksLikeApiKey(`sf_${hex64}\n`)).toBe(false) // trailing newline
   })
 
   it('hashes with sha256, deterministically', () => {
-    const key = `dv_${'b'.repeat(64)}`
+    const key = `sf_${'b'.repeat(64)}`
     expect(hashApiKey(key)).toBe(createHash('sha256').update(key).digest('hex'))
     expect(hashApiKey(key)).toBe(hashApiKey(key))
     expect(hashApiKey(key)).not.toBe(hashApiKey(`${key.slice(0, -1)}c`))
   })
 })
 
-describe.skipIf(!live)('api keys (DARVIN_DB=1)', () => {
+describe.skipIf(!live)('api keys (SCANLYFIX_DB=1)', () => {
   const created: string[] = []
 
   async function newAccount(): Promise<UserViewer> {
@@ -205,7 +205,7 @@ describe.skipIf(!live)('api keys (DARVIN_DB=1)', () => {
 
       expect(await resolveApiKey('')).toBeNull()
       expect(await resolveApiKey('Bearer')).toBeNull()
-      expect(await resolveApiKey(`dv_${'0'.repeat(64)}`)).toBeNull() // well-formed, unknown
+      expect(await resolveApiKey(`sf_${'0'.repeat(64)}`)).toBeNull() // well-formed, unknown
       expect(await resolveApiKey(good.slice(0, -1))).toBeNull() // truncated
       expect(await resolveApiKey(good.toUpperCase())).toBeNull() // case-mangled
       // A near miss: same key, last character changed. Nothing about the

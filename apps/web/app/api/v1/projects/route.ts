@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { listProjectSummaries } from '@darvin/db'
+import { listProjectSummaries } from '@scanlyfix/db'
 import { authenticateApiRequest } from '@/lib/api-auth.ts'
 import { apiError, scanPath } from '@/lib/api-response.ts'
 

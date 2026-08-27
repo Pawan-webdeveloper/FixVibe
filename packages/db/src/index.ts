@@ -1,5 +1,5 @@
 /**
- * @darvin/db — public surface.
+ * @scanlyfix/db — public surface.
  *
  * Consumers get the client, the schema (for types and for drizzle-kit), and
  * the query modules. They should never build SQL themselves: a query that

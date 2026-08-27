@@ -9,7 +9,7 @@
  *
  * What this is NOT: a security boundary. It rejects obvious nonsense so the
  * user gets a sentence instead of a stack trace, but the authority on whether a
- * target may be fetched at all is assertSafeUrl() in @darvin/checks, which runs
+ * target may be fetched at all is assertSafeUrl() in @scanlyfix/checks, which runs
  * on the server and blocks private ranges, cloud metadata and IP literals.
  */
 

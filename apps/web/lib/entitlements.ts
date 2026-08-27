@@ -25,8 +25,8 @@
  */
 
 import 'server-only'
-import type { Category } from '@darvin/checks'
-import { getUserContext, type Viewer } from '@darvin/db'
+import type { Category } from '@scanlyfix/checks'
+import { getUserContext, type Viewer } from '@scanlyfix/db'
 import { planFor, type Plan } from './plans.ts'
 
 export interface Entitlements {

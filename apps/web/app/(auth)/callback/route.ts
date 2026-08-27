@@ -12,7 +12,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { ensureUser, getUserContext } from '@darvin/db'
+import { ensureUser, getUserContext } from '@scanlyfix/db'
 import { currentIdentity } from '@/lib/auth/convex.ts'
 import { safeNextPath } from '@/lib/authz.ts'
 

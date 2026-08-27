@@ -27,7 +27,7 @@ import 'server-only'
 import { Resolver } from 'node:dns/promises'
 
 /** Namespaced so the record is self-describing in somebody's zone file. */
-export const RECORD_PREFIX = '_darvin'
+export const RECORD_PREFIX = '_scanlyfix'
 
 /** Where the owner publishes the proof. */
 export function recordName(host: string): string {

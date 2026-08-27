@@ -16,7 +16,7 @@
  */
 
 /** The sessionStorage key. Namespaced so it cannot collide on a shared origin. */
-export const PENDING_URL_KEY = 'darvin:pending-scan-url'
+export const PENDING_URL_KEY = 'scanlyfix:pending-scan-url'
 
 /**
  * The slice of the Storage API this module uses.

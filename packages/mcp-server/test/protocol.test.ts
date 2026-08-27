@@ -31,7 +31,7 @@ class Server {
 
   constructor(env: Record<string, string> = {}) {
     this.child = spawn('node', ['--experimental-strip-types', '--no-warnings', ENTRY], {
-      env: { ...process.env, DARVIN_API_KEY: '', DARVIN_API_URL: '', ...env },
+      env: { ...process.env, SCANLYFIX_API_KEY: '', SCANLYFIX_API_URL: '', ...env },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     this.child.stdout.setEncoding('utf8')
@@ -105,7 +105,7 @@ describe('initialize', () => {
   it('answers with capabilities and server info', async () => {
     const message = await handshake(server)
     expect(message.result?.['capabilities']).toEqual({ tools: {} })
-    expect(message.result?.['serverInfo']).toEqual({ name: 'darvin', version: '0.1.0' })
+    expect(message.result?.['serverInfo']).toEqual({ name: 'scanlyfix', version: '0.1.0' })
   })
 
   it('echoes the protocol version the client asked for', async () => {
@@ -228,7 +228,7 @@ describe('tools/call without configuration', () => {
 
     expect(result['isError']).toBe(true)
     const text = (result['content'] as Array<{ text: string }>)[0]!.text
-    expect(text).toContain('DARVIN_API_KEY')
+    expect(text).toContain('SCANLYFIX_API_KEY')
   })
 
   it('reports an unknown tool as content, not as a protocol error', async () => {

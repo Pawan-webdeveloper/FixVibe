@@ -53,7 +53,7 @@ const DEFAULT_TIMEOUT_MS = 15_000
 const DEFAULT_MAX_BODY_BYTES = 5 * 1024 * 1024
 const DEFAULT_MAX_REDIRECTS = 5
 
-export const SCANNER_USER_AGENT = 'DarvinScanner/0.1 (+https://darvin.dev)'
+export const SCANNER_USER_AGENT = 'ScanlyFixScanner/0.1 (+https://scanlyfix.com)'
 
 // One shared connection pool for the whole process. The `lookup` hook is the
 // SSRF guard; rejectUnauthorized stays off on purpose — a site with a broken

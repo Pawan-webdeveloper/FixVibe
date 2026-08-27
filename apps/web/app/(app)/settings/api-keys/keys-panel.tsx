@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import type { ApiKeySummary } from '@darvin/db'
+import type { ApiKeySummary } from '@scanlyfix/db'
 import { CopyButton } from '@/components/scan/copy-button.tsx'
 import {
   createApiKeyAction,

@@ -103,7 +103,7 @@ export const linkTextCheck: Check = {
         remediation: 'Add aria-label to each icon link, or alt text to the image inside it.',
         fixPrompt:
           `These links on this page have no accessible name: ${nameless.slice(0, 6).join(', ')}. Add ` +
-          'aria-label describing the DESTINATION ("Darvin on GitHub", not "GitHub icon"). If the link ' +
+          'aria-label describing the DESTINATION ("ScanlyFix on GitHub", not "GitHub icon"). If the link ' +
           'wraps an <img>, giving that image alt text works just as well. For an inline <svg>, add ' +
           'aria-hidden="true" to the svg and put the label on the link.',
       })

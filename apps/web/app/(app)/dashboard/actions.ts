@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createProject } from '@darvin/db'
+import { createProject } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { normalizeScanTarget } from '@/lib/url.ts'
 import { entitlementsFor } from '@/lib/entitlements.ts'

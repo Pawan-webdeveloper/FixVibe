@@ -1,9 +1,9 @@
 #!/usr/bin/env -S node --experimental-strip-types
 
 /**
- * Darvin as an MCP server.
+ * ScanlyFix as an MCP server.
  *
- *   claude mcp add darvin --env DARVIN_API_KEY=dv_… \
+ *   claude mcp add scanlyfix --env SCANLYFIX_API_KEY=sf_… \
  *     -- node --experimental-strip-types <repo>/packages/mcp-server/src/index.ts
  *
  * ── Why the protocol is spoken directly ───────────────────────────────────
@@ -39,7 +39,7 @@ import { listFindings } from './tools/list-findings.ts'
 import { listProjects } from './tools/list-projects.ts'
 import { getFixPrompt } from './tools/get-fix-prompt.ts'
 
-const SERVER_INFO = { name: 'darvin', version: '0.1.0' }
+const SERVER_INFO = { name: 'scanlyfix', version: '0.1.0' }
 
 /**
  * Used only when the client does not name one. Otherwise the client's own
@@ -67,7 +67,7 @@ const METHOD_NOT_FOUND = -32601
 const INTERNAL_ERROR = -32603
 
 function log(message: string): void {
-  process.stderr.write(`[darvin-mcp] ${message}\n`)
+  process.stderr.write(`[scanlyfix-mcp] ${message}\n`)
 }
 
 function send(payload: Record<string, unknown>): void {
@@ -108,14 +108,14 @@ if (!config) {
   // to start" with no detail, and the person reading that has to guess. A
   // server that connects, lists its tools, and answers every call with the
   // exact variable to set is the one that gets fixed in one step.
-  log('DARVIN_API_KEY is not set — tools will report this rather than run.')
+  log('SCANLYFIX_API_KEY is not set — tools will report this rather than run.')
 } else {
   log(`ready · ${TOOLS.length} tools · api ${config.baseUrl}`)
 }
 
 const MISSING_KEY =
-  'Darvin is not configured: set DARVIN_API_KEY to an API key from ' +
-  'https://darvin.dev/settings/api-keys (Pro plan). Set DARVIN_API_URL too if you are ' +
+  'ScanlyFix is not configured: set SCANLYFIX_API_KEY to an API key from ' +
+  'https://scanlyfix.com/settings/api-keys (Pro plan). Set SCANLYFIX_API_URL too if you are ' +
   'pointing at a self-hosted or local instance.'
 
 /**
@@ -152,7 +152,7 @@ async function callTool(name: unknown, rawArgs: unknown): Promise<{ text: string
     // Ours. The model gets a neutral sentence; the detail goes to stderr,
     // where it does not corrupt the protocol stream.
     log(`tool ${tool.name} threw: ${error instanceof Error ? error.stack ?? error.message : String(error)}`)
-    return { text: `${tool.name} failed unexpectedly. This is a Darvin-side problem, not a problem with the site.`, isError: true }
+    return { text: `${tool.name} failed unexpectedly. This is a ScanlyFix-side problem, not a problem with the site.`, isError: true }
   }
 }
 

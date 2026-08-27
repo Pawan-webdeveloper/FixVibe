@@ -14,7 +14,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getSubscription, updateSubscription } from '@darvin/db'
+import { getSubscription, updateSubscription } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { serverEnv } from '@/lib/env.ts'
 import { cancelSubscription } from '@/lib/razorpay.ts'

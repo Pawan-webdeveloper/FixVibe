@@ -33,7 +33,7 @@ import type { Viewer } from './viewer.ts'
  * in a screenshot — and so secret scanners can be taught one pattern. A key
  * that looks like any other hex string gets committed and stays committed.
  */
-const KEY_PREFIX = 'dv_'
+const KEY_PREFIX = 'sf_'
 
 /** 32 bytes. Hex rather than base64url so a double-click selects the whole token. */
 const SECRET_BYTES = 32
@@ -45,7 +45,7 @@ const SECRET_BYTES = 32
  */
 const PREFIX_CHARS = KEY_PREFIX.length + 8
 
-/** `dv_` followed by exactly 64 lowercase hex characters. */
+/** `sf_` followed by exactly 64 lowercase hex characters. */
 const KEY_SHAPE = new RegExp(`^${KEY_PREFIX}[0-9a-f]{${SECRET_BYTES * 2}}$`)
 
 /**

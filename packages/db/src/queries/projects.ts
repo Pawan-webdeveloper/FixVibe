@@ -312,7 +312,7 @@ export async function verifiedHostForProject(projectId: string | null | undefine
  * what that unlocks is permission to probe that domain's Supabase and Firebase.
  */
 export function newVerificationToken(): string {
-  return `darvin-verify-${randomBytes(32).toString('hex')}`
+  return `scanlyfix-verify-${randomBytes(32).toString('hex')}`
 }
 
 export interface VerificationState {

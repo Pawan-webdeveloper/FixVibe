@@ -1,9 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getProject } from '@darvin/db'
+import { getProject } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
-import type { ScanProfile } from '@darvin/db'
+import type { ScanProfile } from '@scanlyfix/db'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import { runScanJob, startScanJob } from '@/lib/scan/run-scan-job.ts'
 import { redirect } from 'next/navigation'

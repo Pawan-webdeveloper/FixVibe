@@ -1,4 +1,4 @@
-import { ENGINE_VERSION } from '@darvin/checks'
+import { ENGINE_VERSION } from '@scanlyfix/checks'
 import { Section, SectionHeading } from './section.tsx'
 
 /**
@@ -44,7 +44,7 @@ export function Safety() {
       <SectionHeading
         index={7}
         eyebrow="Safety"
-        title="What Darvin will never do"
+        title="What ScanlyFix will never do"
         lead="You are about to hand a security tool the address of something you own. These are the limits it is built to, not the ones it intends to keep."
       />
 
