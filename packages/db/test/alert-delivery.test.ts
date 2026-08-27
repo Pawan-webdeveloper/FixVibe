@@ -26,9 +26,8 @@ describe.skipIf(!live)('alert delivery lookup (DARVIN_DB=1)', () => {
   const created: string[] = []
 
   async function newProject(label: string) {
-    const id = randomUUID()
-    const email = `alerts-${id}@example.test`
-    await ensureUser({ id, email })
+    const email = `alerts-${randomUUID()}@example.test`
+    const id = await ensureUser({ subject: randomUUID(), email })
     created.push(id)
 
     const viewer: Viewer = { kind: 'user', userId: id }

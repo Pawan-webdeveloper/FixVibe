@@ -70,8 +70,7 @@ describe.skipIf(!live)('ownership state (DARVIN_DB=1)', () => {
   const created: string[] = []
 
   async function newAccount() {
-    const id = randomUUID()
-    await ensureUser({ id, email: `verify-${id}@example.test` })
+    const id = await ensureUser({ subject: randomUUID(), email: `verify-${randomUUID()}@example.test` })
     created.push(id)
     const context = await getUserContext(id)
     return { viewer: { kind: 'user', userId: id } as Viewer, orgId: context!.orgId }
@@ -153,8 +152,7 @@ describe.skipIf(!live)('ownership cannot be claimed by a stranger (DARVIN_DB=1)'
   const created: string[] = []
 
   async function newAccount() {
-    const id = randomUUID()
-    await ensureUser({ id, email: `stranger-${id}@example.test` })
+    const id = await ensureUser({ subject: randomUUID(), email: `stranger-${randomUUID()}@example.test` })
     created.push(id)
     const context = await getUserContext(id)
     return { viewer: { kind: 'user', userId: id } as Viewer, orgId: context!.orgId }

@@ -11,12 +11,17 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/authz.ts'
 import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { ConvexAuthNextjsServerProvider } from '@convex-dev/auth/nextjs/server'
+import { ConvexAuthProvider } from '@/components/auth/convex-provider.tsx'
+import { SignOutButton } from '@/components/auth/sign-out-button.tsx'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser()
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <ConvexAuthNextjsServerProvider>
+      <ConvexAuthProvider>
+      <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-50 border-b border-line bg-canvas
                          supports-[backdrop-filter]:bg-canvas/80 supports-[backdrop-filter]:backdrop-blur-md">
         <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-6">
@@ -32,14 +37,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <div className="flex-1" />
           <span className="label hidden text-muted sm:inline">{user.email}</span>
-          <form action="/signout" method="post">
-            <button type="submit" className="label text-muted transition-colors hover:text-ink">
-              Sign out
-            </button>
-          </form>
+          <SignOutButton className="label text-muted transition-colors hover:text-ink" />
         </nav>
       </header>
       <main className="flex-1">{children}</main>
-    </div>
+      </div>
+      </ConvexAuthProvider>
+    </ConvexAuthNextjsServerProvider>
   )
 }

@@ -5,22 +5,30 @@
  * whether users can read each other's data — and every query that can reach
  * another account already refuses to run without one.
  *
- * In Phase 7 this grows an API-key branch and returns the same union, so route
- * handlers never learn there are two ways to authenticate.
+ * This is also the seam an identity provider swap has to touch, and it has now
+ * been used as one: it read Supabase, it reads Convex, and nothing below it
+ * changed either time. The Viewer carries this application's own user id, never
+ * the provider's — see users.authSubject for why that indirection exists.
  */
 
 import 'server-only'
 import { redirect } from 'next/navigation'
-import { ANONYMOUS, getUserContext, type UserContext, type Viewer } from '@darvin/db'
-import { createSupabaseServerClient } from './supabase/server.ts'
+import { ANONYMOUS, getUserContext, userIdForAuthSubject, type UserContext, type Viewer } from '@darvin/db'
+import { currentIdentity } from './auth/convex.ts'
 
 export async function getViewer(): Promise<Viewer> {
-  const supabase = await createSupabaseServerClient()
-  // getUser() validates the token with Supabase. getSession() reads the cookie
-  // without verifying it, which is exactly the kind of shortcut that turns into
-  // "anyone can forge a session" — never use it for an authorization decision.
-  const { data } = await supabase.auth.getUser()
-  return data.user ? { kind: 'user', userId: data.user.id } : ANONYMOUS
+  const identity = await currentIdentity()
+  if (!identity) return ANONYMOUS
+
+  /*
+   * A valid token with no application row is treated as signed OUT, not as an
+   * error. It means the callback that runs ensureUser never completed — a
+   * closed tab mid-sign-in, most likely — and the repair is to send them back
+   * through it. Throwing here would strand them on an error page with nothing
+   * to press.
+   */
+  const userId = await userIdForAuthSubject(identity.subject)
+  return userId ? { kind: 'user', userId } : ANONYMOUS
 }
 
 /**
@@ -32,8 +40,9 @@ export async function requireUser(nextPath?: string): Promise<UserContext> {
   if (viewer.kind !== 'user') redirect(loginUrl(nextPath))
 
   const context = await getUserContext(viewer.userId)
-  // A valid session with no app row means the callback never ran ensureUser —
-  // sending them back through it repairs the account rather than 500ing.
+  // getViewer only returns a user id it found in this table, so a miss here is
+  // a row deleted mid-request. Sending them to sign in again is the honest
+  // answer; 500ing is not.
   if (!context) redirect(loginUrl(nextPath))
 
   return context

@@ -29,8 +29,8 @@ describe.skipIf(!live)('user priorities (DARVIN_DB=1)', () => {
   const created: string[] = []
 
   async function newUser(): Promise<Viewer & { kind: 'user' }> {
-    const id = randomUUID()
-    await ensureUser({ id, email: `priorities-${id}@example.test` })
+    // The provider's subject is what identity is keyed on; the app id comes back.
+    const id = await ensureUser({ subject: randomUUID(), email: `priorities-${randomUUID()}@example.test` })
     created.push(id)
     return { kind: 'user', userId: id }
   }

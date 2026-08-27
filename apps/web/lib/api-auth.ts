@@ -1,8 +1,8 @@
 /**
  * Authenticating a machine.
  *
- * lib/authz.ts turns a BROWSER into a Viewer by validating a Supabase session
- * cookie. This turns a `Authorization: Bearer dv_…` header into the same
+ * lib/authz.ts turns a BROWSER into a Viewer by resolving the identity provider's
+ * session cookie. This turns a `Authorization: Bearer dv_…` header into the same
  * Viewer union, so everything downstream — quota, rate limits, every query in
  * @darvin/db — is the identical code path whether a person or a CI job asked.
  *

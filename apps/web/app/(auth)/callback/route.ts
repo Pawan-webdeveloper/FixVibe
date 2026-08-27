@@ -1,44 +1,51 @@
 /**
- * Where both sign-in flows land.
+ * Where every sign-in lands, whichever way it started.
  *
- * Supabase hands back a one-time code; exchanging it sets the session cookie.
- * The one thing this route owns beyond that is ensureUser() — the app's own
- * users row, personal organization and free subscription are created here, so
- * every later page can assume they exist rather than checking.
+ * Convex Auth has already done the hard part by the time this runs: the OAuth
+ * dance and the code check happen at /api/auth, and the session cookie is
+ * set. What this route owns is the APPLICATION's side of a new account — the
+ * users row, the personal organization and the free subscription — created
+ * here so every later page can assume they exist rather than checking.
  *
- * This file and getViewer() are the entire surface an auth provider swap has
- * to touch. Everything downstream takes a Viewer and never learns where it
- * came from.
+ * It is idempotent, because it runs on every sign-in and not only the first.
+ * ensureUser upserts on the provider's subject.
  */
 
 import { NextResponse } from 'next/server'
 import { ensureUser, getUserContext } from '@darvin/db'
-import { createSupabaseServerClient } from '@/lib/supabase/server.ts'
+import { currentIdentity } from '@/lib/auth/convex.ts'
 import { safeNextPath } from '@/lib/authz.ts'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
-  const code = url.searchParams.get('code')
   const next = safeNextPath(url.searchParams.get('next'))
 
-  if (!code) return NextResponse.redirect(new URL('/login?error=missing-code', url.origin))
-
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-  if (error || !data.user?.email) {
-    console.error('[auth/callback] code exchange failed', error)
+  const identity = await currentIdentity()
+  if (!identity) {
+    // Arriving here without a session means the sign-in did not complete —
+    // a cancelled OAuth consent screen, most often.
     return NextResponse.redirect(new URL('/login?error=sign-in-failed', url.origin))
   }
 
+  /*
+   * An address is required to create the account, and one provider can decline
+   * to give it: GitHub hides an email the person marked private. Rather than
+   * inventing a placeholder that later collides with their real address, the
+   * sign-in is refused with a message that names the fix.
+   */
+  if (!identity.email) {
+    return NextResponse.redirect(new URL('/login?error=no-email', url.origin))
+  }
+
+  let userId: string
   try {
-    await ensureUser({ id: data.user.id, email: data.user.email })
+    userId = await ensureUser({ subject: identity.subject, email: identity.email })
   } catch (dbError) {
     // The session is valid but the account row is not there. Sending them on
-    // would produce a logged-in user whose every page 404s; failing here is
-    // recoverable, because retrying the link runs this again.
+    // would produce a signed-in user whose every page fails; stopping here is
+    // recoverable, because signing in again runs this a second time.
     console.error('[auth/callback] could not create the account row', dbError)
     return NextResponse.redirect(new URL('/login?error=account-setup-failed', url.origin))
   }
@@ -53,7 +60,7 @@ export async function GET(request: Request) {
    * case is that they are asked on their next visit instead.
    */
   try {
-    const context = await getUserContext(data.user.id)
+    const context = await getUserContext(userId)
     if (context?.priorities === null) {
       const welcome = new URL('/welcome', url.origin)
       welcome.searchParams.set('next', next)

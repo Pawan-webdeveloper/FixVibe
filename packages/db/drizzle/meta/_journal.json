@@ -43,6 +43,13 @@
       "when": 1787773272149,
       "tag": "0005_api_key_prefix",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787806991958,
+      "tag": "0006_auth_subject",
+      "breakpoints": true
     }
   ]
 }

@@ -15,31 +15,8 @@
 
 import type { Category } from '@darvin/checks'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
-import { coveredCategories } from '@/lib/pillars.ts'
 import { FindingCard, type FindingView } from './finding-card.tsx'
-
-const LABEL: Record<Category, string> = {
-  security: 'Security',
-  seo: 'SEO',
-  aeo: 'AI answer engines',
-  performance: 'Performance',
-  accessibility: 'Accessibility',
-  compliance: 'Compliance',
-}
-
-/**
- * Pillars the reader asked us to lead with come first; the rest keep the
- * engine's own order behind them. Nothing is hidden — a priority moves a
- * section up the page, it never removes one, because the scan measured all of
- * it and a report that quietly dropped a pillar would be lying by omission.
- */
-function orderedPillars(priorities: readonly Category[] | null): Category[] {
-  const covered = coveredCategories()
-  if (!priorities?.length) return covered
-
-  const wanted = new Set(priorities)
-  return [...covered.filter((c) => wanted.has(c)), ...covered.filter((c) => !wanted.has(c))]
-}
+import { describeRest, PILLAR_LABEL as LABEL, splitPillars } from './pillar-view.ts'
 
 export function FindingsList({
   findings,
@@ -52,41 +29,66 @@ export function FindingsList({
   /** Passed straight through: only the page knows which gate applies. */
   lockedNote?: string
 }) {
-  const leading = new Set(priorities ?? [])
+  const { chosen, rest } = splitPillars(priorities)
+  const setAside = findings.filter((f) => rest.includes(f.category))
+
+  const pillarSection = (pillar: Category, index: number) => {
+    const inPillar = findings.filter((f) => f.category === pillar)
+
+    return (
+      <section key={pillar} aria-labelledby={`pillar-${pillar}`}>
+        <LabeledRule
+          as="h2"
+          id={`pillar-${pillar}`}
+          index={index + 1}
+          label={LABEL[pillar]}
+          trailing={inPillar.length === 0 ? 'clean' : `${inPillar.length} found`}
+        />
+
+        {inPillar.length === 0 ? (
+          <p className="mt-4 border border-line bg-surface px-4 py-3 text-sm text-muted">
+            Every {LABEL[pillar].toLowerCase()} check passed.
+          </p>
+        ) : (
+          <div className="mt-4 flex flex-col gap-3">
+            {inPillar.map((finding, i) => (
+              <FindingCard
+                key={`${finding.checkId}-${i}`}
+                finding={finding}
+                {...(lockedNote ? { lockedNote } : {})}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-12">
-      {orderedPillars(priorities).map((pillar, index) => {
-        const inPillar = findings.filter((f) => f.category === pillar)
+      {chosen.map(pillarSection)}
 
-        return (
-          <section key={pillar} aria-labelledby={`pillar-${pillar}`}>
-            <LabeledRule
-              as="h2"
-              id={`pillar-${pillar}`}
-              index={index + 1}
-              label={leading.has(pillar) ? `${LABEL[pillar]} ★` : LABEL[pillar]}
-              trailing={inPillar.length === 0 ? 'clean' : `${inPillar.length} found`}
-            />
+      {rest.length > 0 && (
+        /*
+         * <details> rather than a client component: it is one open/close with
+         * no state to share, and the browser gives keyboard support, the right
+         * ARIA and search-in-page for free. This whole report otherwise ships
+         * no JavaScript.
+         */
+        <details className="border border-line">
+          <summary className="cursor-pointer px-5 py-4 hover:bg-surface">
+            <span className="label text-ink">The rest of the scan</span>
+            <span className="mt-1 block text-sm text-muted text-pretty">
+              {describeRest(rest, setAside)}
+            </span>
+          </summary>
 
-            {inPillar.length === 0 ? (
-              <p className="mt-4 border border-line bg-surface px-4 py-3 text-sm text-muted">
-                Every {LABEL[pillar].toLowerCase()} check passed.
-              </p>
-            ) : (
-              <div className="mt-4 flex flex-col gap-3">
-                {inPillar.map((finding, i) => (
-                  <FindingCard
-                    key={`${finding.checkId}-${i}`}
-                    finding={finding}
-                    {...(lockedNote ? { lockedNote } : {})}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )
-      })}
+          <div className="flex flex-col gap-12 border-t border-line px-5 py-8">
+            {rest.map((pillar, index) => pillarSection(pillar, chosen.length + index))}
+          </div>
+        </details>
+      )}
     </div>
   )
 }
+

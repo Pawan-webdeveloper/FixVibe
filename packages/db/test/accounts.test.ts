@@ -62,9 +62,20 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
   const createdScans: string[] = []
 
   const newIdentity = () => {
-    const id = randomUUID()
+    const subject = randomUUID()
+    return { subject, email: `u-${subject}@example.test` }
+  }
+
+  /**
+   * ensureUser returns the APPLICATION's user id, which is not the provider's
+   * subject — see users.authSubject. Cleanup tracks the app id, so it can only
+   * be recorded after the row exists.
+   */
+  const createAccount = async () => {
+    const identity = newIdentity()
+    const id = await ensureUser(identity)
     createdUsers.push(id)
-    return { id, email: `u-${id}@example.test` }
+    return { ...identity, id }
   }
 
   afterAll(async () => {
@@ -74,8 +85,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
 
   describe('ensureUser', () => {
     it('creates the user, a personal org, an owner membership and a free subscription', async () => {
-      const identity = newIdentity()
-      await ensureUser(identity)
+      const identity = await createAccount()
 
       const context = await getUserContext(identity.id)
       expect(context?.email).toBe(identity.email)
@@ -89,10 +99,10 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
     })
 
     it('is idempotent — it runs on every sign-in, not just the first', async () => {
-      const identity = newIdentity()
+      const identity = await createAccount()
       await ensureUser(identity)
       await ensureUser(identity)
-      await ensureUser(identity)
+      // Three sign-ins, one org and one subscription.
 
       const orgs = await db.query.organizations.findMany({ where: eq(organizations.ownerId, identity.id) })
       const subs = await db.query.subscriptions.findMany({ where: eq(subscriptions.userId, identity.id) })
@@ -100,11 +110,28 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
       expect(subs).toHaveLength(1)
     })
 
-    it('updates the email when it changes upstream, keyed on the immutable id', async () => {
-      const identity = newIdentity()
-      await ensureUser(identity)
-      await ensureUser({ id: identity.id, email: `changed-${identity.id}@example.test` })
+    it('updates the email when it changes upstream, keyed on the immutable subject', async () => {
+      const identity = await createAccount()
+      const again = await ensureUser({ subject: identity.subject, email: `changed-${identity.subject}@example.test` })
+
+      // Same row, not a second one: the subject is the conflict target, so a
+      // changed address updates the account rather than forking it.
+      expect(again).toBe(identity.id)
       expect((await getUserContext(identity.id))?.email).toContain('changed-')
+    })
+
+    it('keeps two providers with the same address apart', async () => {
+      /*
+       * One person signing in with Google and then with GitHub is two provider
+       * identities. Were the email the conflict target, the second sign-in
+       * would overwrite the first account's subject and hand whoever signed in
+       * last the other's projects.
+       */
+      const shared = `shared-${randomUUID()}@example.test`
+      const first = await ensureUser({ subject: randomUUID(), email: shared })
+      createdUsers.push(first)
+
+      await expect(ensureUser({ subject: randomUUID(), email: shared })).rejects.toThrow()
     })
 
     it('returns null for a user that was never created', async () => {
@@ -114,8 +141,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
 
   describe('project ownership', () => {
     it('refuses every read to an anonymous viewer', async () => {
-      const identity = newIdentity()
-      await ensureUser(identity)
+      const identity = await createAccount()
       const viewer: Viewer = { kind: 'user', userId: identity.id }
       const context = await getUserContext(identity.id)
       const project = await makeProject(viewer, { name: 'x', url: 'https://x.test/', orgId: context!.orgId })
@@ -129,10 +155,8 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
     it('hides one account\'s project from another', async () => {
       // The test that matters. If this passes, every customer's projects are
       // readable by anyone who can guess a UUID.
-      const owner = newIdentity()
-      const stranger = newIdentity()
-      await ensureUser(owner)
-      await ensureUser(stranger)
+      const owner = await createAccount()
+      const stranger = await createAccount()
       const ownerCtx = await getUserContext(owner.id)
       const project = await makeProject(
         { kind: 'user', userId: owner.id },
@@ -145,8 +169,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
     })
 
     it('gives each project a slug that is not its uuid', async () => {
-      const identity = newIdentity()
-      await ensureUser(identity)
+      const identity = await createAccount()
       const context = await getUserContext(identity.id)
       const project = await makeProject(
         { kind: 'user', userId: identity.id },
@@ -165,8 +188,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
     }
 
     it('turns an anonymous scan into a project the viewer owns', async () => {
-      const identity = newIdentity()
-      await ensureUser(identity)
+      const identity = await createAccount()
       const context = await getUserContext(identity.id)
       const scanId = await openAnonymousScan()
 
@@ -179,10 +201,8 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
     })
 
     it('refuses a scan that somebody already claimed', async () => {
-      const first = newIdentity()
-      const second = newIdentity()
-      await ensureUser(first)
-      await ensureUser(second)
+      const first = await createAccount()
+      const second = await createAccount()
       const scanId = await openAnonymousScan()
 
       await claimScan(scanId, { kind: 'user', userId: first.id }, (await getUserContext(first.id))!.orgId)
@@ -191,10 +211,8 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
     })
 
     it('leaves no orphan project behind when the claim loses', async () => {
-      const first = newIdentity()
-      const second = newIdentity()
-      await ensureUser(first)
-      await ensureUser(second)
+      const first = await createAccount()
+      const second = await createAccount()
       const scanId = await openAnonymousScan()
 
       await claimScan(scanId, { kind: 'user', userId: first.id }, (await getUserContext(first.id))!.orgId)
@@ -204,8 +222,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
     })
 
     it('refuses an anonymous viewer and an unknown scan', async () => {
-      const identity = newIdentity()
-      await ensureUser(identity)
+      const identity = await createAccount()
       const orgId = (await getUserContext(identity.id))!.orgId
       expect(await claimScan(await openAnonymousScan(), ANONYMOUS, orgId)).toBeNull()
       expect(await claimScan(randomUUID(), { kind: 'user', userId: identity.id }, orgId)).toBeNull()
@@ -214,8 +231,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
 
   describe('score delta', () => {
     const setup = async () => {
-      const identity = newIdentity()
-      await ensureUser(identity)
+      const identity = await createAccount()
       const context = await getUserContext(identity.id)
       const viewer: Viewer = { kind: 'user', userId: identity.id }
       const project = await makeProject(viewer, { name: 'd', url: 'https://d.test/', orgId: context!.orgId })
@@ -289,8 +305,7 @@ describe.skipIf(!live)('accounts and projects (DARVIN_DB=1)', () => {
    */
   describe('verifiedHostForProject', () => {
     const projectWith = async (url: string, verified: boolean) => {
-      const identity = newIdentity()
-      await ensureUser(identity)
+      const identity = await createAccount()
       const context = await getUserContext(identity.id)
       const project = await makeProject({ kind: 'user', userId: identity.id }, { name: 'p', url, orgId: context!.orgId })
       if (verified) await db.update(projects).set({ verifiedDomain: true }).where(eq(projects.id, project!.id))
