@@ -16,6 +16,12 @@
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import { ConvexReactClient } from 'convex/react'
 import { publicEnv } from '@/lib/public-env.ts'
+import { repairTokenStorage } from './repair-token-storage.ts'
+
+// This provider is the one on the LANDING page, so it is where an unusable
+// stored token does the most damage — a stranger's first visit throwing before
+// anything renders. See repair-token-storage.ts.
+repairTokenStorage()
 
 const convex = new ConvexReactClient(publicEnv.convexUrl())
 

@@ -17,6 +17,12 @@
 import { ConvexAuthNextjsProvider } from '@convex-dev/auth/nextjs'
 import { ConvexReactClient } from 'convex/react'
 import { publicEnv } from '@/lib/public-env.ts'
+import { repairTokenStorage } from './repair-token-storage.ts'
+
+// Before the client is built, not after: a stored refresh token the server
+// cannot parse makes the auth client throw an unhandled rejection on every
+// page load, with no recovery of its own. See repair-token-storage.ts.
+repairTokenStorage()
 
 const convex = new ConvexReactClient(publicEnv.convexUrl())
 
