@@ -7,55 +7,88 @@
  * server, the same destination. Keeping that here means the forms are purely
  * presentational and cannot drift into two behaviours.
  *
+ * ## Why the hook owns the input's value
+ *
+ * The forms used to hold their own `useState` for the text, which made the
+ * hook unable to change it. Restoring a URL after sign-in therefore had to
+ * reach for the DOM — assign `input.value` and dispatch an `input` event — and
+ * that does not work against a React controlled input. React installs its own
+ * setter on the node and updates its change tracker from it, so by the time
+ * the dispatched event is compared against the tracker the two already agree,
+ * React concludes nothing changed, and `onChange` never fires. The box showed
+ * the URL while the state behind it stayed empty, so pressing Scan validated
+ * the empty string.
+ *
+ * Owning the value here removes the class of bug rather than the instance:
+ * there is one source of truth, and restoring is an ordinary setState.
+ *
  * ## Auth gate
  *
- * The hero's product rule is "free to scan, an account opens the findings" —
- * a signed-out visitor pastes a URL, hits Scan, and is bounced to /login.
- * After sign-in they return to the page with the URL they typed already in
- * the box, picked up from sessionStorage. The standard form is reached only
- * from inside the signed-in app, so it does not gate.
+ * A signed-out visitor who presses Scan is sent to /login, with the URL they
+ * typed kept in sessionStorage so they come back to a filled box. Only the
+ * form that asked for `restore` picks it up — otherwise both forms on the
+ * landing page would race for the same key and fight over focus.
  *
  * ## SSR safety
  *
- * `useConvexAuth` only works inside a ConvexAuthNextjsProvider that has
- * hydrated on the client. During SSR there is no provider, so calling the
- * hook would throw. We report `authLoading: true` until the client mounts,
- * which makes the gate a no-op (and the API route is itself the source of
- * truth on whether a scan needs an account).
+ * `useConvexAuth` needs a provider that has hydrated on the client. Until this
+ * has mounted we report `authLoading: true`, which makes the gate a no-op and
+ * keeps the server-rendered HTML identical to the first client render.
  */
 
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, type RefObject } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { useConvexAuth } from '@convex-dev/auth/react'
 import { normalizeScanTarget } from '@/lib/url.ts'
+import {
+  sessionStore,
+  shouldGateScan,
+  stashPendingUrl,
+  takePendingUrl,
+} from './pending-scan-url.ts'
 
-/** What the hero form stashes in sessionStorage while the user goes to sign in. */
-const PENDING_URL_KEY = 'darvin:pending-scan-url'
+export interface ScanSubmitOptions {
+  /**
+   * Whether this form should pick up a URL left behind by a sign-in trip.
+   *
+   * The hero opts in; the final CTA does not. Both stash on the way out, but a
+   * visitor returning from /login lands at the top of the page, so the hero is
+   * the box they are looking at.
+   */
+  restore?: boolean
+  /** Focused after a restore, so the visitor can just press Enter. */
+  inputRef?: RefObject<HTMLInputElement | null>
+}
 
 export interface ScanSubmit {
+  /** The input's text. The hook owns it; the form only renders it. */
+  value: string
+  /** Sets the text and clears any error, because typing is a correction. */
+  setValue: (next: string) => void
   pending: boolean
   error: string | null
-  clearError: () => void
   /** Resolves false when the scan did not start, so the caller can refocus. */
-  submit: (value: string) => Promise<boolean>
+  submit: () => Promise<boolean>
   /** True while the auth state is still being resolved. */
   authLoading: boolean
 }
 
-export function useScanSubmit(): ScanSubmit {
+export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
+  const { restore = false, inputRef } = options
   const router = useRouter()
+  const pathname = usePathname()
   const { isLoading: rawLoading, isAuthenticated } = useConvexAuth()
+  const [value, setValueState] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
   /*
-   * Until the component has mounted on the client, the Convex auth context is
-   * not present. Pretend we're still loading so the gate below is a no-op:
-   * the server-rendered HTML matches the first client render and the
-   * provider's hooks are never called with no provider in scope.
+   * Until this has mounted on the client there is no Convex auth context.
+   * Reporting "still loading" keeps the gate closed for that first render, so
+   * the server's HTML and the client's first pass agree.
    */
   useEffect(() => {
     setHydrated(true)
@@ -64,28 +97,29 @@ export function useScanSubmit(): ScanSubmit {
   const authLoading = !hydrated || rawLoading
 
   /*
-   * After a sign-in round-trip the user lands back here. If they came from the
-   * hero (the only place we stash one), pick the URL up and refill the input.
-   * The storage call sits in an effect so it runs on mount, not on every
-   * render of every component that imports this hook.
+   * The return leg of a sign-in. Runs once the visitor is known to be signed
+   * in, because that is the only case a stashed URL was waiting for — reading
+   * it earlier would consume it before the trip completed, and reading it for
+   * a visitor who never signed in would hand them somebody else's leftover.
    */
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (isAuthenticated) {
-      const pending = window.sessionStorage.getItem(PENDING_URL_KEY)
-      if (pending) {
-        window.sessionStorage.removeItem(PENDING_URL_KEY)
-        const input = document.querySelector<HTMLInputElement>('input[name="url"]')
-        if (input) {
-          input.value = pending
-          input.dispatchEvent(new Event('input', { bubbles: true }))
-          input.focus()
-        }
-      }
-    }
-  }, [isAuthenticated])
+    if (!restore || !isAuthenticated) return
+    const url = takePendingUrl(sessionStore())
+    if (url === null) return
+    setValueState(url)
+    setError(null)
+    inputRef?.current?.focus()
+  }, [restore, isAuthenticated, inputRef])
 
-  async function submit(value: string): Promise<boolean> {
+  function setValue(next: string) {
+    setValueState(next)
+    // Typing is how somebody answers a rejection, so the rejection goes as
+    // soon as they start. Guarded so an untouched error is not re-set to null
+    // on every keystroke.
+    setError((current) => (current === null ? current : null))
+  }
+
+  async function submit(): Promise<boolean> {
     if (pending) return false
 
     // Client-side only so a typo comes back instantly instead of after a round
@@ -103,11 +137,11 @@ export function useScanSubmit(): ScanSubmit {
      * that something is not scan-worthy, and bouncing them to /login now would
      * also bounce them back to a still-broken URL after.
      */
-    if (!authLoading && !isAuthenticated) {
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(PENDING_URL_KEY, target.url)
-      }
-      router.push('/login?next=/')
+    if (shouldGateScan({ authLoading, isAuthenticated })) {
+      stashPendingUrl(sessionStore(), target.url)
+      // Come back to the page they left, not to a hardcoded one.
+      const next = pathname || '/'
+      router.push(`/login?next=${encodeURIComponent(next)}`)
       return false
     }
 
@@ -147,5 +181,5 @@ export function useScanSubmit(): ScanSubmit {
     }
   }
 
-  return { pending, error, clearError: () => setError(null), submit, authLoading }
+  return { value, setValue, pending, error, submit, authLoading }
 }

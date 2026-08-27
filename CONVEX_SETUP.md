@@ -6,6 +6,13 @@ the hero with the URL they typed already in the box.
 
 The deployment is `shiny-sparrow-790` (https://dashboard.convex.dev/d/shiny-sparrow-790).
 
+> **Rotate before going to production.** An earlier revision of this file
+> committed the live GitHub OAuth secret, Google OAuth secret and Resend API
+> key in plaintext, and `CONVEX_DEPLOY_KEY` was sent through chat. Deleting
+> them from the working copy does not remove them from the git history, so all
+> four must be regenerated on their dashboards and re-pushed with the commands
+> in §2. Until that is done, treat every one of them as known.
+
 ## 1. Authenticate the CLI
 
 The `npx convex env set` commands below need a deploy key. The CLI looks for
@@ -30,16 +37,28 @@ The `npx convex env set` commands below need a deploy key. The CLI looks for
 These have to be on the Convex deployment, NOT in the Next.js `.env` —
 Convex functions run on Convex and cannot read the app's environment.
 
+Take each value from the provider's own dashboard at the moment you run this.
+**Do not paste real values back into this file** — it is version-controlled,
+and a secret committed once stays in the history even after it is deleted.
+
 ```sh
 cd apps/web
-npx convex env set AUTH_GITHUB_ID      Ov23liCBCzgB6tpX4Dz6
-npx convex env set AUTH_GITHUB_SECRET  9abd814a71ed27932dbbe7c0a9b202047e66e6d9
-npx convex env set AUTH_GOOGLE_ID      375864774544-l3mjvstmnpqvemn283bvacqecba571qs.apps.googleusercontent.com
-npx convex env set AUTH_GOOGLE_SECRET  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
-npx convex env set AUTH_RESEND_KEY     re_PD8J8gjM_BTkZS6U9MPmBw5BHjpMt5iTg
+npx convex env set AUTH_GITHUB_ID      "<github oauth app client id>"
+npx convex env set AUTH_GITHUB_SECRET  "<github oauth app client secret>"
+npx convex env set AUTH_GOOGLE_ID      "<google oauth client id>"
+npx convex env set AUTH_GOOGLE_SECRET  "<google oauth client secret>"
+npx convex env set AUTH_RESEND_KEY     "<resend api key>"
 npx convex env set AUTH_EMAIL_FROM     "Darvin <onboarding@resend.dev>"
-npx convex env set SITE_URL            http://localhost:3000
+npx convex env set SITE_URL            "<the app's own origin>"
 ```
+
+`npx convex env set` reads-modifies-writes the whole environment, so running
+these concurrently fails with `OptimisticConcurrencyControlFailure`. Set them
+one at a time.
+
+`SITE_URL` is the Next.js app's origin, not Convex's: `http://localhost:3000`
+in development and the deployed domain in production. It is what the sign-in
+links in emails point at, so a stale value sends real users to localhost.
 
 Verify:
 

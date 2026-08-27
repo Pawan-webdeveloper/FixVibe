@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
+import { useId, useRef } from 'react'
 import { useScanSubmit } from './use-scan-submit.ts'
 
 /**
@@ -13,12 +13,14 @@ export function ScanForm() {
   const inputId = useId()
   const errorId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [value, setValue] = useState('')
-  const { pending, error, clearError, submit } = useScanSubmit()
+  // No `restore`: a visitor coming back from sign-in lands at the top of the
+  // page, where the hero already reclaims the URL. Two forms both taking it
+  // would race for one key and then fight over the focus.
+  const { value, setValue, pending, error, submit } = useScanSubmit()
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const started = await submit(value)
+    const started = await submit()
     if (!started) inputRef.current?.focus()
   }
 
@@ -40,10 +42,7 @@ export function ScanForm() {
           spellCheck={false}
           placeholder="example.com"
           value={value}
-          onChange={(event) => {
-            setValue(event.target.value)
-            if (error) clearError()
-          }}
+          onChange={(event) => setValue(event.target.value)}
           disabled={pending}
           aria-invalid={error !== null}
           aria-describedby={error ? errorId : undefined}
