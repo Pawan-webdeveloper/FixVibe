@@ -18,6 +18,17 @@ const LINKS: ReadonlyArray<{ href: string; label: string }> = [
   { href: '/login', label: 'Sign in' },
 ]
 
+/**
+ * Kept apart from the links above and set below them, because they are a
+ * different kind of link: nobody is browsing for these, and a payment
+ * processor's review expects to find them from any page rather than only from
+ * a checkout screen.
+ */
+const LEGAL_LINKS: ReadonlyArray<{ href: string; label: string }> = [
+  { href: '/privacy', label: 'Privacy' },
+  { href: '/terms', label: 'Terms' },
+]
+
 export function SiteFooter() {
   return (
     <footer className="border-t border-line">
@@ -44,9 +55,27 @@ export function SiteFooter() {
           </nav>
         </div>
 
-        <p className="mt-10 border-t border-line pt-6 font-mono text-xs text-muted">
-          engine {ENGINE_VERSION} · {TOTAL_CHECKS} checks
-        </p>
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3
+                        border-t border-line pt-6">
+          <p className="font-mono text-xs text-muted">
+            engine {ENGINE_VERSION} · {TOTAL_CHECKS} checks
+          </p>
+
+          <nav aria-label="Legal">
+            <ul className="flex flex-wrap gap-x-6 gap-y-2">
+              {LEGAL_LINKS.map(({ href, label }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className="font-mono text-xs text-muted transition-colors hover:text-ink"
+                  >
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
       </div>
     </footer>
   )

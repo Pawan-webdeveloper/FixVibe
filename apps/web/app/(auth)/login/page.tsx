@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { BrandMark } from '@/components/marketing/brand-mark.tsx'
 import { GitHubMark, GoogleMark } from '@/components/auth/provider-marks.tsx'
+import { describeSignInError } from '@/components/auth/sign-in-error.ts'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 /**
@@ -59,7 +60,7 @@ function LoginForm() {
       await signIn(provider, { redirectTo })
     } catch (cause) {
       setPending(null)
-      setError(describe(cause))
+      setError(describeSignInError(cause))
     }
   }
 
@@ -73,7 +74,7 @@ function LoginForm() {
       await signIn('resend-otp', form)
       setStep('code')
     } catch (cause) {
-      setError(describe(cause))
+      setError(describeSignInError(cause))
     } finally {
       setPending(null)
     }
@@ -212,11 +213,6 @@ function Problem({ message }: { message: string | null }) {
   )
 }
 
-function describe(cause: unknown): string {
-  return cause instanceof Error && cause.message
-    ? cause.message
-    : 'That did not work. Try again in a moment.'
-}
 
 export default function LoginPage() {
   return (

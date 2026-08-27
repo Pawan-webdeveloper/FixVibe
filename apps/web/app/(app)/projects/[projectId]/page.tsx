@@ -7,6 +7,8 @@
 
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
+import type { Metadata } from 'next'
 import { getProject, listScansForProject, type Scan } from '@darvin/db'
 import { getViewer } from '@/lib/authz.ts'
 import { scoreColor } from '@/components/scan/score-ring.tsx'
@@ -18,6 +20,42 @@ function stamp(date: Date): string {
   return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
 
+/**
+ * Shared by generateMetadata and the page, so one render is one query.
+ *
+ * Next calls both for the same request; without `cache` the project would be
+ * fetched twice on a page that already measures over a second.
+ */
+const loadProject = cache(async (projectId: string) => {
+  if (!UUID.test(projectId)) return null
+  const viewer = await getViewer()
+  return getProject(projectId, viewer)
+})
+
+/**
+ * The project's own name in the tab, because somebody tracking several sites
+ * has several of these open and "Darvin" on every one of them tells them
+ * nothing about which is which.
+ *
+ * A project the viewer cannot see gets the neutral title rather than a 404
+ * here — the page itself calls notFound(), and metadata is the wrong place to
+ * decide that. It also must not confirm the id exists to somebody guessing.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ projectId: string }>
+}): Promise<Metadata> {
+  const { projectId } = await params
+  const project = await loadProject(projectId)
+  return {
+    title: project?.name ?? 'Project',
+    // Signed-in pages are already excluded in robots.txt; this is the copy of
+    // that rule which travels with the page itself.
+    robots: { index: false, follow: false },
+  }
+}
+
 export default async function ProjectPage({
   params,
   searchParams,
@@ -27,12 +65,11 @@ export default async function ProjectPage({
 }) {
   const { projectId } = await params
   const { quota } = await searchParams
-  if (!UUID.test(projectId)) notFound()
 
-  const viewer = await getViewer()
-  const project = await getProject(projectId, viewer)
+  const project = await loadProject(projectId)
   if (!project) notFound()
 
+  const viewer = await getViewer()
   const scans = await listScansForProject(projectId, viewer)
   const latest = scans[0]
 

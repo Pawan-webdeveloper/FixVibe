@@ -28,6 +28,15 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 /** Long enough to find the mail, short enough that a leaked code is stale. */
 const EXPIRY_SECONDS = 15 * 60
 
+/**
+ * Marks a message as written FOR the person signing in, and therefore safe to
+ * put on screen. Anything without it is an internal failure whose text belongs
+ * in the logs. Kept in sync with components/auth/sign-in-error.ts, which is
+ * where the client reads it; it cannot be imported from there because Convex
+ * functions are bundled separately from the Next.js app.
+ */
+const SAFE_PREFIX = 'darvin:'
+
 const DIGITS = 6
 const CEILING = 10 ** DIGITS
 
@@ -48,6 +57,40 @@ function generateCode(): string {
     const value = buffer[0]!
     if (value < limit) return String(value % CEILING).padStart(DIGITS, '0')
   }
+}
+
+/**
+ * What to tell the person, given only the status Resend replied with.
+ *
+ * The split matters because two of these are OUR fault and one is theirs, and
+ * a single sentence has to pick. Saying "check it for typos" to somebody whose
+ * address is perfectly fine — which is what a 403 means — sends them to look
+ * for a mistake that is not there, and then to look again, while the actual
+ * problem is that this deployment cannot send mail to anyone yet.
+ *
+ * 403 is Resend refusing to send from an unverified sender to anybody except
+ * the account owner. It is a configuration state of ours, it applies to every
+ * visitor equally, and nothing the person types will change it — so the honest
+ * thing is to say the method is unavailable and point at the two that work.
+ *
+ * 422 is Resend rejecting the recipient itself. That one really is about what
+ * was typed.
+ *
+ * Everything else — a bad key, a quota, Resend being down — is ours and is
+ * usually temporary, so it asks them to try again rather than to change
+ * anything.
+ */
+function reasonFor(status: number): string {
+  if (status === 403) {
+    return (
+      'Sign-in by email is not available yet on this site. ' +
+      'Continue with Google or GitHub instead.'
+    )
+  }
+  if (status === 422) {
+    return 'That address was rejected. Check it for typos, or continue with Google or GitHub.'
+  }
+  return 'We could not send the code just now. Try again, or continue with Google or GitHub.'
 }
 
 export const ResendOTP = Email({
@@ -74,7 +117,20 @@ export const ResendOTP = Email({
     // waits, retries, and blames their spam filter.
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
-      throw new Error(`Could not send the sign-in code (HTTP ${response.status}). ${detail}`.trim())
+
+      /*
+       * The provider's own words go to the logs and nowhere else. Resend's 403
+       * for an unverified domain names the ACCOUNT OWNER's email address, and
+       * that message was reaching the sign-in screen verbatim — handing any
+       * stranger who typed an address the operator's personal one. The same
+       * applies to quota and suspension messages, which describe our account
+       * rather than anything the person asking can act on.
+       */
+      console.error(`[ResendOTP] delivery failed (HTTP ${response.status}): ${detail}`)
+
+      // Prefixed so the client can tell a sentence we wrote for the person
+      // apart from an internal failure it must not render. See sign-in-error.ts.
+      throw new Error(SAFE_PREFIX + reasonFor(response.status))
     }
   },
 })

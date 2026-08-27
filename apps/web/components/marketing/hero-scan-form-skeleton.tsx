@@ -1,22 +1,35 @@
 /**
- * The server-rendered shape of the hero's scan form.
+ * The hero's scan form as the SERVER renders it — a working form, not a
+ * placeholder.
  *
- * Used as a placeholder until the Convex auth context has hydrated on the
- * client, so the landing page's HTML does not depend on the Convex client and
- * the auth-gated behaviour (useConvexAuth) never runs during SSR. Pixels are
- * identical to HeroScanForm: same label, same bordered input + button group,
- * same error reserve, same trailing link. Only the behaviour is missing —
- * nothing is wired to the auth state, because the auth state is not known yet.
+ * It used to draw a disabled button, on the reasoning that the auth-aware
+ * version could not exist until React hydrated. That reasoning was about the
+ * enhancement, not about the form: submitting a URL does not need JavaScript,
+ * and the page whose entire purpose is to collect one should not spend its
+ * first second refusing to.
+ *
+ * So this posts to the same Server Action the hydrated form falls back on. A
+ * click that lands before hydration does a full page navigation and starts the
+ * scan; a click after it is intercepted by React and stays on the page. Nobody
+ * sees a dead button either way.
+ *
+ * Pixels stay identical to HeroScanForm so the swap at hydration moves nothing.
+ * The two differences are invisible: no client-side validation until the real
+ * form takes over, and no error text, which arrives instead as ?scan_error on
+ * the way back.
  */
 import Link from 'next/link'
+import { startScanAction } from '@/components/scan/scan-action.ts'
 import { ArrowRight, Globe } from './icons.tsx'
 
 const LABEL = 'font-mono text-[11px] uppercase tracking-[0.16em]'
 
 export function HeroScanFormSkeleton() {
   return (
-    <form noValidate>
-      <label className={`mb-2.5 block text-hero-ink ${LABEL}`}>Paste your website URL</label>
+    <form action={startScanAction} noValidate>
+      <label htmlFor="hero-url" className={`mb-2.5 block text-hero-ink ${LABEL}`}>
+        Paste your website URL
+      </label>
 
       <div className="flex flex-wrap items-stretch border-2 border-hero-ink">
         <span
@@ -27,6 +40,7 @@ export function HeroScanFormSkeleton() {
         </span>
 
         <input
+          id="hero-url"
           name="url"
           type="text"
           inputMode="url"
@@ -38,8 +52,7 @@ export function HeroScanFormSkeleton() {
         />
 
         <button
-          type="button"
-          disabled
+          type="submit"
           className={`flex h-14 w-full shrink-0 items-center justify-center gap-2 border-t-2 border-hero-ink
  bg-hero-ink px-7 font-medium text-hero-on-ink sm:w-auto sm:border-t-0 sm:border-l-2 ${LABEL}`}
         >
@@ -48,6 +61,7 @@ export function HeroScanFormSkeleton() {
         </button>
       </div>
 
+      {/* Reserved height, so the hydrated form's error line cannot shift this. */}
       <p className={`mt-3 min-h-5 text-hero-ink ${LABEL}`} aria-hidden="true" />
 
       <Link
