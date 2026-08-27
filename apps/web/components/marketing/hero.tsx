@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { HeroMatrix } from './hero-matrix.tsx'
-import { HeroScanForm } from './hero-scan-form.tsx'
+import { HeroScanFormClient } from '@/components/scan/hero-scan-form-client.tsx'
 import { BrandMark } from './brand-mark.tsx'
 import { Bot, Search, ShieldCheck } from './icons.tsx'
 import { TOTAL_CHECKS } from '@/lib/pillars.ts'
@@ -103,7 +103,7 @@ export function Hero() {
             </p>
 
             <div id="scan" className="hero-rise mt-9 max-w-3xl scroll-mt-24">
-              <HeroScanForm />
+              <HeroScanFormClient />
             </div>
           </div>
         </div>

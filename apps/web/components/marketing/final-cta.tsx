@@ -1,4 +1,4 @@
-import { ScanForm } from '@/components/scan/scan-form.tsx'
+import { ScanFormClient } from '@/components/scan/scan-form-client.tsx'
 import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
 /**
@@ -23,7 +23,7 @@ export function FinalCta() {
         </p>
 
         <div className="mt-8 max-w-xl">
-          <ScanForm />
+          <ScanFormClient />
         </div>
       </div>
     </section>
