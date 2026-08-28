@@ -52,13 +52,7 @@ function loginUrl(nextPath?: string): string {
   return nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login'
 }
 
-/**
- * `next` comes from a query string, so it is attacker-controlled. Only a
- * same-site path is ever followed; anything else — an absolute URL, a
- * protocol-relative "//evil.test" — would make this an open redirect that
- * borrows our domain's credibility for a phishing page.
- */
-export function safeNextPath(value: string | null): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard'
-  return value
-}
+// The open-redirect guard on `?next=` lives in its own dependency-free module
+// so it can be unit-tested without dragging in this file's server-only stack.
+// Re-exported here because callers reach for it alongside getViewer/requireUser.
+export { safeNextPath } from './next-path.ts'
