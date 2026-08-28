@@ -63,11 +63,11 @@ export function Faq() {
       <div className="mt-10 border-t border-line">
         {QA.map(({ q, a }) => (
           <details key={q} className="group border-b border-line">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 font-medium">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-lg font-semibold tracking-tight">
               {q}
               <Chevron />
             </summary>
-            <p className="max-w-[70ch] pb-5 text-muted text-pretty">{a}</p>
+            <p className="max-w-[70ch] pb-5 text-[15px] leading-relaxed text-ink/70 text-pretty">{a}</p>
           </details>
         ))}
       </div>

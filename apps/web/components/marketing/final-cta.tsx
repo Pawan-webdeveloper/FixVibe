@@ -17,7 +17,7 @@ export function FinalCta() {
         <h2 className="max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
           Find out what yours is quietly getting wrong.
         </h2>
-        <p className="mt-4 max-w-[52ch] text-lg text-muted text-pretty">
+        <p className="mt-4 max-w-[52ch] text-lg leading-relaxed text-ink/70 text-pretty">
           {TOTAL_CHECKS} checks, the evidence behind every one, and a prompt that fixes them. About
           a second, and no account.
         </p>

@@ -61,16 +61,16 @@ export function Monitoring() {
         <div className="overflow-x-auto">
           <UptimeChart events={SAMPLE_EVENTS} />
         </div>
-        <figcaption className="mt-3 text-sm text-muted">
+        <figcaption className="mt-3 text-[15px] text-muted">
           Illustration — the status-page component with one bad day in it. Not a customer’s data.
         </figcaption>
       </figure>
 
-      <dl className="mt-10 grid gap-x-12 gap-y-8 sm:grid-cols-2">
+      <dl className="mt-10 grid gap-x-12 gap-y-10 sm:grid-cols-2">
         {CAPABILITIES.map(({ title, body }) => (
           <div key={title}>
-            <dt className="font-medium">{title}</dt>
-            <dd className="mt-2 max-w-[48ch] text-sm text-muted text-pretty">{body}</dd>
+            <dt className="text-lg font-semibold tracking-tight">{title}</dt>
+            <dd className="mt-2 max-w-[48ch] text-[15px] leading-relaxed text-ink/70 text-pretty">{body}</dd>
           </div>
         ))}
       </dl>

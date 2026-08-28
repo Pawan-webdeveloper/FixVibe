@@ -50,12 +50,12 @@ export function Safety() {
 
       <dl className="mt-12 grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2">
         {NEVER.map(({ title, body }) => (
-          <div key={title} className="min-w-0 bg-canvas p-6">
-            <dt className="flex items-start gap-3 font-medium text-balance">
+          <div key={title} className="min-w-0 bg-canvas p-7">
+            <dt className="flex items-start gap-3 text-lg font-semibold tracking-tight text-balance">
               <Cross />
               {title}
             </dt>
-            <dd className="mt-2 pl-7 text-sm text-muted text-pretty">{body}</dd>
+            <dd className="mt-2 pl-7 text-[15px] leading-relaxed text-ink/70 text-pretty">{body}</dd>
           </div>
         ))}
       </dl>
