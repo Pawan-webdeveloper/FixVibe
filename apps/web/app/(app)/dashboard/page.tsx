@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { listProjectSummaries, listRecentScansForUser, type ProjectSummary, type Scan } from '@scanlyfix/db'
 import { getViewer, requireUser } from '@/lib/authz.ts'
 import { NewProjectForm } from './new-project-form.tsx'
+import { ScanForm } from '@/components/scan/scan-form.tsx'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 export const metadata = { title: 'Projects' }
@@ -43,7 +44,23 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
-      <LabeledRule as="h1" label="Projects" trailing={`${summaries.length} tracked`} />
+      {/*
+        Scan a URL without leaving the app. Reached from "Scan another site" on
+        a report, so a signed-in person is not sent back to the marketing page
+        just to run one. The form is the same useScanSubmit as the hero — same
+        validation, same destination — and the (app) layout's auth provider is
+        what lets it read the signed-in state.
+      */}
+      <section>
+        <LabeledRule as="h1" label="Scan a site" trailing="a URL, not an account" />
+        <div className="mt-6 max-w-xl">
+          <ScanForm />
+        </div>
+      </section>
+
+      <div className="mt-16">
+        <LabeledRule as="h2" label="Projects" trailing={`${summaries.length} tracked`} />
+      </div>
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <NewProjectForm orgId={user.orgId} />
       </div>

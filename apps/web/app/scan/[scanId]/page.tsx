@@ -94,15 +94,21 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
   const entitlements = await entitlementsFor(viewer)
   const report = redactFindings(scan.findings, entitlements)
 
+  // A signed-in reader goes back into the app; a stranger who followed a
+  // shared link goes to the landing page, where scanning still starts. This
+  // report is shareable and server-rendered, so both cases land here — the
+  // difference is only where each is sent next.
+  const home = viewer.kind === 'user' ? '/dashboard' : '/'
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header>
         <div className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
+          <Link href={home} className="flex items-center gap-2" aria-label="ScanlyFix — home">
             <LogoBadge size={22} />
             <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
           </Link>
-          <Link href="/" className="label link text-muted transition-colors hover:text-ink">
+          <Link href={home} className="label link text-muted transition-colors hover:text-ink">
             Scan another site
           </Link>
         </div>
