@@ -44,7 +44,7 @@ export function SiteHeader() {
           className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
           <LogoBadge size={44} />
-          <span className="text-2xl font-semibold tracking-tight">scanlyfix</span>
+          <span className="text-2xl font-semibold uppercase tracking-tight">scanlyfix</span>
         </Link>
 
         <div className="flex-1" />
