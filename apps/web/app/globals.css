@@ -151,9 +151,9 @@ body {
  * a label on a solid ink button would silently render in muted grey.
  */
 .label {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 

@@ -79,7 +79,7 @@ export default async function DashboardPage() {
           <div className="max-w-xl">
             <ScanForm />
           </div>
-          <p className="mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
+          <p className="mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted">
             <span className="label text-ink">Checks</span>
             {PILLARS.map((pillar) => (
               <span key={pillar} className="flex items-center gap-2.5">
@@ -172,7 +172,7 @@ function Score({ value, big = false }: { value: number; big?: boolean }) {
       >
         {value}
       </span>
-      <span className="text-xs text-muted">/100</span>
+      <span className="text-sm text-muted">/100</span>
     </div>
   )
 }
@@ -214,8 +214,8 @@ function ProjectRow({ summary }: { summary: ProjectSummary }) {
         {...(score !== null ? { style: { borderLeftColor: scoreColor(score) } } : {})}
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{project.name}</p>
-          <p className="truncate font-mono text-xs text-muted">{project.url}</p>
+          <p className="truncate text-lg font-medium">{project.name}</p>
+          <p className="mt-0.5 truncate font-mono text-sm text-muted">{project.url}</p>
         </div>
 
         {score !== null ? (
@@ -245,8 +245,8 @@ function ScanRow({ scan }: { scan: Scan }) {
         {...(score !== null ? { style: { borderLeftColor: scoreColor(score) } } : {})}
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{hostOf(scan.url)}</p>
-          <p className="truncate font-mono text-xs text-muted">{stamp(scan.createdAt)}</p>
+          <p className="truncate text-lg font-medium">{hostOf(scan.url)}</p>
+          <p className="mt-0.5 truncate font-mono text-sm text-muted">{stamp(scan.createdAt)}</p>
         </div>
 
         {score !== null ? (
