@@ -131,9 +131,9 @@ function HeroNav() {
       aria-label="Main"
       className="relative z-30 flex items-center gap-4 border-b border-hero-ink px-4 py-3 sm:px-8"
     >
-      <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
-        <LogoBadge size={22} />
-        <span className="font-mono text-sm font-semibold tracking-tight">scanlyfix</span>
+      <Link href="/" className="flex items-center gap-2.5" aria-label="ScanlyFix — home">
+        <LogoBadge size={34} />
+        <span className="font-mono text-lg font-semibold tracking-tight">scanlyfix</span>
       </Link>
 
       <div className="flex-1" />

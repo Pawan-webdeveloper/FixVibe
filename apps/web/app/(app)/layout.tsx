@@ -24,10 +24,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-50 border-b border-line bg-canvas
                          supports-[backdrop-filter]:bg-canvas/80 supports-[backdrop-filter]:backdrop-blur-md">
-        <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-6">
-          <Link href="/dashboard" className="flex items-center gap-2" aria-label="ScanlyFix — projects">
-            <LogoBadge size={22} />
-            <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
+        <nav aria-label="Main" className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-6">
+          <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="ScanlyFix — projects">
+            <LogoBadge size={34} />
+            <span className="text-lg font-semibold tracking-tight">scanlyfix</span>
           </Link>
           <Link href="/dashboard" className="label text-muted transition-colors hover:text-ink">
             Projects

@@ -30,14 +30,14 @@ export function SiteHeader() {
     <header
       className="sticky top-0 z-50 border-b border-line bg-canvas supports-[backdrop-filter]:bg-canvas/72 supports-[backdrop-filter]:backdrop-blur-md"
     >
-      <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-6 sm:gap-6">
+      <nav aria-label="Main" className="mx-auto flex h-16 max-w-5xl items-center gap-4 px-6 sm:gap-6">
         <Link
           href="/"
           aria-label="ScanlyFix — home"
-          className="flex items-center gap-2 transition-opacity hover:opacity-80"
+          className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
-          <LogoBadge size={26} />
-          <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
+          <LogoBadge size={38} />
+          <span className="text-xl font-semibold tracking-tight">scanlyfix</span>
         </Link>
 
         <div className="flex-1" />
