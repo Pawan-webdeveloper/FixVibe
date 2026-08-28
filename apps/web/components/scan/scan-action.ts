@@ -64,7 +64,9 @@ export async function startScanAction(formData: FormData): Promise<void> {
    * cost than that.
    */
   const viewer = await getViewer()
-  if (viewer.kind !== 'user') redirect('/login?next=%2F')
+  // Sign in, then land in the app — the dashboard, whose scan form is waiting —
+  // not back on the marketing page. (%2Fdashboard is "/dashboard" encoded.)
+  if (viewer.kind !== 'user') redirect('/login?next=%2Fdashboard')
 
   // Already answered recently by this account: reuse it rather than fetch the
   // target twice. Keyed on the user, because scanning needs an account now and

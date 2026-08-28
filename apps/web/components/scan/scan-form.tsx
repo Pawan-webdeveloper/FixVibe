@@ -8,15 +8,18 @@ import { useScanSubmit } from './use-scan-submit.ts'
  *
  * Presentation only: everything that decides whether a scan starts lives in
  * useScanSubmit, which the hero's form calls too.
+ *
+ * `restore` is opt-in. On the landing page this form sits below the hero, which
+ * already reclaims a URL left behind by a sign-in trip — two forms both taking
+ * it would race for the one key. On the dashboard it is the only scan form, and
+ * it is where a visitor now lands after signing in from a scan, so there it
+ * opts in and reclaims the URL they typed before the detour.
  */
-export function ScanForm() {
+export function ScanForm({ restore = false }: { restore?: boolean } = {}) {
   const inputId = useId()
   const errorId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-  // No `restore`: a visitor coming back from sign-in lands at the top of the
-  // page, where the hero already reclaims the URL. Two forms both taking it
-  // would race for one key and then fight over the focus.
-  const { value, setValue, pending, error, submit } = useScanSubmit()
+  const { value, setValue, pending, error, submit } = useScanSubmit({ restore, inputRef })
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

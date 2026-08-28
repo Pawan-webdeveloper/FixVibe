@@ -35,8 +35,10 @@ export function HeroScanForm() {
   const inputId = useId()
   const errorId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-  // The hero is where a visitor returning from sign-in lands, so it is the
-  // form that reclaims the URL they typed before they were sent away.
+  // A scan-gated sign-in now lands on the dashboard, which reclaims the URL.
+  // This stays opted-in as a fallback: takePendingUrl is read-once, so if a
+  // visitor ever returns here signed in with a URL still stashed, this reclaims
+  // it without being able to fight the dashboard for the same key.
   const { value, setValue, pending, error, submit } = useScanSubmit({
     restore: true,
     inputRef,
