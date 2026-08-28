@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useAuthActions } from '@convex-dev/auth/react'
 
@@ -21,6 +22,15 @@ import { useAuthActions } from '@convex-dev/auth/react'
  * the home page where scanning needs an account again — so it asks first. A
  * small dialog, not the browser's native confirm(), so it matches the product
  * and can be dismissed by Escape, by the Cancel button, or by clicking away.
+ *
+ * ## Why it renders through a portal
+ *
+ * The button lives in the app header, and that header sets `backdrop-filter`
+ * for its blur. A `backdrop-filter` makes an element the containing block for
+ * its `position: fixed` descendants — so an overlay rendered in place would
+ * centre inside the 64px-tall header and clip, not over the viewport. The
+ * portal moves it to <body>, out from under that containing block, where
+ * `fixed inset-0` finally means the whole screen.
  */
 export function SignOutButton({ className }: { className?: string }) {
   const { signOut } = useAuthActions()
@@ -29,15 +39,21 @@ export function SignOutButton({ className }: { className?: string }) {
   const [pending, setPending] = useState(false)
   const cancelRef = useRef<HTMLButtonElement>(null)
 
-  // Close on Escape and move focus to the safe choice when the dialog opens.
+  // Close on Escape, move focus to the safe choice, and stop the page behind
+  // the dialog from scrolling while it is open.
   useEffect(() => {
     if (!open) return
     cancelRef.current?.focus()
+    const { overflow } = document.body.style
+    document.body.style.overflow = 'hidden'
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape' && !pending) setOpen(false)
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+    }
   }, [open, pending])
 
   async function confirmSignOut() {
@@ -59,56 +75,62 @@ export function SignOutButton({ className }: { className?: string }) {
         Sign out
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="signout-title"
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-        >
-          {/* Backdrop — clicking it cancels, a mouse convenience. Keyboard and
-              assistive-tech users cancel with Escape or the Cancel button, so
-              this is hidden from the accessibility tree rather than a second
-              "Cancel" control competing with the real one. */}
+      {open &&
+        createPortal(
           <div
-            aria-hidden="true"
-            onClick={() => { if (!pending) setOpen(false) }}
-            className="absolute inset-0 bg-ink/40"
-          />
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signout-title"
+            aria-describedby="signout-body"
+            className="fixed inset-0 z-100 flex items-center justify-center p-4"
+          >
+            {/* Backdrop — clicking it cancels, a mouse convenience. Keyboard and
+                assistive-tech users cancel with Escape or the Cancel button, so
+                this is hidden from the accessibility tree rather than a second
+                "Cancel" control competing with the real one. */}
+            <div
+              aria-hidden="true"
+              onClick={() => {
+                if (!pending) setOpen(false)
+              }}
+              className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
+            />
 
-          <div className="relative w-full max-w-sm border border-line bg-canvas p-6 shadow-lg">
-            <h2 id="signout-title" className="text-lg font-semibold tracking-tight">
-              Sign out?
-            </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-muted text-pretty">
-              You’ll go back to the home page. Scanning there needs an account, so you’ll sign in
-              again to keep your reports.
-            </p>
+            <div className="relative w-full max-w-md border border-line bg-canvas p-7 shadow-2xl sm:p-8">
+              <h2 id="signout-title" className="text-2xl font-semibold tracking-tight">
+                Sign out?
+              </h2>
+              <p id="signout-body" className="mt-3 text-base leading-relaxed text-muted text-pretty">
+                You’ll go back to the home page. Scanning there needs an account, so you’ll sign in
+                again to keep your reports.
+              </p>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                ref={cancelRef}
-                type="button"
-                disabled={pending}
-                onClick={() => setOpen(false)}
-                className="label inline-flex h-10 items-center border border-line px-4 text-ink
-                           transition-colors hover:bg-surface disabled:opacity-60"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={confirmSignOut}
-                className="label inline-flex h-10 items-center border border-ink bg-ink px-4 text-canvas
-                           transition-colors hover:bg-transparent hover:text-ink disabled:opacity-60"
-              >
-                {pending ? 'Signing out…' : 'Sign out'}
-              </button>
+              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  ref={cancelRef}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setOpen(false)}
+                  className="label inline-flex h-12 items-center justify-center border border-line px-6
+                             text-sm text-ink transition-colors hover:bg-surface disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={confirmSignOut}
+                  className="label inline-flex h-12 items-center justify-center border border-ink bg-ink px-6
+                             text-sm text-canvas transition-colors hover:bg-transparent hover:text-ink
+                             disabled:opacity-60"
+                >
+                  {pending ? 'Signing out…' : 'Sign out'}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   )
 }
