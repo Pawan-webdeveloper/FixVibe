@@ -190,17 +190,12 @@ function Wordmark() {
         <span className={`border border-hero-ink px-1.5 py-0.5 ${LABEL}`}>Beta</span>
       </div>
 
-      {/* The three pillars, as highlighted tags rather than fine print — this
-          is the one line that says WHAT gets checked, so it is drawn to be
-          read. Each is a bordered chip filled with the hero's own translucent
-          ink, in the same square-cornered language as the Beta badge. */}
-      <ul className="hidden items-center gap-2.5 md:flex">
+      {/* The three pillars — the one line that says WHAT gets checked. Icon
+          and label only, no chip: bigger and bolder than fine print, but bare,
+          so it reads as part of the wordmark rather than a row of buttons. */}
+      <ul className="hidden items-center gap-6 font-mono text-sm font-semibold uppercase tracking-[0.1em] md:flex">
         {PILLARS.map(({ Icon, label }) => (
-          <li
-            key={label}
-            className="flex items-center gap-2 border border-hero-ink bg-hero-field px-3 py-1.5
-                       font-mono text-sm font-semibold uppercase tracking-[0.1em]"
-          >
+          <li key={label} className="flex items-center gap-2">
             <Icon size={17} />
             {label}
           </li>
