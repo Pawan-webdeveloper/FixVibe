@@ -39,7 +39,7 @@
 'use client'
 
 import { useEffect, useState, type RefObject } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useConvexAuth } from '@convex-dev/auth/react'
 import { normalizeScanTarget } from '@/lib/url.ts'
 import {
@@ -49,13 +49,25 @@ import {
   takePendingUrl,
 } from './pending-scan-url.ts'
 
+/**
+ * Where a signed-out visitor lands after signing in from a scan attempt: the
+ * app, not the marketing page they started on. The URL they typed rides along
+ * in sessionStorage and the dashboard's scan form reclaims it, so the scan they
+ * came to run is one keypress away. Sending them back to the landing page — the
+ * old behaviour — read as "I signed in and nothing happened".
+ */
+const SIGN_IN_NEXT = '/dashboard'
+
 export interface ScanSubmitOptions {
   /**
    * Whether this form should pick up a URL left behind by a sign-in trip.
    *
-   * The hero opts in; the final CTA does not. Both stash on the way out, but a
-   * visitor returning from /login lands at the top of the page, so the hero is
-   * the box they are looking at.
+   * The dashboard opts in — a scan-gated sign-in lands there now (SIGN_IN_NEXT),
+   * and its form is the one the visitor sees. The hero opts in too, as a
+   * fallback; the final CTA does not. Every form stashes on the way out
+   * regardless — `restore` only controls which one reads it back, and
+   * takePendingUrl is read-once, so two opted-in forms on different routes
+   * cannot both consume the same stash.
    */
   restore?: boolean
   /** Focused after a restore, so the visitor can just press Enter. */
@@ -78,7 +90,6 @@ export interface ScanSubmit {
 export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
   const { restore = false, inputRef } = options
   const router = useRouter()
-  const pathname = usePathname()
   const { isLoading: rawLoading, isAuthenticated } = useConvexAuth()
   const [value, setValueState] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -169,9 +180,7 @@ export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
      */
     if (shouldGateScan({ authLoading, isAuthenticated })) {
       stashPendingUrl(sessionStore(), target.url)
-      // Come back to the page they left, not to a hardcoded one.
-      const next = pathname || '/'
-      router.push(`/login?next=${encodeURIComponent(next)}`)
+      router.push(`/login?next=${encodeURIComponent(SIGN_IN_NEXT)}`)
       return false
     }
 
@@ -195,8 +204,7 @@ export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
        */
       if (response.status === 401) {
         stashPendingUrl(sessionStore(), target.url)
-        const next = pathname || '/'
-        router.push(`/login?next=${encodeURIComponent(next)}`)
+        router.push(`/login?next=${encodeURIComponent(SIGN_IN_NEXT)}`)
         return false
       }
 

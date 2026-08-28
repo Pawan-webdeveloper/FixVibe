@@ -77,7 +77,9 @@ export default async function DashboardPage() {
         <LabeledRule as="h1" label="Scan a site" trailing="a URL, not an account" />
         <div className="mt-6 border border-line p-6 sm:p-8">
           <div className="max-w-xl">
-            <ScanForm />
+            {/* restore: this is where a signed-out visitor lands after signing
+                in from a scan, so it reclaims the URL they typed before. */}
+            <ScanForm restore />
           </div>
           <p className="mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted">
             <span className="label text-ink">Checks</span>
