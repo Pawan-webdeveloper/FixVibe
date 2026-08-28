@@ -65,7 +65,7 @@ export function FindingsList({
         />
 
         {clean ? (
-          <p className="mt-4 flex items-center gap-2 border border-good/30 bg-good/5 px-4 py-3 text-sm text-good">
+          <p className="mt-4 flex items-center gap-2 border border-good/30 bg-good/5 px-4 py-3 text-[15px] text-good">
             <CheckIcon />
             Every {LABEL[pillar].toLowerCase()} check passed.
           </p>
@@ -98,7 +98,7 @@ export function FindingsList({
         <details className="border border-line">
           <summary className="cursor-pointer px-5 py-4 hover:bg-surface">
             <span className="label text-ink">The rest of the scan</span>
-            <span className="mt-1 block text-sm text-muted text-pretty">
+            <span className="mt-1 block text-[15px] text-muted text-pretty">
               {describeRest(rest, setAside)}
             </span>
           </summary>

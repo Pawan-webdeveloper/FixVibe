@@ -74,8 +74,8 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
 
   return (
     <div className="mt-3">
-      <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted">Observed</p>
-      <dl className="overflow-x-auto border border-line bg-surface p-3 font-mono text-xs">
+      <p className="mb-1.5 font-mono text-xs uppercase tracking-wider text-muted">Observed</p>
+      <dl className="overflow-x-auto border border-line bg-surface p-3 font-mono text-sm">
         {entries.map(([key, value]) => (
           <div key={key} className="flex flex-col gap-0.5 py-1 sm:flex-row sm:gap-3">
             <dt className="shrink-0 text-muted sm:w-40">{key}</dt>
@@ -98,34 +98,34 @@ export function FindingCard({
   const sev = SEVERITY[finding.severity]
 
   return (
-    <article className={`border border-line border-l-4 ${sev.stripe} p-4 ${finding.locked ? 'bg-surface/50' : ''}`}>
+    <article className={`border border-line border-l-4 ${sev.stripe} p-5 ${finding.locked ? 'bg-surface/50' : ''}`}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span
-          className={`inline-flex items-center px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider ${sev.chip}`}
+          className={`inline-flex items-center px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wider ${sev.chip}`}
         >
           {finding.severity}
         </span>
-        <h3 className="min-w-0 flex-1 text-base font-semibold text-balance">{finding.title}</h3>
+        <h3 className="min-w-0 flex-1 text-lg font-semibold text-balance">{finding.title}</h3>
         {finding.locked && <ProBadge />}
       </header>
 
-      <code className="mt-1.5 block font-mono text-xs text-muted">{finding.checkId}</code>
+      <code className="mt-1.5 block font-mono text-sm text-muted">{finding.checkId}</code>
 
       {finding.locked ? (
-        <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+        <p className="mt-3 flex items-center gap-2 text-[15px] text-muted">
           <LockIcon className="text-accent" />
           {lockedNote}
         </p>
       ) : (
         <>
           {finding.description && (
-            <p className="mt-2 max-w-[75ch] text-sm text-muted text-pretty">{finding.description}</p>
+            <p className="mt-2 max-w-[75ch] text-[15px] leading-relaxed text-muted text-pretty">{finding.description}</p>
           )}
 
           {finding.evidence && <Evidence evidence={finding.evidence} />}
 
           {finding.remediation && (
-            <p className="mt-3 max-w-[75ch] text-sm">
+            <p className="mt-3 max-w-[75ch] text-[15px] leading-relaxed">
               <span className="font-medium">Fix: </span>
               {finding.remediation}
             </p>
