@@ -17,7 +17,7 @@ export function AnswerEngines() {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
         <div>
           <SectionHeading
-            index={5}
+            index={4}
             eyebrow="AI answer engines"
             title="Can ChatGPT actually read your site?"
             lead="Search is becoming answers, and an answer engine that cannot parse a page does not rank it lower — it never mentions it. Nothing in Search Console reports the citation you did not get."

@@ -29,7 +29,7 @@ export function PlansPreview() {
   return (
     <Section id="pricing">
       <SectionHeading
-        index={8}
+        index={7}
         eyebrow="Pricing"
         title="Every plan runs every check"
         lead={`All ${TOTAL_CHECKS} checks run on every scan, free or paid. What a plan changes is how much of the report comes back — never how carefully the site was measured.`}

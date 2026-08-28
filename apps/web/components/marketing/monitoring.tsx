@@ -48,7 +48,7 @@ export function Monitoring() {
   return (
     <Section>
       <SectionHeading
-        index={6}
+        index={5}
         eyebrow="Monitoring"
         title="Scan once, or watch it forever."
         lead="A scan is a photograph. Most of what this engine measures — a certificate, a DNS record, a header set by a deploy — changes on a day nobody was looking."

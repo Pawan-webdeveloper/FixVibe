@@ -42,7 +42,7 @@ export function Safety() {
   return (
     <Section tone="surface">
       <SectionHeading
-        index={7}
+        index={6}
         eyebrow="Safety"
         title="What ScanlyFix will never do"
         lead="You are about to hand a security tool the address of something you own. These are the limits it is built to, not the ones it intends to keep."

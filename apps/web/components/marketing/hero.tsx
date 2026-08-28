@@ -115,10 +115,10 @@ export function Hero() {
                       px-4 py-2.5 sm:px-8 ${LABEL}`}
         >
           <span>
-            [ 01 ] The report
-            <span className="hidden sm:inline"> — what {TOTAL_CHECKS} checks come back with</span>
+            [ 01 ] The checks
+            <span className="hidden sm:inline"> — all {TOTAL_CHECKS}, across six pillars</span>
           </span>
-          <a href="#report" className="hero-link relative">
+          <a href="#checks" className="hero-link relative">
             Scroll ↓
           </a>
         </div>

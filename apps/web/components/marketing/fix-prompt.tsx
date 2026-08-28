@@ -14,7 +14,7 @@ export function FixPrompt() {
   return (
     <Section>
       <SectionHeading
-        index={4}
+        index={3}
         eyebrow="Output"
         title="It ends in a fix, not a PDF."
         lead="One prompt for the whole report, grouped by where the change is actually made — response headers in one edit, DNS records marked as not-code, page markup in the shared template. Paste it into Claude Code, Cursor, or your own agent."
