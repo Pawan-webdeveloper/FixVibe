@@ -104,11 +104,14 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header>
         <div className="flex items-center justify-between gap-4">
-          <Link href={home} className="flex items-center gap-2" aria-label="ScanlyFix — home">
-            <LogoBadge size={22} />
-            <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
+          <Link href={home} className="flex items-center gap-2.5" aria-label="ScanlyFix — home">
+            <LogoBadge size={28} />
+            <span className="text-lg font-semibold tracking-tight">scanlyfix</span>
           </Link>
-          <Link href={home} className="label link text-muted transition-colors hover:text-ink">
+          <Link
+            href={home}
+            className="link text-sm font-medium text-muted transition-colors hover:text-ink"
+          >
             Scan another site
           </Link>
         </div>
@@ -159,7 +162,7 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
               never chose sees everything already, and offering to change a
               preference they have not set is a question, not a control. */}
           {entitlements.priorities !== null && entitlements.priorities.length > 0 && (
-            <p className="mt-10 text-sm text-muted">
+            <p className="mt-10 text-[15px] leading-relaxed text-muted">
               This report opens with the pillars you picked.{' '}
               <Link href={`/welcome?next=/scan/${scan.id}`} className="link text-ink">
                 Change that
@@ -264,11 +267,11 @@ function ScanFacts({
   ]
 
   return (
-    <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 border-t border-line pt-5 sm:grid-cols-2">
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-3 border-t border-line pt-5 sm:grid-cols-2">
       {facts.map(([key, value]) => (
         <div key={key} className="flex items-baseline gap-3">
-          <dt className="label w-24 shrink-0 text-muted">{key}</dt>
-          <dd className="min-w-0 truncate text-xs leading-5">{value}</dd>
+          <dt className="w-28 shrink-0 font-mono text-xs uppercase tracking-[0.12em] text-muted">{key}</dt>
+          <dd className="min-w-0 truncate text-[15px] leading-6">{value}</dd>
         </div>
       ))}
     </dl>
