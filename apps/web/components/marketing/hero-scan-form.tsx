@@ -29,7 +29,7 @@ import { ArrowRight, Globe } from './icons.tsx'
  * colour would have, and it survives being read aloud.
  */
 
-const LABEL = 'font-mono text-[11px] uppercase tracking-[0.16em]'
+const LABEL = 'font-mono text-sm uppercase tracking-[0.16em]'
 
 export function HeroScanForm() {
   const inputId = useId()

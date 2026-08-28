@@ -22,7 +22,7 @@ import Link from 'next/link'
 import { startScanAction } from '@/components/scan/scan-action.ts'
 import { ArrowRight, Globe } from './icons.tsx'
 
-const LABEL = 'font-mono text-[11px] uppercase tracking-[0.16em]'
+const LABEL = 'font-mono text-sm uppercase tracking-[0.16em]'
 
 export function HeroScanFormSkeleton() {
   return (
