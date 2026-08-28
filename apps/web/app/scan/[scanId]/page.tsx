@@ -105,8 +105,8 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
       <header>
         <div className="flex items-center justify-between gap-4">
           <Link href={home} className="flex items-center gap-2.5" aria-label="ScanlyFix — home">
-            <LogoBadge size={28} />
-            <span className="text-lg font-semibold tracking-tight">scanlyfix</span>
+            <LogoBadge size={34} />
+            <span className="text-xl font-semibold tracking-tight">scanlyfix</span>
           </Link>
           <Link
             href={home}
@@ -119,7 +119,7 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
         <div className="mt-8">
           <LabeledRule label="Report" trailing={stamp(scan.createdAt)} />
         </div>
-        <h1 className="mt-5 truncate text-2xl tracking-[-0.02em] sm:text-3xl">{host}</h1>
+        <h1 className="mt-5 truncate text-3xl tracking-[-0.02em] sm:text-4xl">{host}</h1>
       </header>
 
       {scan.status === 'failed' && <FailedScan url={scan.url} error={scan.error} at={scan.createdAt} />}
@@ -129,7 +129,7 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
       {scan.status === 'done' && scan.scores && (
         <>
           <section className="flex flex-col items-center gap-8 py-8 sm:flex-row sm:items-center">
-            <ScoreRing score={scan.scores.overall} />
+            <ScoreRing score={scan.scores.overall} size={190} />
             <div className="w-full flex-1">
               <PillarScores scores={scan.scores} />
             </div>

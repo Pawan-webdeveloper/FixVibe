@@ -41,10 +41,10 @@ export function PillarScores({ scores }: { scores: ScanScores }) {
 
         return (
           <div key={pillar} className="flex items-center gap-4">
-            <dt className="w-44 shrink-0 text-sm">
+            <dt className="w-44 shrink-0 text-base">
               {LABEL[pillar]}
               {isDegraded && (
-                <span className="ml-2 text-xs text-muted" title="A check in this pillar did not complete">
+                <span className="ml-2 text-sm text-muted" title="A check in this pillar did not complete">
                   provisional
                 </span>
               )}
@@ -56,7 +56,7 @@ export function PillarScores({ scores }: { scores: ScanScores }) {
                 together. */}
             <dd className="flex flex-1 items-center gap-4">
               <div
-                className="h-2 flex-1 overflow-hidden bg-surface"
+                className="h-2.5 flex-1 overflow-hidden bg-surface"
                 role="meter"
                 aria-valuenow={value}
                 aria-valuemin={0}
@@ -68,7 +68,7 @@ export function PillarScores({ scores }: { scores: ScanScores }) {
                   style={{ width: `${value}%`, backgroundColor: scoreColor(value) }}
                 />
               </div>
-              <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums">{value}</span>
+              <span className="w-12 shrink-0 text-right text-base font-semibold tabular-nums">{value}</span>
             </dd>
           </div>
         )
