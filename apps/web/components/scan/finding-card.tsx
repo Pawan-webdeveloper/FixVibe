@@ -97,8 +97,34 @@ export function FindingCard({
 }) {
   const sev = SEVERITY[finding.severity]
 
+  /*
+   * A locked finding has nothing to read, so it does not get a card's worth of
+   * space. It collapses to one dense row — severity, title, id, the Pro lock —
+   * so a report with a dozen Pro items is scanned in a glance instead of
+   * scrolled past a dozen "part of Pro" paragraphs. The open findings above it
+   * keep their full cards, which is what makes the difference between "you can
+   * read this" and "this is Pro" obvious without a word of explanation.
+   */
+  if (finding.locked) {
+    return (
+      <article
+        title={lockedNote}
+        className={`flex flex-wrap items-center gap-x-3 gap-y-1 border border-line border-l-4 ${sev.stripe} bg-surface/60 px-4 py-2.5`}
+      >
+        <span
+          className={`inline-flex items-center px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wider ${sev.chip}`}
+        >
+          {finding.severity}
+        </span>
+        <h3 className="min-w-0 flex-1 text-[15px] font-medium text-muted">{finding.title}</h3>
+        <code className="hidden font-mono text-xs text-muted sm:block">{finding.checkId}</code>
+        <ProBadge />
+      </article>
+    )
+  }
+
   return (
-    <article className={`border border-line border-l-4 ${sev.stripe} p-5 ${finding.locked ? 'bg-surface/50' : ''}`}>
+    <article className={`border border-line border-l-4 ${sev.stripe} p-5`}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span
           className={`inline-flex items-center px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wider ${sev.chip}`}
@@ -106,37 +132,27 @@ export function FindingCard({
           {finding.severity}
         </span>
         <h3 className="min-w-0 flex-1 text-lg font-semibold text-balance">{finding.title}</h3>
-        {finding.locked && <ProBadge />}
       </header>
 
       <code className="mt-1.5 block font-mono text-sm text-muted">{finding.checkId}</code>
 
-      {finding.locked ? (
-        <p className="mt-3 flex items-center gap-2 text-[15px] text-muted">
-          <LockIcon className="text-accent" />
-          {lockedNote}
+      {finding.description && (
+        <p className="mt-2 max-w-[75ch] text-[15px] leading-relaxed text-muted text-pretty">{finding.description}</p>
+      )}
+
+      {finding.evidence && <Evidence evidence={finding.evidence} />}
+
+      {finding.remediation && (
+        <p className="mt-3 max-w-[75ch] text-[15px] leading-relaxed">
+          <span className="font-medium">Fix: </span>
+          {finding.remediation}
         </p>
-      ) : (
-        <>
-          {finding.description && (
-            <p className="mt-2 max-w-[75ch] text-[15px] leading-relaxed text-muted text-pretty">{finding.description}</p>
-          )}
+      )}
 
-          {finding.evidence && <Evidence evidence={finding.evidence} />}
-
-          {finding.remediation && (
-            <p className="mt-3 max-w-[75ch] text-[15px] leading-relaxed">
-              <span className="font-medium">Fix: </span>
-              {finding.remediation}
-            </p>
-          )}
-
-          {finding.fixPrompt && (
-            <div className="mt-3">
-              <CopyButton text={finding.fixPrompt} />
-            </div>
-          )}
-        </>
+      {finding.fixPrompt && (
+        <div className="mt-3">
+          <CopyButton text={finding.fixPrompt} />
+        </div>
       )}
     </article>
   )
