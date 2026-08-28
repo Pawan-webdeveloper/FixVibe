@@ -2,11 +2,11 @@
 
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
-import { findRecentAnonymousScan } from '@scanlyfix/db'
+import { findRecentScanForUser } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { normalizeScanTarget } from '@/lib/url.ts'
 import { clientIpHash } from '@/lib/request.ts'
-import { checkScanAllowed, DEDUP_WINDOW_MS } from '@/lib/ratelimit.ts'
+import { checkApiScanAllowed, DEDUP_WINDOW_MS } from '@/lib/ratelimit.ts'
 import { checkScanQuota } from '@/lib/quota.ts'
 import { runScanJob } from '@/lib/scan/run-scan-job.ts'
 
@@ -66,10 +66,13 @@ export async function startScanAction(formData: FormData): Promise<void> {
   const viewer = await getViewer()
   if (viewer.kind !== 'user') redirect('/login?next=%2F')
 
-  // Already answered recently: reuse it rather than fetch the target twice.
-  const cached = await findRecentAnonymousScan(
+  // Already answered recently by this account: reuse it rather than fetch the
+  // target twice. Keyed on the user, because scanning needs an account now and
+  // the scan we are looking for carries their id, not a null one.
+  const cached = await findRecentScanForUser(
     target.url,
     'fast',
+    viewer.userId,
     new Date(Date.now() - DEDUP_WINDOW_MS),
   )
   if (cached) redirect(`/scan/${cached.id}`)
@@ -77,8 +80,9 @@ export async function startScanAction(formData: FormData): Promise<void> {
   const quota = await checkScanQuota(viewer)
   if (!quota.ok) backToHero(quota.reason)
 
+  // By account, not by IP — see the note in app/api/scan/route.ts.
   const anonIpHash = clientIpHash(await headers())
-  const verdict = await checkScanAllowed({ anonIpHash, targetHost: target.hostname })
+  const verdict = await checkApiScanAllowed({ userId: viewer.userId, targetHost: target.hostname })
   if (!verdict.ok) backToHero(verdict.reason)
 
   let scanId: string

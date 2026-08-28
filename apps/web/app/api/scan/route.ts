@@ -27,14 +27,14 @@
  */
 
 import { NextResponse } from 'next/server'
-import { findRecentAnonymousScan, type ScanProfile } from '@scanlyfix/db'
+import { findRecentScanForUser, type ScanProfile } from '@scanlyfix/db'
 import { getViewer } from '@/lib/authz.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import { checkScanQuota } from '@/lib/quota.ts'
 import { normalizeScanTarget } from '@/lib/url.ts'
 import { assertServerEnv } from '@/lib/env.ts'
 import { clientIpHash } from '@/lib/request.ts'
-import { checkScanAllowed, DEDUP_WINDOW_MS } from '@/lib/ratelimit.ts'
+import { checkApiScanAllowed, DEDUP_WINDOW_MS } from '@/lib/ratelimit.ts'
 import { runScanJob, startScanJob } from '@/lib/scan/run-scan-job.ts'
 
 /** The engine uses node:dns, node:net and node:tls; it cannot run on the edge. */
@@ -105,16 +105,30 @@ export async function POST(request: Request) {
     return fail('Sign in to run a scan. It takes a moment and keeps your reports.', 401)
   }
 
-  // A hit here means we already asked this exact question recently. Reusing the
-  // answer protects the target, the account's quota, and their patience.
-  const cached = await findRecentAnonymousScan(target.url, profile, new Date(Date.now() - DEDUP_WINDOW_MS))
+  // A hit here means this account already asked this exact question recently.
+  // Reusing its own answer protects the target, the account's quota, and their
+  // patience — and, because scanning now needs an account, it is the account's
+  // scan we look for rather than an anonymous one that no longer exists.
+  const cached = await findRecentScanForUser(
+    target.url,
+    profile,
+    viewer.userId,
+    new Date(Date.now() - DEDUP_WINDOW_MS),
+  )
   if (cached) return NextResponse.json({ scanId: cached.id, cached: true })
 
   const quota = await checkScanQuota(viewer)
   if (!quota.ok) return fail(quota.reason, 429)
 
+  /*
+   * Rate-limited by ACCOUNT, not by IP. Scanning requires a signed-in user now,
+   * so the account is the thing to meter — a per-IP cap would throttle everyone
+   * behind one office or VPN as if they were a single abuser, and five scans an
+   * hour is far too tight for a real customer. The per-target limit inside this
+   * check still protects the site being scanned.
+   */
   const anonIpHash = clientIpHash(request.headers)
-  const verdict = await checkScanAllowed({ anonIpHash, targetHost: target.hostname })
+  const verdict = await checkApiScanAllowed({ userId: viewer.userId, targetHost: target.hostname })
   if (!verdict.ok) {
     return fail(verdict.reason, 429, { 'retry-after': String(verdict.retryAfterSeconds) })
   }
@@ -123,7 +137,7 @@ export async function POST(request: Request) {
     url: target.url,
     profile,
     anonIpHash,
-    requestedBy: viewer.kind === 'user' ? viewer.userId : null,
+    requestedBy: viewer.userId,
   }
 
   try {
