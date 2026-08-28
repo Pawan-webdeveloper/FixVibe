@@ -131,7 +131,7 @@ function HeroNav() {
   return (
     <nav
       aria-label="Main"
-      className="relative z-30 flex items-center gap-4 border-b border-hero-ink px-4 py-3 sm:px-8"
+      className="relative z-30 flex items-center gap-8 border-b border-hero-ink px-4 py-3 sm:px-8"
     >
       <Link href="/" className="flex items-center gap-2.5" aria-label="ScanlyFix — home">
         <LogoBadge size={42} />
@@ -140,7 +140,7 @@ function HeroNav() {
 
       <div className="flex-1" />
 
-      <ul className={`hidden items-center gap-6 md:flex ${NAV_LABEL}`}>
+      <ul className={`hidden items-center gap-9 md:flex ${NAV_LABEL}`}>
         {NAV_LINKS.map(({ href, label }) => (
           <li key={href}>
             <Link href={href} className="hero-link relative">

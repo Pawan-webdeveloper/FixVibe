@@ -49,7 +49,7 @@ export function SiteHeader() {
 
         <div className="flex-1" />
 
-        <ul className="flex items-center gap-4 sm:gap-6">
+        <ul className="flex items-center gap-6 sm:gap-8">
           {NAV_LINKS.map(({ href, label }) => (
             <li key={href}>
               <Link href={href} className={`${NAV} text-muted transition-colors hover:text-ink`}>
