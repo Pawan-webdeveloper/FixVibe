@@ -18,7 +18,7 @@ import { getScanForViewer, type ScanWithFindings, type Viewer } from '@scanlyfix
 import { getViewer } from '@/lib/authz.ts'
 import { claimScanAction } from './actions.ts'
 import { ScoreRing } from '@/components/scan/score-ring.tsx'
-import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { PillarScores } from '@/components/scan/pillar-scores.tsx'
 import { FindingsList } from '@/components/scan/findings-list.tsx'
@@ -99,7 +99,7 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
       <header>
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
-            <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
+            <LogoBadge size={22} />
             <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
           </Link>
           <Link href="/" className="label link text-muted transition-colors hover:text-ink">

@@ -16,7 +16,7 @@ export function Pillars() {
   return (
     <Section id="checks">
       <SectionHeading
-        index={2}
+        index={1}
         eyebrow="Coverage"
         title={`${TOTAL_CHECKS} checks, six pillars, one request`}
         lead="One fetch builds a shared picture of the page — headers, HTML, cookies, TLS, DNS, robots.txt — and every check is a pure function over it. That is why a full scan costs your server one page view."

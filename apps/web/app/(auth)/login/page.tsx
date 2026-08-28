@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAuthActions } from '@convex-dev/auth/react'
-import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 import { GitHubMark, GoogleMark } from '@/components/auth/provider-marks.tsx'
 import { describeSignInError } from '@/components/auth/sign-in-error.ts'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
@@ -22,6 +22,16 @@ import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
  * There is no password field anywhere in this product, which removes an entire
  * category of breach: no hashing to get wrong, no reset flow to phish, and
  * nothing in a database dump worth cracking.
+ *
+ * ## Sign in vs sign up
+ *
+ * With no password, the two are the SAME action underneath — a new address
+ * creates an account, a known one signs in — so this is one page with a toggle
+ * rather than two routes with duplicated flows that could drift. The toggle
+ * exists because "which one is this?" is a real question a person arrives with,
+ * and answering it in the heading, the button copy and the URL (`?mode=`) costs
+ * nothing and removes the doubt. The buttons do the identical thing in both
+ * modes; only the framing changes.
  */
 
 const BUTTON =
@@ -32,6 +42,26 @@ const FIELD =
   'h-11 w-full border border-line bg-canvas px-4 text-sm placeholder:text-muted ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
 
+type Mode = 'signin' | 'signup'
+
+/** The copy that differs between the two, in one place so they stay in step. */
+const COPY: Record<Mode, { label: string; heading: string; emailCta: string; codeCta: string; foot: string }> = {
+  signin: {
+    label: 'Sign in',
+    heading: 'Welcome back',
+    emailCta: 'Email me a code',
+    codeCta: 'Sign in',
+    foot: 'Scanning works without an account — signing in is for keeping your reports.',
+  },
+  signup: {
+    label: 'Sign up',
+    heading: 'Create your account',
+    emailCta: 'Send me a code',
+    codeCta: 'Create account',
+    foot: 'No password to choose. Pick a provider or use your email, and your account is made on first sign-in.',
+  },
+}
+
 /** What the URL says went wrong, in words the person can act on. */
 const ERRORS: Record<string, string> = {
   'sign-in-failed': 'That sign-in did not complete. Try again.',
@@ -40,18 +70,61 @@ const ERRORS: Record<string, string> = {
     'That account did not share an email address with us. Make your GitHub email public, or sign in with a code instead.',
 }
 
+/** The two-card switch at the top. Cheap, and it answers "which one is this?". */
+function ModeSwitch({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+  return (
+    <div role="tablist" aria-label="Sign in or sign up" className="grid grid-cols-2 border border-line">
+      {(['signin', 'signup'] as const).map((value) => {
+        const active = value === mode
+        return (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(value)}
+            className={`label h-11 transition-colors duration-150 ${
+              active ? 'bg-ink text-canvas' : 'text-muted hover:bg-surface hover:text-ink'
+            }`}
+          >
+            {COPY[value].label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function LoginForm() {
   const params = useSearchParams()
   const next = params.get('next') ?? ''
   const { signIn } = useAuthActions()
 
+  const [mode, setMode] = useState<Mode>(params.get('mode') === 'signup' ? 'signup' : 'signin')
   const [email, setEmail] = useState('')
   const [step, setStep] = useState<'start' | 'code'>('start')
   const [pending, setPending] = useState<'google' | 'github' | 'email' | null>(null)
   const [error, setError] = useState<string | null>(ERRORS[params.get('error') ?? ''] ?? null)
 
+  const copy = COPY[mode]
+
   /** Where Convex Auth sends the browser once the session cookie is set. */
   const redirectTo = next ? `/callback?next=${encodeURIComponent(next)}` : '/callback'
+
+  /*
+   * Keep the chosen mode in the URL without a navigation, so a refresh holds it
+   * and the landing page can deep-link to /login?mode=signup. replaceState
+   * rather than a router push keeps this page statically prerendered.
+   */
+  function changeMode(nextMode: Mode) {
+    setMode(nextMode)
+    setError(null)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('mode', nextMode)
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+    }
+  }
 
   async function withProvider(provider: 'google' | 'github') {
     setPending(provider)
@@ -144,7 +217,7 @@ function LoginForm() {
             className={`${FIELD} text-center text-lg tracking-[0.4em]`}
           />
           <button type="submit" disabled={pending !== null} className={`${PRIMARY} disabled:opacity-60`}>
-            {pending ? 'Checking…' : 'Sign in'}
+            {pending ? 'Checking…' : copy.codeCta}
           </button>
         </form>
 
@@ -166,6 +239,10 @@ function LoginForm() {
 
   return (
     <>
+      <ModeSwitch mode={mode} onChange={changeMode} />
+
+      <h1 className="mt-6 mb-6 text-2xl font-semibold tracking-[-0.02em]">{copy.heading}</h1>
+
       <div className="flex flex-col gap-3">
         <button
           type="button"
@@ -210,11 +287,30 @@ function LoginForm() {
           className={`${FIELD} disabled:opacity-60`}
         />
         <button type="submit" disabled={pending !== null} className={`${SECONDARY} disabled:opacity-60`}>
-          {pending === 'email' ? 'Sending…' : 'Email me a code'}
+          {pending === 'email' ? 'Sending…' : copy.emailCta}
         </button>
       </form>
 
       <Problem message={error} />
+
+      {/* The quiet cross-link, so somebody on the wrong card is one tap away. */}
+      <p className="mt-6 text-sm text-muted">
+        {mode === 'signin' ? (
+          <>
+            New to ScanlyFix?{' '}
+            <button type="button" onClick={() => changeMode('signup')} className="link">
+              Create an account
+            </button>
+          </>
+        ) : (
+          <>
+            Already have an account?{' '}
+            <button type="button" onClick={() => changeMode('signin')} className="link">
+              Sign in
+            </button>
+          </>
+        )}
+      </p>
     </>
   )
 }
@@ -228,26 +324,22 @@ function Problem({ message }: { message: string | null }) {
   )
 }
 
-
 export default function LoginPage() {
   return (
     <div className="mx-auto max-w-sm px-6 py-24">
       <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
-        <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
+        <LogoBadge size={22} />
         <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
       </Link>
       <div className="mt-8">
-        <LabeledRule label="Sign in" trailing="no password" />
+        <LabeledRule label="Account" trailing="no password" />
       </div>
-      <h1 className="mt-5 mb-8 text-2xl font-semibold tracking-[-0.02em]">Keep your reports</h1>
-      {/* useSearchParams needs a Suspense boundary to keep the page static. */}
-      <Suspense fallback={null}>
-        <LoginForm />
-      </Suspense>
-      <p className="mt-8 text-sm text-muted">
-        No password, ever. Scanning works without an account — signing in is for keeping your
-        reports.
-      </p>
+      <div className="mt-5">
+        {/* useSearchParams needs a Suspense boundary to keep the page static. */}
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
+      </div>
     </div>
   )
 }

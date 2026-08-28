@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BrandMark } from './brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 
 /**
  * Navigation for the pages a logged-out visitor sees.
@@ -25,27 +25,34 @@ const NAV_LINKS: readonly { readonly href: string; readonly label: string }[] = 
   { href: '/pricing', label: 'Pricing' },
 ]
 
+/**
+ * The nav links, one step up from the shared `.label` (10px) so they read at a
+ * glance next to the enlarged wordmark. Kept local rather than changing
+ * `.label`, which the whole app leans on for captions and field labels.
+ */
+const NAV = 'text-sm uppercase tracking-[0.14em]'
+
 export function SiteHeader() {
   return (
     <header
       className="sticky top-0 z-50 border-b border-line bg-canvas supports-[backdrop-filter]:bg-canvas/72 supports-[backdrop-filter]:backdrop-blur-md"
     >
-      <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-6 sm:gap-6">
+      <nav aria-label="Main" className="mx-auto flex h-16 max-w-5xl items-center gap-4 px-6 sm:gap-6">
         <Link
           href="/"
           aria-label="ScanlyFix — home"
-          className="flex items-center gap-2 transition-opacity hover:opacity-80"
+          className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
-          <BrandMark size={18} track="var(--line)" arc="var(--ink)" />
-          <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
+          <LogoBadge size={44} />
+          <span className="text-2xl font-semibold uppercase tracking-tight">scanlyfix</span>
         </Link>
 
         <div className="flex-1" />
 
-        <ul className="flex items-center gap-4 sm:gap-6">
+        <ul className="flex items-center gap-6 sm:gap-8">
           {NAV_LINKS.map(({ href, label }) => (
             <li key={href}>
-              <Link href={href} className="label text-muted transition-colors hover:text-ink">
+              <Link href={href} className={`${NAV} text-muted transition-colors hover:text-ink`}>
                 {label}
               </Link>
             </li>
@@ -53,9 +60,19 @@ export function SiteHeader() {
           <li>
             <Link
               href="/login"
-              className="label border border-line px-3 py-2 text-ink transition-colors hover:bg-surface"
+              className={`${NAV} px-3 py-2 text-muted transition-colors hover:text-ink`}
             >
               Sign in
+            </Link>
+          </li>
+          <li>
+            {/* Returning visitors reach for "Sign in"; this is the door for the
+                ones who do not have an account yet, landing on that card. */}
+            <Link
+              href="/login?mode=signup"
+              className={`${NAV} border border-ink bg-ink px-3 py-2 text-canvas transition-colors hover:bg-transparent hover:text-ink`}
+            >
+              Sign up
             </Link>
           </li>
         </ul>

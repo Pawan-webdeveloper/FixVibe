@@ -58,7 +58,7 @@ function jsonLd(): string {
 export function Faq() {
   return (
     <Section id="faq">
-      <SectionHeading index={9} eyebrow="Questions" title="Before you paste your domain" />
+      <SectionHeading index={8} eyebrow="Questions" title="Before you paste your domain" />
 
       <div className="mt-10 border-t border-line">
         {QA.map(({ q, a }) => (

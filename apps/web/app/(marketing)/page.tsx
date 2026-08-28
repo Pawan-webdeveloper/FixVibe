@@ -1,5 +1,4 @@
 import { Hero } from '@/components/marketing/hero.tsx'
-import { ReportPreview } from '@/components/marketing/report-preview.tsx'
 import { Pillars } from '@/components/marketing/pillars.tsx'
 import { Evidence } from '@/components/marketing/evidence.tsx'
 import { FixPrompt } from '@/components/marketing/fix-prompt.tsx'
@@ -28,7 +27,6 @@ export default function LandingPage() {
   return (
     <>
       <Hero />
-      <ReportPreview />
       <Pillars />
       <Evidence />
       <FixPrompt />

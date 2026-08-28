@@ -15,7 +15,7 @@ export function Evidence() {
   return (
     <Section tone="surface">
       <SectionHeading
-        index={3}
+        index={2}
         eyebrow="Evidence"
         title="We show you the value. Not our opinion of it."
         lead="Every finding carries the raw observation behind it — the header, the record, the certificate, the response code. Nothing is inferred, and nothing is a generic best-practice bullet dressed up as a result."

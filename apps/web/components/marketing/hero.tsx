@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { HeroMatrix } from './hero-matrix.tsx'
 import { HeroScanFormClient } from '@/components/scan/hero-scan-form-client.tsx'
-import { BrandMark } from './brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 import { Bot, Search, ShieldCheck } from './icons.tsx'
 import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 
@@ -44,6 +44,8 @@ const PILLARS = [
 const BARCODE = [3, 1, 1, 2, 1, 4, 1, 1, 2, 3, 1, 1, 2, 4, 1, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 4, 1, 1] as const
 
 const LABEL = 'font-mono text-[10px] uppercase tracking-[0.14em]'
+/** The nav links, a step up from LABEL so they read next to the bigger wordmark. */
+const NAV_LABEL = 'font-mono text-sm uppercase tracking-[0.14em]'
 
 export function Hero() {
   return (
@@ -113,10 +115,10 @@ export function Hero() {
                       px-4 py-2.5 sm:px-8 ${LABEL}`}
         >
           <span>
-            [ 01 ] The report
-            <span className="hidden sm:inline"> — what {TOTAL_CHECKS} checks come back with</span>
+            [ 01 ] The checks
+            <span className="hidden sm:inline"> — all {TOTAL_CHECKS}, across six pillars</span>
           </span>
-          <a href="#report" className="hero-link relative">
+          <a href="#checks" className="hero-link relative">
             Scroll ↓
           </a>
         </div>
@@ -129,16 +131,16 @@ function HeroNav() {
   return (
     <nav
       aria-label="Main"
-      className="relative z-30 flex items-center gap-4 border-b border-hero-ink px-4 py-3 sm:px-8"
+      className="relative z-30 flex items-center gap-8 border-b border-hero-ink px-4 py-3 sm:px-8"
     >
-      <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
-        <BrandMark size={16} track="rgb(var(--hero-ink-rgb) / 0.28)" arc="var(--hero-ink)" />
-        <span className="font-mono text-sm font-semibold tracking-tight">scanlyfix</span>
+      <Link href="/" className="flex items-center gap-2.5" aria-label="ScanlyFix — home">
+        <LogoBadge size={42} />
+        <span className="font-mono text-2xl font-semibold uppercase tracking-tight">scanlyfix</span>
       </Link>
 
       <div className="flex-1" />
 
-      <ul className={`hidden items-center gap-6 md:flex ${LABEL}`}>
+      <ul className={`hidden items-center gap-9 md:flex ${NAV_LABEL}`}>
         {NAV_LINKS.map(({ href, label }) => (
           <li key={href}>
             <Link href={href} className="hero-link relative">
@@ -148,7 +150,7 @@ function HeroNav() {
         ))}
       </ul>
 
-      <a href="#scan" className={`hero-link relative hidden sm:inline ${LABEL}`}>
+      <a href="#scan" className={`hero-link relative hidden sm:inline ${NAV_LABEL}`}>
         Scan a site →
       </a>
 
@@ -165,7 +167,7 @@ function HeroNav() {
             <path d="M4 17h16" />
           </svg>
         </summary>
-        <ul className={`absolute right-0 top-10 z-40 w-48 border border-hero-ink bg-brand ${LABEL}`}>
+        <ul className={`absolute right-0 top-10 z-40 w-48 border border-hero-ink bg-brand ${NAV_LABEL}`}>
           {[...NAV_LINKS, { href: '/#scan', label: 'Scan a site →' }].map(({ href, label }) => (
             <li key={href} className="border-b border-hero-ink last:border-0">
               <Link href={href} className="block px-4 py-3">
@@ -183,15 +185,18 @@ function Wordmark() {
   return (
     <div className="hero-rise flex items-center justify-between gap-4 border border-hero-ink bg-brand px-4 py-3">
       <div className="flex items-center gap-3">
-        <BrandMark size={20} track="rgb(var(--hero-ink-rgb) / 0.28)" arc="var(--hero-ink)" />
+        <LogoBadge size={30} />
         <span className="font-mono text-base font-semibold tracking-tight sm:text-lg">SCANLYFIX</span>
         <span className={`border border-hero-ink px-1.5 py-0.5 ${LABEL}`}>Beta</span>
       </div>
 
-      <ul className={`hidden items-center gap-5 lg:flex ${LABEL}`}>
+      {/* The three pillars — the one line that says WHAT gets checked. Icon
+          and label only, no chip: bigger and bolder than fine print, but bare,
+          so it reads as part of the wordmark rather than a row of buttons. */}
+      <ul className="hidden items-center gap-6 font-mono text-sm font-semibold uppercase tracking-[0.1em] md:flex">
         {PILLARS.map(({ Icon, label }) => (
-          <li key={label} className="flex items-center gap-1.5">
-            <Icon size={14} />
+          <li key={label} className="flex items-center gap-2">
+            <Icon size={17} />
             {label}
           </li>
         ))}

@@ -185,6 +185,21 @@ export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
         body: JSON.stringify({ url: target.url }),
       })
 
+      /*
+       * 401 is the server insisting on an account — the backstop behind the
+       * client gate above, reached when the client believed it was signed in
+       * but the cookie says otherwise (a stale token, an expired session). It
+       * is a redirect, not an error: keep the URL and send them to sign in, the
+       * same as the gate does, rather than showing "not authorized" for
+       * something they can simply fix by signing in.
+       */
+      if (response.status === 401) {
+        stashPendingUrl(sessionStore(), target.url)
+        const next = pathname || '/'
+        router.push(`/login?next=${encodeURIComponent(next)}`)
+        return false
+      }
+
       if (!response.ok) {
         // The server owns the real verdict — an SSRF-blocked target, a site
         // that would not respond, a rate limit. Surface its sentence, not a

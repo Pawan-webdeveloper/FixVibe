@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 /**
@@ -38,7 +38,7 @@ export default function Error({
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-6 py-10">
       <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
-        <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
+        <LogoBadge size={22} />
         <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
       </Link>
 
