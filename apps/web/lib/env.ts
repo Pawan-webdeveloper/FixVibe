@@ -18,7 +18,8 @@ function required(name: string): string {
   if (!value) {
     throw new Error(
       `Missing required environment variable ${name}. ` +
-        'Copy .env.example to .env at the repository root and fill it in.',
+        "Set it in your deployment's environment (or copy .env.example to .env " +
+        'at the repository root when running locally).',
     )
   }
   return value
