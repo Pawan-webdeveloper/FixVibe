@@ -26,8 +26,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                          supports-[backdrop-filter]:bg-canvas/80 supports-[backdrop-filter]:backdrop-blur-md">
         <nav aria-label="Main" className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-6">
           <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="ScanlyFix — projects">
-            <LogoBadge size={34} />
-            <span className="text-lg font-semibold tracking-tight">scanlyfix</span>
+            <LogoBadge size={40} />
+            <span className="text-xl font-semibold tracking-tight">scanlyfix</span>
           </Link>
           <Link href="/dashboard" className="label text-muted transition-colors hover:text-ink">
             Projects
