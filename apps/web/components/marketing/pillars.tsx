@@ -24,22 +24,22 @@ export function Pillars() {
 
       <ul className="mt-12 grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
         {pillars.map((pillar) => (
-          <li key={pillar.category} className="flex min-w-0 flex-col bg-canvas p-6">
+          <li key={pillar.category} className="flex min-w-0 flex-col bg-canvas p-7">
             <div className="flex items-baseline justify-between gap-3">
-              <h3 className="font-medium">{pillar.label}</h3>
-              <span className="font-mono text-sm text-muted tabular-nums">{pillar.count}</span>
+              <h3 className="text-lg font-semibold tracking-tight">{pillar.label}</h3>
+              <span className="font-mono text-lg font-semibold text-ink tabular-nums">{pillar.count}</span>
             </div>
 
-            <p className="mt-2 text-sm text-muted text-pretty">{pillar.question}</p>
+            <p className="mt-2.5 text-[15px] leading-relaxed text-ink/70 text-pretty">{pillar.question}</p>
 
-            <ul className="mt-4 flex flex-col gap-1.5 border-t border-line pt-4">
+            <ul className="mt-5 flex flex-col gap-2 border-t border-line pt-5">
               {pillar.examples.map((example) => (
-                <li key={example} className="font-mono text-xs text-muted">
+                <li key={example} className="font-mono text-sm text-muted">
                   {example}
                 </li>
               ))}
               {pillar.count > pillar.examples.length && (
-                <li className="font-mono text-xs text-muted">
+                <li className="font-mono text-sm font-medium text-ink">
                   +{pillar.count - pillar.examples.length} more
                 </li>
               )}
