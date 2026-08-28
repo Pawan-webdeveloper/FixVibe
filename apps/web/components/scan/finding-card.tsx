@@ -27,12 +27,36 @@ export interface FindingView {
   locked?: boolean
 }
 
-const SEVERITY_STYLE: Record<Severity, string> = {
-  critical: 'text-critical border-critical',
-  high: 'text-high border-high',
-  medium: 'text-medium border-medium',
-  low: 'text-low border-low',
-  info: 'text-info border-info',
+/**
+ * Two static strings per severity: a filled chip and the card's left stripe.
+ * Static because Tailwind only emits classes it can read in the source — a
+ * `bg-${severity}` template would be purged and the colour would vanish.
+ */
+const SEVERITY: Record<Severity, { chip: string; stripe: string }> = {
+  critical: { chip: 'bg-critical text-canvas', stripe: 'border-l-critical' },
+  high: { chip: 'bg-high text-canvas', stripe: 'border-l-high' },
+  medium: { chip: 'bg-medium text-canvas', stripe: 'border-l-medium' },
+  low: { chip: 'bg-low text-canvas', stripe: 'border-l-low' },
+  info: { chip: 'bg-info text-canvas', stripe: 'border-l-info' },
+}
+
+function LockIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className={`shrink-0 ${className}`}>
+      <rect x="5" y="11" width="14" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  )
+}
+
+/** The badge that marks a finding as Pro-only, with the lock. */
+function ProBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 border border-accent bg-accent-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider link">
+      <LockIcon />
+      Pro
+    </span>
+  )
 }
 
 /** Long enough to be evidence, short enough not to become the page. */
@@ -71,20 +95,27 @@ export function FindingCard({
   /** Why this one is closed. The card cannot know; the page can. */
   lockedNote?: string
 }) {
+  const sev = SEVERITY[finding.severity]
+
   return (
-    <article className="border border-line p-4">
-      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <article className={`border border-line border-l-4 ${sev.stripe} p-4 ${finding.locked ? 'bg-surface/50' : ''}`}>
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span
-          className={` border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${SEVERITY_STYLE[finding.severity]}`}
+          className={`inline-flex items-center px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider ${sev.chip}`}
         >
           {finding.severity}
         </span>
-        <h3 className="flex-1 text-base font-medium text-balance">{finding.title}</h3>
-        <code className="font-mono text-xs text-muted">{finding.checkId}</code>
+        <h3 className="min-w-0 flex-1 text-base font-semibold text-balance">{finding.title}</h3>
+        {finding.locked && <ProBadge />}
       </header>
 
+      <code className="mt-1.5 block font-mono text-xs text-muted">{finding.checkId}</code>
+
       {finding.locked ? (
-        <p className="mt-3 text-sm text-muted">{lockedNote}</p>
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+          <LockIcon className="text-accent" />
+          {lockedNote}
+        </p>
       ) : (
         <>
           {finding.description && (

@@ -30,7 +30,16 @@ const SEVERITY_STYLE: Record<Severity, string> = {
 const ORDER: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info']
 
 const BUTTON =
-  'label inline-flex h-11 items-center px-6 transition-colors duration-150'
+  'label inline-flex h-11 items-center gap-2 px-6 transition-colors duration-150'
+
+function LockIcon({ size = 14, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={`shrink-0 ${className}`}>
+      <rect x="5" y="11" width="14" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  )
+}
 
 export function ReportGate({
   lockedCount,
@@ -59,7 +68,8 @@ export function ReportGate({
         trailing={`${lockedCount} finding${lockedCount === 1 ? '' : 's'}`}
       />
 
-      <p className="mt-5 text-lg font-medium text-balance">
+      <p className="mt-5 flex items-center gap-2 text-lg font-medium text-balance">
+        {signedIn && <LockIcon size={18} className="text-accent" />}
         {signedIn ? 'The rest of this report is part of Pro' : 'Sign in to read this report'}
       </p>
 
@@ -82,6 +92,7 @@ export function ReportGate({
         {signedIn ? (
           <>
             <Link href="/pricing" className={`${BUTTON} border border-ink bg-ink text-canvas hover:bg-transparent hover:text-ink`}>
+              <LockIcon />
               See Pro
             </Link>
           </>
