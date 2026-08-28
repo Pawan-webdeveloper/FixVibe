@@ -162,13 +162,18 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
               never chose sees everything already, and offering to change a
               preference they have not set is a question, not a control. */}
           {entitlements.priorities !== null && entitlements.priorities.length > 0 && (
-            <p className="mt-10 text-[15px] leading-relaxed text-muted">
-              This report opens with the pillars you picked.{' '}
-              <Link href={`/welcome?next=/scan/${scan.id}`} className="link text-ink">
-                Change that
+            <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border border-line bg-surface px-5 py-4">
+              <p className="text-[15px] text-muted text-pretty">
+                This report opens with the pillars you picked.
+              </p>
+              <Link
+                href={`/welcome?next=/scan/${scan.id}`}
+                className="label inline-flex h-10 shrink-0 items-center border border-ink px-5 text-ink
+                           transition-colors duration-150 hover:bg-ink hover:text-canvas"
+              >
+                Change priorities
               </Link>
-              .
-            </p>
+            </div>
           )}
 
           <div className="mt-10">
