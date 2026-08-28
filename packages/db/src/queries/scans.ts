@@ -341,3 +341,40 @@ export async function findRecentAnonymousScan(
     .limit(1)
   return row ?? null
 }
+
+/**
+ * The signed-in equivalent of the dedup above.
+ *
+ * Scanning now requires an account, so a repeat of the same URL is a repeat by
+ * a KNOWN person, and their own recent result is the one to hand back — not
+ * some stranger's, and not nothing. Without this, every re-scan of a URL was a
+ * fresh fetch that spent the account's allowance and a rate-limit slot on work
+ * already done seconds ago, because the anonymous dedup requires
+ * `requestedBy IS NULL` and a signed-in scan never matches it.
+ *
+ * Matched to this user's own ad-hoc scans (no project), so it cannot return a
+ * scan that belongs to a project the user reaches a different way.
+ */
+export async function findRecentScanForUser(
+  url: string,
+  profile: ScanProfile,
+  userId: string,
+  since: Date,
+): Promise<{ id: string } | null> {
+  const [row] = await db
+    .select({ id: scans.id })
+    .from(scans)
+    .where(
+      and(
+        eq(scans.url, url),
+        eq(scans.profile, profile),
+        eq(scans.status, 'done'),
+        isNull(scans.projectId),
+        eq(scans.requestedBy, userId),
+        gte(scans.createdAt, since),
+      ),
+    )
+    .orderBy(desc(scans.createdAt))
+    .limit(1)
+  return row ?? null
+}

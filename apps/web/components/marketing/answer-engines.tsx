@@ -23,22 +23,22 @@ export function AnswerEngines() {
             lead="Search is becoming answers, and an answer engine that cannot parse a page does not rank it lower — it never mentions it. Nothing in Search Console reports the citation you did not get."
           />
 
-          <p className="mt-6 max-w-[62ch] text-muted text-pretty">
+          <p className="mt-6 max-w-[62ch] text-base leading-relaxed text-ink/70 text-pretty sm:text-lg">
             The failures are mundane and invisible: the text arrives only after JavaScript runs, the
             robots file blocks the crawlers by name, there is no schema tying the page to a real
             entity, and no date to tell a model whether any of it is still true.
           </p>
         </div>
 
-        <div className="border border-line bg-canvas p-6">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-muted">
+        <div className="border border-line bg-canvas p-7">
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted">
             {checks.length} checks in this pillar
           </p>
           <ul className="mt-4 flex flex-col">
             {checks.map((title) => (
               <li
                 key={title}
-                className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-0"
+                className="flex items-center gap-3 border-b border-line py-3 text-[15px] last:border-0"
               >
                 <span aria-hidden="true" className="size-1.5 shrink-0 bg-accent" />
                 {title}

@@ -24,10 +24,10 @@ export function FixPrompt() {
         <figure className="min-w-0">
           <div className="overflow-hidden border border-line bg-surface">
             <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-muted">
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted">
                 fix-prompt.md
               </p>
-              <p className="font-mono text-[10px] text-muted">excerpt</p>
+              <p className="font-mono text-xs text-muted">excerpt</p>
             </div>
             <pre
               // The block scrolls, so it has to be focusable: keyboard-only
@@ -35,12 +35,12 @@ export function FixPrompt() {
               tabIndex={0}
               role="region"
               aria-label="Excerpt of the generated fix prompt"
-              className="max-h-[26rem] overflow-y-auto px-4 py-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words"
+              className="max-h-[28rem] overflow-y-auto px-4 py-4 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words"
             >
               {SAMPLE_FIX_PROMPT}
             </pre>
           </div>
-          <figcaption className="mt-3 text-sm text-muted">
+          <figcaption className="mt-3 text-[15px] text-muted">
             Generated for the example.com scan above. Truncated here; the real one covers all 15
             actionable findings.
           </figcaption>
@@ -49,8 +49,8 @@ export function FixPrompt() {
         <div className="flex flex-col gap-8">
           <Point title="It knows where, not just what">
             “Add a Content-Security-Policy header” is not actionable until you know whether that
-            means <code className="font-mono text-xs">next.config.ts</code>, a{' '}
-            <code className="font-mono text-xs">_headers</code> file or an nginx block. Fourteen
+            means <code className="font-mono text-sm">next.config.ts</code>, a{' '}
+            <code className="font-mono text-sm">_headers</code> file or an nginx block. Fourteen
             findings that land in the same file become one edit.
           </Point>
 
@@ -72,8 +72,8 @@ export function FixPrompt() {
 function Point({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-l-2 border-accent pl-4">
-      <h3 className="font-medium">{title}</h3>
-      <p className="mt-2 max-w-[46ch] text-sm text-muted text-pretty">{children}</p>
+      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <p className="mt-2 max-w-[46ch] text-[15px] leading-relaxed text-ink/70 text-pretty">{children}</p>
     </div>
   )
 }

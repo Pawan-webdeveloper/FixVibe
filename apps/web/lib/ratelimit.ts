@@ -33,7 +33,7 @@ const PER_VISITOR = { limit: 5, windowMs: HOUR_MS }
  * host together, which is what makes it work when the per-visitor limit is
  * bypassed or simply spread across a botnet.
  */
-const PER_TARGET = { limit: 10, windowMs: HOUR_MS }
+const PER_TARGET = { limit: 20, windowMs: HOUR_MS }
 
 export type RateVerdict =
   | { readonly ok: true }

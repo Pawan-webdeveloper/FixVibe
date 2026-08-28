@@ -23,26 +23,30 @@ export function Evidence() {
 
       <div className="mt-12 grid gap-px overflow-hidden border border-line bg-line lg:grid-cols-2">
         <div className="min-w-0 bg-canvas p-6 sm:p-8">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-muted">The claim</p>
-          <p className="mt-3 text-lg font-medium text-balance">{SAMPLE_EVIDENCE.claim}</p>
-          <p className="mt-4 max-w-[55ch] text-sm text-muted text-pretty">{SAMPLE_EVIDENCE.why}</p>
-          <p className="mt-6 font-mono text-xs text-muted">{SAMPLE_EVIDENCE.checkId}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted">The claim</p>
+          <p className="mt-3 text-xl font-semibold tracking-tight text-balance sm:text-2xl">
+            {SAMPLE_EVIDENCE.claim}
+          </p>
+          <p className="mt-4 max-w-[55ch] text-[15px] leading-relaxed text-ink/70 text-pretty">
+            {SAMPLE_EVIDENCE.why}
+          </p>
+          <p className="mt-6 font-mono text-sm text-muted">{SAMPLE_EVIDENCE.checkId}</p>
         </div>
 
         <div className="min-w-0 bg-canvas p-6 sm:p-8">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-muted">Observed</p>
-          <dl className="mt-3 overflow-x-auto border border-line bg-surface p-4 font-mono text-xs">
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted">Observed</p>
+          <dl className="mt-3 overflow-x-auto border border-line bg-surface p-4 font-mono text-sm">
             {Object.entries(SAMPLE_EVIDENCE.observed).map(([key, value]) => (
-              <div key={key} className="flex flex-col gap-0.5 py-1 sm:flex-row sm:gap-3">
+              <div key={key} className="flex flex-col gap-0.5 py-1.5 sm:flex-row sm:gap-3">
                 <dt className="shrink-0 text-muted sm:w-24">{key}</dt>
-                <dd className="min-w-0 break-words">{value}</dd>
+                <dd className="min-w-0 break-words text-ink">{value}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-4 max-w-[50ch] text-sm text-muted text-pretty">
+          <p className="mt-4 max-w-[50ch] text-[15px] leading-relaxed text-ink/70 text-pretty">
             Read it yourself:{' '}
-            <code className="font-mono text-xs break-all">dig +short TXT _dmarc.example.com</code> returns the
-            same string. Every finding in the report can be re-checked this way.
+            <code className="font-mono text-sm break-all text-ink">dig +short TXT _dmarc.example.com</code>{' '}
+            returns the same string. Every finding in the report can be re-checked this way.
           </p>
         </div>
       </div>

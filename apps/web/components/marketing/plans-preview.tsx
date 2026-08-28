@@ -39,9 +39,9 @@ export function PlansPreview() {
         {ORDERED_PLANS.map((plan) => (
           <div key={plan.id} className="flex min-w-0 flex-col bg-canvas p-6 sm:p-8">
             <div className="flex items-baseline gap-3">
-              <h3 className="font-medium">{plan.name}</h3>
+              <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
               {plan.id === 'pro' && (
-                <span className="bg-accent-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider link">
+                <span className="bg-accent-soft px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] link">
                   Everything
                 </span>
               )}
@@ -52,9 +52,9 @@ export function PlansPreview() {
               <span className="text-base font-normal text-muted"> / month</span>
             </p>
 
-            <ul className="mt-6 flex flex-1 flex-col gap-2.5 text-sm">
+            <ul className="mt-6 flex flex-1 flex-col gap-3 text-[15px]">
               {features(plan).map((feature) => (
-                <li key={feature} className="text-muted">
+                <li key={feature} className="text-ink/70">
                   {feature}
                 </li>
               ))}
@@ -62,7 +62,7 @@ export function PlansPreview() {
 
             <Link
               href="/pricing"
-              className={`mt-8 px-4 py-2.5 text-center text-sm font-medium transition-colors ${
+              className={`mt-8 px-4 py-2.5 text-center text-[15px] font-medium transition-colors ${
  plan.id === 'pro'
                   ? 'bg-accent text-accent-ink hover:opacity-90'
                   : 'border border-line hover:bg-surface'
@@ -74,7 +74,7 @@ export function PlansPreview() {
         ))}
       </div>
 
-      <p className="mt-6 max-w-[62ch] text-sm text-muted text-pretty">
+      <p className="mt-6 max-w-[62ch] text-[15px] leading-relaxed text-ink/70 text-pretty">
         Scanning needs no account, and the score, the pillar breakdown and every finding’s title and
         severity are public without one. A free account opens the worst few in full — the evidence
         and the fix. You always know exactly what you are missing rather than being asked to guess.

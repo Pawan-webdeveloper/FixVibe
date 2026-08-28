@@ -24,6 +24,7 @@ import {
   createScan,
   failScan,
   findRecentAnonymousScan,
+  findRecentScanForUser,
   getScanForViewer,
   markScanRunning,
 } from '../src/queries/scans.ts'
@@ -283,6 +284,42 @@ describe.skipIf(!live)('scan queries (SCANLYFIX_DB=1)', () => {
       const id = await track(open({ url }))
       await completeScan(id, done)
       expect(await findRecentAnonymousScan(url, 'fast', new Date(Date.now() + 60_000))).toBeNull()
+    })
+  })
+
+  describe('per-account deduplication (signed-in scans)', () => {
+    const recently = () => new Date(Date.now() - 600_000)
+    const done = { scores: SCORES, findings: [], contextMeta: META, checkErrors: [], durationMs: 1 }
+
+    it('reuses this account\'s own recent finished scan of the same url and profile', async () => {
+      const url = `https://u-dedup-${randomUUID()}.test/`
+      const id = await track(open({ url, requestedBy: ownerId }))
+      await completeScan(id, done)
+      expect((await findRecentScanForUser(url, 'fast', ownerId, recently()))?.id).toBe(id)
+    })
+
+    it('does not hand one account another account\'s scan', async () => {
+      const url = `https://u-cross-${randomUUID()}.test/`
+      const id = await track(open({ url, requestedBy: ownerId }))
+      await completeScan(id, done)
+      // Same URL, different account: no cache hit, so it scans afresh under its
+      // own name rather than reusing — and being billed for — someone else's.
+      expect(await findRecentScanForUser(url, 'fast', strangerId, recently())).toBeNull()
+    })
+
+    it('does not treat an anonymous scan as this account\'s', async () => {
+      const url = `https://u-anon-${randomUUID()}.test/`
+      const id = await track(open({ url }))
+      await completeScan(id, done)
+      expect(await findRecentScanForUser(url, 'fast', ownerId, recently())).toBeNull()
+    })
+
+    it('does not cross profiles', async () => {
+      const url = `https://u-profile-${randomUUID()}.test/`
+      const id = await track(open({ url, profile: 'deep', requestedBy: ownerId }))
+      await completeScan(id, done)
+      expect(await findRecentScanForUser(url, 'fast', ownerId, recently())).toBeNull()
+      expect((await findRecentScanForUser(url, 'deep', ownerId, recently()))?.id).toBe(id)
     })
   })
 

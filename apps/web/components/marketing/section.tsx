@@ -56,7 +56,9 @@ export function SectionHeading({
       </h2>
 
       {lead && (
-        <p className="mt-5 max-w-[64ch] text-[15px] leading-relaxed text-muted text-pretty">{lead}</p>
+        <p className="mt-5 max-w-[64ch] text-base leading-relaxed text-ink/70 text-pretty sm:text-lg">
+          {lead}
+        </p>
       )}
     </header>
   )
