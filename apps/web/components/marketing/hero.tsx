@@ -101,7 +101,7 @@ export function Hero() {
                 bait-and-switch, and this product's whole pitch is that it does
                 not bluff. */}
             <p className="hero-rise mt-3 font-mono text-xs tracking-[0.22em] text-hero-ink-dim uppercase">
-              Free to scan. An account opens the findings.
+              Free with an account. Pro opens every finding.
             </p>
 
             <div id="scan" className="hero-rise mt-9 max-w-3xl scroll-mt-24">

@@ -74,7 +74,7 @@ export default async function DashboardPage() {
         what lets it read the signed-in state.
       */}
       <section>
-        <LabeledRule as="h1" label="Scan a site" trailing="a URL, not an account" />
+        <LabeledRule as="h1" label="Scan a site" trailing="paste a URL" />
         <div className="mt-6 border border-line p-6 sm:p-8">
           <div className="max-w-xl">
             {/* restore: this is where a signed-out visitor lands after signing

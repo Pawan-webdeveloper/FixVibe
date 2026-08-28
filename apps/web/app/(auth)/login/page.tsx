@@ -51,7 +51,7 @@ const COPY: Record<Mode, { label: string; heading: string; emailCta: string; cod
     heading: 'Welcome back',
     emailCta: 'Email me a code',
     codeCta: 'Sign in',
-    foot: 'Scanning works without an account — signing in is for keeping your reports.',
+    foot: 'Signing in is what runs a scan, and it keeps every report you make.',
   },
   signup: {
     label: 'Sign up',

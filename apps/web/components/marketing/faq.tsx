@@ -14,7 +14,7 @@ import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 const QA: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: 'Do I need an account?',
-    a: 'To scan, no \u2014 anyone can run one, and the score, the pillar breakdown and every finding\u2019s title and severity are public on a shareable URL. To read the findings themselves you do: an account opens the worst of them in full, with the evidence behind each one and the fix. It is free, and there is no password to create.',
+    a: 'To scan, yes \u2014 but a free one: a code to your email, no password to create. Sharing the result asks nothing more, though. A finished report lives at a public URL where anyone can see the score, the pillar breakdown and every finding\u2019s title and severity without signing in. Reading the findings themselves is what the account opens: the worst few free, all of them on Pro, each with the evidence behind it and the fix.',
   },
   {
     q: 'Will this attack my site?',

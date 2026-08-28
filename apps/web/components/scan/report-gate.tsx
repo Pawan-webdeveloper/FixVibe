@@ -85,7 +85,7 @@ export function ReportGate({
       <p className="mt-4 max-w-[64ch] text-[15px] leading-relaxed text-muted text-pretty">
         {signedIn
           ? 'Their titles and severities are listed above. Pro unlocks the detail, the evidence behind each one, and the single prompt that fixes them all.'
-          : 'Every finding is named and rated above — nothing is hidden about how bad this is. An account opens the worst of them in full: the evidence the engine observed, and the fix prompt for it. Scanning stays free either way.'}
+          : 'Every finding is named and rated above — nothing is hidden about how bad this is. An account opens the worst of them in full: the evidence the engine observed, and the fix prompt for it. It is free — a code to your email, no card.'}
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">

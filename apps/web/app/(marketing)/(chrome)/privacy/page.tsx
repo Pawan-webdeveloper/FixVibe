@@ -69,17 +69,16 @@ export default function PrivacyPage() {
         </p>
       </Clause>
 
-      <Clause index={3} heading="Scanning without an account">
+      <Clause index={3} heading="The IP behind a scan">
         <p>
-          You can scan without signing in. Those scans are stored too, and to make rate limiting
-          possible we keep a <span className="font-mono text-xs">salted SHA-256 hash</span> of the
-          visitor&rsquo;s IP address — not the address itself.
+          Running a scan needs an account, so a scan is tied to yours. To make rate limiting
+          possible we also keep a <span className="font-mono text-xs">salted SHA-256 hash</span> of
+          the IP address a scan came from — not the address itself.
         </p>
         <p>
           The salt is what makes that meaningful. There are only about four billion IPv4 addresses,
           so an unsalted hash of one is reversed by brute force in minutes; with a secret salt it is
-          not. We cannot recover an address from what we store, which also means we cannot connect
-          an anonymous scan back to you on request.
+          not. We cannot recover an address from what we store.
         </p>
       </Clause>
 
