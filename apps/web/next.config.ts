@@ -1,4 +1,5 @@
 import { config } from 'dotenv'
+import { fileURLToPath } from 'node:url'
 import type { NextConfig } from 'next'
 
 /**
@@ -9,6 +10,9 @@ import type { NextConfig } from 'next'
  */
 config({ path: new URL('../../.env', import.meta.url).pathname, quiet: true })
 
+/** The monorepo root — two levels up from apps/web. */
+const workspaceRoot = fileURLToPath(new URL('../..', import.meta.url))
+
 const nextConfig: NextConfig = {
   /**
    * The workspace packages are published as raw TypeScript (`main: src/index.ts`)
@@ -17,9 +21,21 @@ const nextConfig: NextConfig = {
    */
   transpilePackages: ['@scanlyfix/checks', '@scanlyfix/db'],
 
-  // typedRoutes is deliberately off until the routes it would check actually
-  // exist — right now most page files are empty placeholders, so it would only
-  // reject links to pages that are one commit away.
+  /**
+   * A self-contained server bundle in `.next/standalone`, for running the app
+   * from a container. Vercel does not need it and ignores it; a Docker image
+   * does, so it can copy the standalone output instead of the whole monorepo
+   * and its node_modules.
+   */
+  output: 'standalone',
+
+  /**
+   * Trace file dependencies from the WORKSPACE root, not this app's directory.
+   * Without it the standalone build misses the workspace packages (they live in
+   * ../../packages) and the pnpm-linked node_modules above the app, and the
+   * container starts with modules missing.
+   */
+  outputFileTracingRoot: workspaceRoot,
 }
 
 export default nextConfig
