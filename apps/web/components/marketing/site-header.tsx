@@ -53,9 +53,19 @@ export function SiteHeader() {
           <li>
             <Link
               href="/login"
-              className="label border border-line px-3 py-2 text-ink transition-colors hover:bg-surface"
+              className="label px-3 py-2 text-muted transition-colors hover:text-ink"
             >
               Sign in
+            </Link>
+          </li>
+          <li>
+            {/* Returning visitors reach for "Sign in"; this is the door for the
+                ones who do not have an account yet, landing on that card. */}
+            <Link
+              href="/login?mode=signup"
+              className="label border border-ink bg-ink px-3 py-2 text-canvas transition-colors hover:bg-transparent hover:text-ink"
+            >
+              Sign up
             </Link>
           </li>
         </ul>
