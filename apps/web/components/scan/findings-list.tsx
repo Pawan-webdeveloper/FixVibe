@@ -18,6 +18,15 @@ import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { FindingCard, type FindingView } from './finding-card.tsx'
 import { describeRest, PILLAR_LABEL as LABEL, splitPillars } from './pillar-view.ts'
 
+/** A tick, for a pillar that came back clean. */
+function CheckIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+      <path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function FindingsList({
   findings,
   priorities = null,
@@ -35,6 +44,8 @@ export function FindingsList({
   const pillarSection = (pillar: Category, index: number) => {
     const inPillar = findings.filter((f) => f.category === pillar)
 
+    const clean = inPillar.length === 0
+
     return (
       <section key={pillar} aria-labelledby={`pillar-${pillar}`}>
         <LabeledRule
@@ -42,11 +53,20 @@ export function FindingsList({
           id={`pillar-${pillar}`}
           index={index + 1}
           label={LABEL[pillar]}
-          trailing={inPillar.length === 0 ? 'clean' : `${inPillar.length} found`}
+          trailing={
+            clean ? (
+              <span className="inline-flex items-center gap-1 text-good">
+                <CheckIcon /> clean
+              </span>
+            ) : (
+              `${inPillar.length} found`
+            )
+          }
         />
 
-        {inPillar.length === 0 ? (
-          <p className="mt-4 border border-line bg-surface px-4 py-3 text-sm text-muted">
+        {clean ? (
+          <p className="mt-4 flex items-center gap-2 border border-good/30 bg-good/5 px-4 py-3 text-[15px] text-good">
+            <CheckIcon />
             Every {LABEL[pillar].toLowerCase()} check passed.
           </p>
         ) : (
@@ -78,7 +98,7 @@ export function FindingsList({
         <details className="border border-line">
           <summary className="cursor-pointer px-5 py-4 hover:bg-surface">
             <span className="label text-ink">The rest of the scan</span>
-            <span className="mt-1 block text-sm text-muted text-pretty">
+            <span className="mt-1 block text-[15px] text-muted text-pretty">
               {describeRest(rest, setAside)}
             </span>
           </summary>

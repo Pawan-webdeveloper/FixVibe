@@ -94,15 +94,24 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
   const entitlements = await entitlementsFor(viewer)
   const report = redactFindings(scan.findings, entitlements)
 
+  // A signed-in reader goes back into the app; a stranger who followed a
+  // shared link goes to the landing page, where scanning still starts. This
+  // report is shareable and server-rendered, so both cases land here — the
+  // difference is only where each is sent next.
+  const home = viewer.kind === 'user' ? '/dashboard' : '/'
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <header>
         <div className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
-            <LogoBadge size={22} />
-            <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
+          <Link href={home} className="flex items-center gap-2.5" aria-label="ScanlyFix — home">
+            <LogoBadge size={34} />
+            <span className="text-xl font-semibold tracking-tight">scanlyfix</span>
           </Link>
-          <Link href="/" className="label link text-muted transition-colors hover:text-ink">
+          <Link
+            href={home}
+            className="link text-sm font-medium text-muted transition-colors hover:text-ink"
+          >
             Scan another site
           </Link>
         </div>
@@ -110,7 +119,7 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
         <div className="mt-8">
           <LabeledRule label="Report" trailing={stamp(scan.createdAt)} />
         </div>
-        <h1 className="mt-5 truncate text-2xl tracking-[-0.02em] sm:text-3xl">{host}</h1>
+        <h1 className="mt-5 truncate text-3xl tracking-[-0.02em] sm:text-4xl">{host}</h1>
       </header>
 
       {scan.status === 'failed' && <FailedScan url={scan.url} error={scan.error} at={scan.createdAt} />}
@@ -120,7 +129,7 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
       {scan.status === 'done' && scan.scores && (
         <>
           <section className="flex flex-col items-center gap-8 py-8 sm:flex-row sm:items-center">
-            <ScoreRing score={scan.scores.overall} />
+            <ScoreRing score={scan.scores.overall} size={190} />
             <div className="w-full flex-1">
               <PillarScores scores={scan.scores} />
             </div>
@@ -153,13 +162,18 @@ export default async function ScanPage({ params }: { params: Promise<{ scanId: s
               never chose sees everything already, and offering to change a
               preference they have not set is a question, not a control. */}
           {entitlements.priorities !== null && entitlements.priorities.length > 0 && (
-            <p className="mt-10 text-sm text-muted">
-              This report opens with the pillars you picked.{' '}
-              <Link href={`/welcome?next=/scan/${scan.id}`} className="link text-ink">
-                Change that
+            <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border border-line bg-surface px-5 py-4">
+              <p className="text-[15px] text-muted text-pretty">
+                This report opens with the pillars you picked.
+              </p>
+              <Link
+                href={`/welcome?next=/scan/${scan.id}`}
+                className="label inline-flex h-10 shrink-0 items-center border border-ink px-5 text-ink
+                           transition-colors duration-150 hover:bg-ink hover:text-canvas"
+              >
+                Change priorities
               </Link>
-              .
-            </p>
+            </div>
           )}
 
           <div className="mt-10">
@@ -258,11 +272,11 @@ function ScanFacts({
   ]
 
   return (
-    <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 border-t border-line pt-5 sm:grid-cols-2">
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-3 border-t border-line pt-5 sm:grid-cols-2">
       {facts.map(([key, value]) => (
         <div key={key} className="flex items-baseline gap-3">
-          <dt className="label w-24 shrink-0 text-muted">{key}</dt>
-          <dd className="min-w-0 truncate text-xs leading-5">{value}</dd>
+          <dt className="w-28 shrink-0 font-mono text-xs uppercase tracking-[0.12em] text-muted">{key}</dt>
+          <dd className="min-w-0 truncate text-[15px] leading-6">{value}</dd>
         </div>
       ))}
     </dl>
