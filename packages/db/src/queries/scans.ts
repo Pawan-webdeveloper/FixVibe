@@ -343,6 +343,25 @@ export async function findRecentAnonymousScan(
 }
 
 /**
+ * A person's own ad-hoc scans — the ones they ran from the home page without
+ * saving them into a project.
+ *
+ * These were invisible: attributed to the account (so they count against the
+ * quota) but shown nowhere, so a signed-in scan felt like it vanished. This is
+ * the list the dashboard renders under the projects. Scoped to scans with no
+ * project, because a project's scans already have their own history view and
+ * showing them twice would double every entry.
+ */
+export async function listRecentScansForUser(viewer: Viewer, limit = 8) {
+  if (viewer.kind !== 'user') return []
+  return db.query.scans.findMany({
+    where: and(eq(scans.requestedBy, viewer.userId), isNull(scans.projectId)),
+    orderBy: desc(scans.createdAt),
+    limit,
+  })
+}
+
+/**
  * The signed-in equivalent of the dedup above.
  *
  * Scanning now requires an account, so a repeat of the same URL is a repeat by
