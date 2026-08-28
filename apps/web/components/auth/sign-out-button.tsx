@@ -93,7 +93,12 @@ export function SignOutButton({ className }: { className?: string }) {
               onClick={() => {
                 if (!pending) setOpen(false)
               }}
-              className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
+              // A fixed black scrim, not bg-ink: `ink` is near-white in dark
+              // mode, so an ink overlay there washes the page to a grey haze
+              // instead of dimming it. Black dims correctly in both themes, and
+              // because it darkens the page below the modal's own canvas colour,
+              // the modal reads as lifted above it.
+              className="absolute inset-0 bg-black/60"
             />
 
             <div className="relative w-full max-w-md border border-line bg-canvas p-7 shadow-2xl sm:p-8">
