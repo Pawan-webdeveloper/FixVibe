@@ -44,6 +44,8 @@ const PILLARS = [
 const BARCODE = [3, 1, 1, 2, 1, 4, 1, 1, 2, 3, 1, 1, 2, 4, 1, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 4, 1, 1] as const
 
 const LABEL = 'font-mono text-[10px] uppercase tracking-[0.14em]'
+/** The nav links, a step up from LABEL so they read next to the bigger wordmark. */
+const NAV_LABEL = 'font-mono text-sm uppercase tracking-[0.14em]'
 
 export function Hero() {
   return (
@@ -138,7 +140,7 @@ function HeroNav() {
 
       <div className="flex-1" />
 
-      <ul className={`hidden items-center gap-6 md:flex ${LABEL}`}>
+      <ul className={`hidden items-center gap-6 md:flex ${NAV_LABEL}`}>
         {NAV_LINKS.map(({ href, label }) => (
           <li key={href}>
             <Link href={href} className="hero-link relative">
@@ -148,7 +150,7 @@ function HeroNav() {
         ))}
       </ul>
 
-      <a href="#scan" className={`hero-link relative hidden sm:inline ${LABEL}`}>
+      <a href="#scan" className={`hero-link relative hidden sm:inline ${NAV_LABEL}`}>
         Scan a site →
       </a>
 
@@ -165,7 +167,7 @@ function HeroNav() {
             <path d="M4 17h16" />
           </svg>
         </summary>
-        <ul className={`absolute right-0 top-10 z-40 w-48 border border-hero-ink bg-brand ${LABEL}`}>
+        <ul className={`absolute right-0 top-10 z-40 w-48 border border-hero-ink bg-brand ${NAV_LABEL}`}>
           {[...NAV_LINKS, { href: '/#scan', label: 'Scan a site →' }].map(({ href, label }) => (
             <li key={href} className="border-b border-hero-ink last:border-0">
               <Link href={href} className="block px-4 py-3">

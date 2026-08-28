@@ -25,6 +25,13 @@ const NAV_LINKS: readonly { readonly href: string; readonly label: string }[] = 
   { href: '/pricing', label: 'Pricing' },
 ]
 
+/**
+ * The nav links, one step up from the shared `.label` (10px) so they read at a
+ * glance next to the enlarged wordmark. Kept local rather than changing
+ * `.label`, which the whole app leans on for captions and field labels.
+ */
+const NAV = 'text-sm uppercase tracking-[0.14em]'
+
 export function SiteHeader() {
   return (
     <header
@@ -45,7 +52,7 @@ export function SiteHeader() {
         <ul className="flex items-center gap-4 sm:gap-6">
           {NAV_LINKS.map(({ href, label }) => (
             <li key={href}>
-              <Link href={href} className="label text-muted transition-colors hover:text-ink">
+              <Link href={href} className={`${NAV} text-muted transition-colors hover:text-ink`}>
                 {label}
               </Link>
             </li>
@@ -53,7 +60,7 @@ export function SiteHeader() {
           <li>
             <Link
               href="/login"
-              className="label px-3 py-2 text-muted transition-colors hover:text-ink"
+              className={`${NAV} px-3 py-2 text-muted transition-colors hover:text-ink`}
             >
               Sign in
             </Link>
@@ -63,7 +70,7 @@ export function SiteHeader() {
                 ones who do not have an account yet, landing on that card. */}
             <Link
               href="/login?mode=signup"
-              className="label border border-ink bg-ink px-3 py-2 text-canvas transition-colors hover:bg-transparent hover:text-ink"
+              className={`${NAV} border border-ink bg-ink px-3 py-2 text-canvas transition-colors hover:bg-transparent hover:text-ink`}
             >
               Sign up
             </Link>
