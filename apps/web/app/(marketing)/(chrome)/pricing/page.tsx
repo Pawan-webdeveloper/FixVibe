@@ -13,7 +13,7 @@ import { BillingButton } from '@/components/billing/billing-button.tsx'
 
 export const metadata = {
   title: 'Pricing',
-  description: 'Scan any site for free. Pro unlocks every finding and the prompt that fixes them.',
+  description: 'Scan any site free with an account. Pro unlocks every finding and the prompt that fixes them.',
 }
 
 function features(plan: Plan): string[] {

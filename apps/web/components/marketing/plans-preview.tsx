@@ -75,9 +75,10 @@ export function PlansPreview() {
       </div>
 
       <p className="mt-6 max-w-[62ch] text-[15px] leading-relaxed text-ink/70 text-pretty">
-        Scanning needs no account, and the score, the pillar breakdown and every finding’s title and
-        severity are public without one. A free account opens the worst few in full — the evidence
-        and the fix. You always know exactly what you are missing rather than being asked to guess.
+        A scan needs a free account. The report it makes is public, though — the score, the pillar
+        breakdown and every finding’s title and severity show on a shareable URL without one. A free
+        account opens the worst few in full, and Pro opens them all — the evidence and the fix. You
+        always know exactly what you are missing rather than being asked to guess.
       </p>
     </Section>
   )

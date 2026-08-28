@@ -53,8 +53,9 @@ export async function startScanAction(formData: FormData): Promise<void> {
   if (!target.ok) backToHero(target.reason)
 
   /*
-   * The product rule the hero is built on: scanning is free, an account opens
-   * the findings. A signed-out visitor is sent to sign in and comes back here.
+   * The product rule the hero is built on: a scan needs a free account, which
+   * opens the worst findings (Pro opens them all). A signed-out visitor is sent
+   * to sign in and comes back here.
    *
    * The URL they typed is NOT carried in this redirect. The enhanced path keeps
    * it in sessionStorage, which no server redirect can write; carrying it as a

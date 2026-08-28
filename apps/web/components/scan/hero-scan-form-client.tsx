@@ -5,7 +5,7 @@
  * Mounted by hero.tsx inside the (marketing) route group, which is otherwise a
  * static server component. This is the one place on the landing page that
  * needs to know who you are: the only action the page exists to collect is a
- * scan, and the rule for that is "an account opens the findings".
+ * scan, and the rule for that is that a scan requires an account.
  *
  * SSR caveat: the Convex auth context only exists on the client, so the form
  * is gated behind a "mounted" state and rendered as a static placeholder on

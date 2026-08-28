@@ -19,7 +19,7 @@ export function FinalCta() {
         </h2>
         <p className="mt-4 max-w-[52ch] text-lg leading-relaxed text-ink/70 text-pretty">
           {TOTAL_CHECKS} checks, the evidence behind every one, and a prompt that fixes them. About
-          a second, and no account.
+          a second, and a free account.
         </p>
 
         <div className="mt-8 max-w-xl">
