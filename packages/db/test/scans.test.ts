@@ -26,6 +26,7 @@ import {
   findRecentAnonymousScan,
   findRecentScanForUser,
   getScanForViewer,
+  listRecentScansForUser,
   markScanRunning,
 } from '../src/queries/scans.ts'
 import { ANONYMOUS, type Viewer } from '../src/queries/viewer.ts'
@@ -320,6 +321,41 @@ describe.skipIf(!live)('scan queries (SCANLYFIX_DB=1)', () => {
       await completeScan(id, done)
       expect(await findRecentScanForUser(url, 'fast', ownerId, recently())).toBeNull()
       expect((await findRecentScanForUser(url, 'deep', ownerId, recently()))?.id).toBe(id)
+    })
+  })
+
+  describe('a person\'s ad-hoc scan history', () => {
+    const viewer = (id: string): Viewer => ({ kind: 'user', userId: id })
+
+    it('lists this account\'s own project-less scans, newest first', async () => {
+      const older = await track(open({ url: `https://h1-${randomUUID()}.test/`, requestedBy: ownerId }))
+      const newer = await track(open({ url: `https://h2-${randomUUID()}.test/`, requestedBy: ownerId }))
+
+      const list = await listRecentScansForUser(viewer(ownerId), 50)
+      const ids = list.map((s) => s.id)
+      expect(ids).toContain(older)
+      expect(ids).toContain(newer)
+      // Newest first: the later-created id appears before the earlier one.
+      expect(ids.indexOf(newer)).toBeLessThan(ids.indexOf(older))
+    })
+
+    it('does not show another account\'s scans', async () => {
+      const mine = await track(open({ url: `https://mine-${randomUUID()}.test/`, requestedBy: ownerId }))
+      const theirs = await track(open({ url: `https://theirs-${randomUUID()}.test/`, requestedBy: strangerId }))
+
+      const ids = (await listRecentScansForUser(viewer(ownerId), 50)).map((s) => s.id)
+      expect(ids).toContain(mine)
+      expect(ids).not.toContain(theirs)
+    })
+
+    it('excludes scans that belong to a project — those have their own history', async () => {
+      const projScan = await track(open({ url: `https://proj-${randomUUID()}.test/`, requestedBy: ownerId, projectId }))
+      const ids = (await listRecentScansForUser(viewer(ownerId), 50)).map((s) => s.id)
+      expect(ids).not.toContain(projScan)
+    })
+
+    it('returns nothing for an anonymous viewer', async () => {
+      expect(await listRecentScansForUser(ANONYMOUS)).toEqual([])
     })
   })
 

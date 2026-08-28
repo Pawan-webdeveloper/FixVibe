@@ -5,28 +5,45 @@
  * absent when the two scans were produced by different engine versions or scan
  * depths. "Coverage changed" is the truth in that case; a number would blame
  * the site for our deploy.
+ *
+ * Below the projects: the account's own ad-hoc scans — the ones run from the
+ * home page without being saved into a project. They were attributed to the
+ * account but shown nowhere, so a signed-in scan felt like it disappeared. This
+ * is where it lives now.
  */
 
 import Link from 'next/link'
-import { listProjectSummaries, type ProjectSummary } from '@scanlyfix/db'
+import { listProjectSummaries, listRecentScansForUser, type ProjectSummary, type Scan } from '@scanlyfix/db'
 import { getViewer, requireUser } from '@/lib/authz.ts'
 import { NewProjectForm } from './new-project-form.tsx'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 
 export const metadata = { title: 'Projects' }
 
+/** UTC, because a report link is shared across time zones. */
+function stamp(date: Date): string {
+  return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
+}
+
 export default async function DashboardPage() {
   const user = await requireUser('/dashboard')
   const viewer = await getViewer()
-  const summaries = await listProjectSummaries(viewer)
+  const [summaries, recentScans] = await Promise.all([
+    listProjectSummaries(viewer),
+    listRecentScansForUser(viewer),
+  ])
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
-      <LabeledRule
-        as="h1"
-        label="Projects"
-        trailing={`${summaries.length} tracked`}
-      />
+      <LabeledRule as="h1" label="Projects" trailing={`${summaries.length} tracked`} />
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <NewProjectForm orgId={user.orgId} />
       </div>
@@ -39,6 +56,17 @@ export default async function DashboardPage() {
             <ProjectRow key={summary.project.id} summary={summary} />
           ))}
         </ul>
+      )}
+
+      {recentScans.length > 0 && (
+        <section className="mt-16">
+          <LabeledRule as="h2" label="Recent scans" trailing="not saved to a project" />
+          <ul className="mt-6 flex flex-col gap-2">
+            {recentScans.map((scan) => (
+              <ScanRow key={scan.id} scan={scan} />
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   )
@@ -85,6 +113,36 @@ function ProjectRow({ summary }: { summary: ProjectSummary }) {
               {delta === null ? 'coverage changed' : delta === 0 ? 'no change' : delta > 0 ? `+${delta}` : delta}
             </p>
           </div>
+        )}
+      </Link>
+    </li>
+  )
+}
+
+function ScanRow({ scan }: { scan: Scan }) {
+  const score = scan.scores?.overall ?? null
+
+  return (
+    <li>
+      <Link
+        href={`/scan/${scan.id}`}
+        className="flex items-center gap-4 border border-line px-5 py-3.5 hover:bg-surface"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{hostOf(scan.url)}</p>
+          <p className="truncate font-mono text-xs text-muted">{stamp(scan.createdAt)}</p>
+        </div>
+
+        {score !== null ? (
+          <span className="text-xl font-semibold tabular-nums">{score}</span>
+        ) : (
+          <span className="label text-muted">
+            {scan.status === 'failed'
+              ? 'failed'
+              : scan.status === 'queued' || scan.status === 'running'
+                ? `${scan.status}…`
+                : '—'}
+          </span>
         )}
       </Link>
     </li>
