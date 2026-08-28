@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BrandMark } from './brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 
 /**
  * Navigation for the pages a logged-out visitor sees.
@@ -36,7 +36,7 @@ export function SiteHeader() {
           aria-label="ScanlyFix — home"
           className="flex items-center gap-2 transition-opacity hover:opacity-80"
         >
-          <BrandMark size={18} track="var(--line)" arc="var(--ink)" />
+          <LogoBadge size={26} />
           <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
         </Link>
 

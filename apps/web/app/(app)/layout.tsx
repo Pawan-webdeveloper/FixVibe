@@ -10,7 +10,7 @@
 
 import Link from 'next/link'
 import { requireUser } from '@/lib/authz.ts'
-import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 import { ConvexAuthNextjsServerProvider } from '@convex-dev/auth/nextjs/server'
 import { ConvexAuthProvider } from '@/components/auth/convex-provider.tsx'
 import { SignOutButton } from '@/components/auth/sign-out-button.tsx'
@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                          supports-[backdrop-filter]:bg-canvas/80 supports-[backdrop-filter]:backdrop-blur-md">
         <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-6">
           <Link href="/dashboard" className="flex items-center gap-2" aria-label="ScanlyFix — projects">
-            <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
+            <LogoBadge size={22} />
             <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
           </Link>
           <Link href="/dashboard" className="label text-muted transition-colors hover:text-ink">

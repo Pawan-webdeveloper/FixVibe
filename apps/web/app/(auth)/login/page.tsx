@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAuthActions } from '@convex-dev/auth/react'
-import { BrandMark } from '@/components/marketing/brand-mark.tsx'
+import { LogoBadge } from '@/components/brand/logo.tsx'
 import { GitHubMark, GoogleMark } from '@/components/auth/provider-marks.tsx'
 import { describeSignInError } from '@/components/auth/sign-in-error.ts'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
@@ -328,7 +328,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-sm px-6 py-24">
       <Link href="/" className="flex items-center gap-2" aria-label="ScanlyFix — home">
-        <BrandMark size={16} track="var(--line)" arc="var(--ink)" />
+        <LogoBadge size={22} />
         <span className="text-[15px] font-semibold tracking-tight">scanlyfix</span>
       </Link>
       <div className="mt-8">
