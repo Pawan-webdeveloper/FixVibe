@@ -90,26 +90,25 @@ export async function POST(request: Request) {
   const profile: ScanProfile = body.profile === undefined ? 'fast' : (body.profile as ScanProfile)
   if (!isProfile(profile)) return fail(`Unknown scan profile. Use one of: ${PROFILES.join(', ')}.`, 400)
 
+  /*
+   * A scan requires an account, and the check sits BEFORE the dedup cache on
+   * purpose: a cached result handed to a signed-out caller is still a scan they
+   * got without signing in. The 401 is the server's half of the landing page's
+   * gate — the browser also redirects a signed-out visitor to /login, but the
+   * cookie is the only thing that cannot be faked by a stale client token, so
+   * this is where "signing in is required to scan" is actually enforced.
+   *
+   * The client turns this status into a trip to /login, not an error message.
+   */
+  const viewer = await getViewer()
+  if (viewer.kind !== 'user') {
+    return fail('Sign in to run a scan. It takes a moment and keeps your reports.', 401)
+  }
+
   // A hit here means we already asked this exact question recently. Reusing the
-  // answer protects the target, the visitor's quota, and their patience.
+  // answer protects the target, the account's quota, and their patience.
   const cached = await findRecentAnonymousScan(target.url, profile, new Date(Date.now() - DEDUP_WINDOW_MS))
   if (cached) return NextResponse.json({ scanId: cached.id, cached: true })
-
-  const viewer = await getViewer()
-
-  /*
-   * A deep scan crawls the target's own links, renders it in a real browser and
-   * spends a shared PageSpeed quota. That is an order of magnitude more of
-   * somebody else's bandwidth than a fast scan, and there is no account to
-   * meter it against or to hold responsible when it is anonymous.
-   *
-   * Signed in is the gate, not a paid plan — the monthly allowance already
-   * bounds it, and putting depth behind a price would make the free report a
-   * worse measurement rather than a smaller one.
-   */
-  if (profile === 'deep' && viewer.kind !== 'user') {
-    return fail('Sign in to run a deep scan. Fast scans need no account.', 401)
-  }
 
   const quota = await checkScanQuota(viewer)
   if (!quota.ok) return fail(quota.reason, 429)
