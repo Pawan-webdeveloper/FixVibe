@@ -1,15 +1,21 @@
-import { SupabaseAuthProvider } from '@/components/auth/supabase-provider.tsx'
-
 /**
- * The Supabase Auth client context, mounted here rather than at the root.
+ * Shell for the auth route group.
  *
- * The session cookie is read server-side by the proxy and by `currentIdentity()`
- * in `lib/auth/supabase.ts`; this provider's job is to expose the Supabase
- * client to client components (`useSupabaseClient`, `useSession`). Mounted
- * under (auth) because these are the pages where signing in actually happens,
- * keeping the marketing landing page and the pricing page free of an auth
- * client they do not need.
+ * Deliberately a pass-through: the (auth) layout used to mount a Supabase
+ * provider here so the (auth) pages could call `useSupabaseClient()`.
+ * That provider rendered on the server with the children, but the
+ * children prop is RSC-serialized, and the children that needed the
+ * context (the login form) ran with the context provider's server-render
+ * output in a state that React's `useContext` could not see. The form
+ * threw during SSR.
+ *
+ * The login page now mounts its own provider as a client-only island
+ * (see `app/(auth)/login/login-form-client.tsx`). If anything else ever
+ * appears under (auth) and needs Supabase, it should mount its own
+ * provider the same way — keeping the providers local to the leaves
+ * that need them is the rule that broke.
  */
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <SupabaseAuthProvider>{children}</SupabaseAuthProvider>
+  return <>{children}</>
 }
