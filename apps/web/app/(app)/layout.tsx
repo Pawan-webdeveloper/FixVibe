@@ -6,39 +6,43 @@
  * this is NOT doing: it is not the access control for the data below it. Each
  * query still takes a Viewer, because a layout only guards the pages it wraps
  * and a query can be reached from anywhere.
+ *
+ * ## What this layout does and does not restyle
+ *
+ * It supplies the rail, and nothing else. The `.console` class that switches
+ * the product from its monospace terminal identity to a sans console face is
+ * applied by the sidebar and by the dashboard page themselves — deliberately
+ * NOT here, because every other page under this layout (the project view,
+ * settings, verify) was designed in the terminal face and is not part of this
+ * change. They gain the rail as navigation and keep their own typography.
+ *
+ * The two counts are read here rather than in the sidebar because the sidebar
+ * is a client component; it displays what it is handed and queries nothing.
  */
 
-import Link from 'next/link'
-import { requireUser } from '@/lib/authz.ts'
-import { LogoBadge } from '@/components/brand/logo.tsx'
+import { listProjectSummaries, listRecentScansForUser } from '@scanlyfix/db'
+import { getViewer, requireUser } from '@/lib/authz.ts'
 import { SupabaseAuthProvider } from '@/components/auth/supabase-provider.tsx'
-import { SignOutButton } from '@/components/auth/sign-out-button.tsx'
+import { Sidebar } from '@/components/console/sidebar.tsx'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser()
+  const viewer = await getViewer()
+  const [summaries, recentScans] = await Promise.all([
+    listProjectSummaries(viewer),
+    listRecentScansForUser(viewer),
+  ])
 
   return (
     <SupabaseAuthProvider>
-      <div className="flex min-h-dvh flex-col">
-        <header className="sticky top-0 z-50 border-b border-line bg-canvas
-                         supports-[backdrop-filter]:bg-canvas/80 supports-[backdrop-filter]:backdrop-blur-md">
-          <nav aria-label="Main" className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-6">
-            <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="ScanlyFix — projects">
-              <LogoBadge size={40} />
-              <span className="text-xl font-semibold uppercase tracking-tight">scanlyfix</span>
-            </Link>
-            <Link href="/dashboard" className="label text-muted transition-colors hover:text-ink">
-              Projects
-            </Link>
-            <Link href="/settings/billing" className="label text-muted transition-colors hover:text-ink">
-              Settings
-            </Link>
-            <div className="flex-1" />
-            <span className="label hidden text-muted sm:inline">{user.email}</span>
-            <SignOutButton className="label text-muted transition-colors hover:text-ink" />
-          </nav>
-        </header>
-        <main className="flex-1">{children}</main>
+      <div className="flex min-h-dvh">
+        <Sidebar
+          email={user.email}
+          plan={user.plan}
+          sites={summaries.length}
+          scans={recentScans.length}
+        />
+        <main className="min-w-0 flex-1">{children}</main>
       </div>
     </SupabaseAuthProvider>
   )

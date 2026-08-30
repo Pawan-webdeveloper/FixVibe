@@ -7,6 +7,10 @@ import { createProjectAction, type ActionState } from './actions.ts'
  * The orgId is passed through the form for convenience, and re-derived from the
  * session inside the action — a value that arrives in a POST body is a claim,
  * not a fact.
+ *
+ * Styled in the console's tokens rather than the terminal's, because the
+ * dashboard is the only page that mounts it. If it ever appears on a terminal
+ * surface it needs the `tone` treatment ScanForm has, not a second copy.
  */
 export function NewProjectForm({ orgId }: { orgId: string }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(createProjectAction, {})
@@ -29,18 +33,21 @@ export function NewProjectForm({ orgId }: { orgId: string }) {
           placeholder="example.com"
           disabled={pending}
           aria-invalid={Boolean(state.error)}
-          className="border border-line bg-surface px-3 py-2 font-mono text-sm disabled:opacity-60"
+          className="rounded-lg border border-c-line bg-c-card px-3 py-2 text-[13.5px] text-c-ink
+                     placeholder:text-c-muted focus-visible:outline-2 focus-visible:outline-offset-1
+                     focus-visible:outline-c-brand disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={pending}
-          className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-60"
+          className="rounded-lg bg-c-brand px-4 py-2 text-[13.5px] font-semibold text-c-brand-ink
+                     transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          {pending ? 'Adding…' : 'Add project'}
+          {pending ? 'Adding…' : 'Add domain'}
         </button>
       </div>
       {state.error && (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-[12.5px] text-sev-high">
           {state.error}
         </p>
       )}

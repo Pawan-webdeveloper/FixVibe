@@ -15,8 +15,39 @@ import { useSession } from '@/components/auth/supabase-context.ts'
  * it would race for the one key. On the dashboard it is the only scan form, and
  * it is where a visitor now lands after signing in from a scan, so there it
  * opts in and reclaims the URL they typed before the detour.
+ *
+ * `tone` picks the skin, and nothing else. The product has two surfaces — the
+ * square monospace terminal and the rounded console — and this form appears on
+ * both. Keeping it one component with two class sets is what stops the two
+ * copies from drifting on the part that matters, which is the submit logic.
  */
-export function ScanForm({ restore = false }: { restore?: boolean } = {}) {
+const TONES = {
+  terminal: {
+    label: 'block text-sm font-medium',
+    field:
+      'min-w-0 flex-1 border border-line bg-surface px-4 py-3 font-mono text-base text-ink ' +
+      'placeholder:text-muted disabled:opacity-60',
+    button: 'bg-accent px-6 py-3 text-base font-medium text-accent-ink disabled:opacity-60 sm:w-auto',
+    error: 'mt-2 min-h-5 text-sm text-danger',
+  },
+  console: {
+    label: 'block text-[13px] font-medium text-c-muted',
+    field:
+      'min-w-0 flex-1 rounded-lg border border-c-line bg-c-bg px-4 py-2.5 text-[15px] text-c-ink ' +
+      'placeholder:text-c-muted focus-visible:outline-2 focus-visible:outline-offset-1 ' +
+      'focus-visible:outline-c-brand disabled:opacity-60',
+    button:
+      'rounded-lg bg-c-brand px-6 py-2.5 text-[14px] font-semibold text-c-brand-ink ' +
+      'transition-opacity hover:opacity-90 disabled:opacity-60 sm:w-auto',
+    error: 'mt-2 min-h-5 text-[13px] text-sev-high',
+  },
+} as const
+
+export function ScanForm({
+  restore = false,
+  tone = 'terminal',
+}: { restore?: boolean; tone?: keyof typeof TONES } = {}) {
+  const skin = TONES[tone]
   const inputId = useId()
   const errorId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -35,7 +66,7 @@ export function ScanForm({ restore = false }: { restore?: boolean } = {}) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="w-full">
-      <label htmlFor={inputId} className="block text-sm font-medium">
+      <label htmlFor={inputId} className={skin.label}>
         Website address
       </label>
 
@@ -55,20 +86,20 @@ export function ScanForm({ restore = false }: { restore?: boolean } = {}) {
           disabled={pending}
           aria-invalid={error !== null}
           aria-describedby={error ? errorId : undefined}
-          className="min-w-0 flex-1 border border-line bg-surface px-4 py-3 font-mono text-base text-ink placeholder:text-muted disabled:opacity-60"
+          className={skin.field}
         />
 
         <button
           type="submit"
           disabled={pending}
-          className="bg-accent px-6 py-3 text-base font-medium text-accent-ink disabled:opacity-60 sm:w-auto"
+          className={skin.button}
         >
           {pending ? 'Scanning…' : 'Scan'}
         </button>
       </div>
 
       {/* Announced to screen readers when it appears, not only when focused. */}
-      <p id={errorId} role="alert" aria-live="polite" className="mt-2 min-h-5 text-sm text-danger">
+      <p id={errorId} role="alert" aria-live="polite" className={skin.error}>
         {error}
       </p>
     </form>

@@ -121,10 +121,26 @@ body {
 }
 
 /*
- * Square, everywhere. The one exception is drawn, not styled: the score ring
- * and the meter caps are SVG geometry, which this cannot and should not reach.
+ * Square, everywhere — except inside the console.
+ *
+ * This rule is UNLAYERED while Tailwind's `rounded-*` utilities live in
+ * `@layer utilities`, and unlayered styles beat layered ones no matter how
+ * specific the layered one is. That is what makes the rule absolute: it is not
+ * winning on specificity, so no utility can out-specify it. (The score ring
+ * and the meter caps escape it by being SVG geometry, and the logo chip by
+ * setting its radius as an inline style — the only other thing that outranks
+ * an unlayered rule.)
+ *
+ * Absolute is right for the terminal surfaces and wrong for the console, which
+ * is built out of rounded cards. So the console subtree is excluded here
+ * rather than fought with `!important` at every call site. `:not()` takes the
+ * specificity of its most specific argument, (0,1,0) — still unlayered, so
+ * everything outside `.console` behaves exactly as it did before.
  */
-:where(button, input, textarea, select, a, section, article, aside, div, span, li, dd, dt) {
+:where(button, input, textarea, select, a, section, article, aside, div, span, li, dd, dt):not(
+    .console,
+    .console *
+  ) {
   border-radius: 0;
 }
 
@@ -409,4 +425,115 @@ body {
 
 .hero-menu > summary::-webkit-details-marker {
   display: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Console                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The signed-in console is the one surface that is NOT the terminal.
+ *
+ * Everything else in this product is monospace, square and two-coloured on
+ * purpose — it reads machines and reports what they said. A console is a
+ * different job: it is scanned, not read, and the eye needs shape and colour
+ * to sort a severity bar from a tile from a card at a glance. So this scope
+ * opts back into a sans face, rounded corners and a fuller palette.
+ *
+ * It is a SCOPE, not a redefinition. Every token below is namespaced `c-` and
+ * the type rule only applies under `.console`, so the report page, the
+ * marketing pages and the sign-in card keep the terminal identity untouched.
+ * Nothing here can leak: no rule outside this block is modified.
+ *
+ * The class is applied to the SIDEBAR and to the dashboard page, not to the
+ * signed-in layout as a whole. Putting it on the layout re-typeset every other
+ * page under it — the project view, settings, the verify screen — in a face
+ * they were not designed in. The rail is shared chrome; the type is not.
+ */
+@theme inline {
+  --color-c-bg: var(--c-bg);
+  --color-c-card: var(--c-card);
+  --color-c-line: var(--c-line);
+  --color-c-ink: var(--c-ink);
+  --color-c-muted: var(--c-muted);
+  --color-c-soft: var(--c-soft);
+  --color-c-side: var(--c-side);
+  --color-c-side-ink: var(--c-side-ink);
+  --color-c-side-dim: var(--c-side-dim);
+  --color-c-side-active: var(--c-side-active);
+  --color-c-brand: var(--c-brand);
+  --color-c-brand-ink: var(--c-brand-ink);
+
+  /* Severity, tuned for a light card rather than for the mono theme. These sit
+     beside --critical etc. rather than replacing them: the report page still
+     uses those, and the two surfaces are allowed to weight colour differently. */
+  --color-sev-critical: var(--sev-critical);
+  --color-sev-high: var(--sev-high);
+  --color-sev-medium: var(--sev-medium);
+  --color-sev-low: var(--sev-low);
+  --color-sev-info: var(--sev-info);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root {
+  --c-bg: #f7f8fa;
+  --c-card: #ffffff;
+  --c-line: #e6e8ee;
+  --c-ink: #16181d;
+  --c-muted: #6b7280;
+  --c-soft: #f3f4f8;
+  --c-side: #3b3ba8;
+  --c-side-ink: #ffffff;
+  --c-side-dim: #b9bcf0;
+  --c-side-active: #ffffff1f;
+  --c-brand: #4f46e5;
+  --c-brand-ink: #ffffff;
+
+  --sev-critical: #9f1239;
+  --sev-high: #ef4444;
+  --sev-medium: #f59e0b;
+  --sev-low: #3b82f6;
+  --sev-info: #94a3b8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0e1116;
+    --c-card: #161a21;
+    --c-line: #262c36;
+    --c-ink: #e8ebf0;
+    --c-muted: #98a1b0;
+    --c-soft: #1c212a;
+    --c-side: #1b1c3d;
+    --c-side-ink: #ffffff;
+    --c-side-dim: #9ea3d8;
+    --c-side-active: #ffffff1a;
+    --c-brand: #6366f1;
+    --c-brand-ink: #ffffff;
+
+    --sev-critical: #fb7185;
+    --sev-high: #f87171;
+    --sev-medium: #fbbf24;
+    --sev-low: #60a5fa;
+    --sev-info: #94a3b8;
+  }
+}
+
+/*
+ * The two global rules this scope has to undo, and nothing else.
+ *
+ * `body` sets the mono face and a negative tracking that a sans face does not
+ * want; `:where(...)` squares every corner at zero specificity. A single class
+ * out-specifies the second, and the descendant selector handles the first.
+ */
+.console,
+.console :where(button, input, textarea, select, a, div, span, li, dd, dt, p, h1, h2, h3) {
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+}
+
+/* Tabular figures wherever a count sits next to another count. */
+.console-num {
+  font-variant-numeric: tabular-nums;
 }
