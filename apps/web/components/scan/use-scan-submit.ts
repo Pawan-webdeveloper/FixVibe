@@ -31,16 +31,20 @@
  *
  * ## SSR safety
  *
- * `useConvexAuth` needs a provider that has hydrated on the client. Until this
- * has mounted we report `authLoading: true`, which makes the gate a no-op and
- * keeps the server-rendered HTML identical to the first client render.
+ * The hook is intentionally provider-agnostic: it takes the auth state in
+ * through `options.authState`, supplied by the calling component from
+ * whichever Supabase provider happens to be mounted. That keeps the
+ * behaviour identical between the (app) layout's provider and the marketing
+ * page's client-only provider, which expose different React contexts. Until
+ * the client has mounted, we report `authLoading: true`, which makes the
+ * gate a no-op and keeps the server-rendered HTML identical to the first
+ * client render.
  */
 
 'use client'
 
 import { useEffect, useState, type RefObject } from 'react'
 import { useRouter } from 'next/navigation'
-import { useConvexAuth } from '@convex-dev/auth/react'
 import { normalizeScanTarget } from '@/lib/url.ts'
 import {
   sessionStore,
@@ -72,6 +76,14 @@ export interface ScanSubmitOptions {
   restore?: boolean
   /** Focused after a restore, so the visitor can just press Enter. */
   inputRef?: RefObject<HTMLInputElement | null>
+  /**
+   * The Supabase auth state, supplied by the calling component via
+   * `useSession()` from the relevant Supabase provider. Inlined rather
+   * than imported here so this hook works in both the (app) layout's
+   * provider and the marketing page's client-only provider, which expose
+   * separate React contexts.
+   */
+  authState: { isAuthenticated: boolean; isLoading: boolean }
 }
 
 export interface ScanSubmit {
@@ -87,17 +99,17 @@ export interface ScanSubmit {
   authLoading: boolean
 }
 
-export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
-  const { restore = false, inputRef } = options
+export function useScanSubmit(options: ScanSubmitOptions): ScanSubmit {
+  const { restore = false, inputRef, authState } = options
   const router = useRouter()
-  const { isLoading: rawLoading, isAuthenticated } = useConvexAuth()
+  const { isAuthenticated, isLoading: isSessionLoading } = authState
   const [value, setValueState] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
   /*
-   * Until this has mounted on the client there is no Convex auth context.
+   * Until this has mounted on the client there is no Supabase auth context.
    * Reporting "still loading" keeps the gate closed for that first render, so
    * the server's HTML and the client's first pass agree.
    */
@@ -105,7 +117,7 @@ export function useScanSubmit(options: ScanSubmitOptions = {}): ScanSubmit {
     setHydrated(true)
   }, [])
 
-  const authLoading = !hydrated || rawLoading
+  const authLoading = !hydrated || isSessionLoading
 
   /*
    * The return leg of a sign-in. Runs once the visitor is known to be signed

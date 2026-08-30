@@ -1,0 +1,42 @@
+# User taste — durable preferences
+- Expects plan-mode discipline for non-trivial changes: explore codebase → write detailed plan → exit plan mode for approval → execute with a visible todo list. Confidence: 0.9
+- Provides MCP/CLI setup details (e.g. `opencode mcp auth`, `npx skills add`) up-front when introducing a new provider, so the agent can configure tools before writing code. Confidence: 0.85
+- Happy with web_search + web_fetch for SDK specifics before implementing (used to confirm Supabase SSR patterns, deprecated packages). Confidence: 0.8
+- Heavy, well-argued doc comments are the norm — explain the *why* (reasoning, tradeoffs, history of past mistakes), not the *what*. Multi-paragraph block comments on every non-trivial module. Confidence: 0.95
+- Comments frequently reference prior bugs/migrations explicitly ("`id` was once copied from the provider…"; "Convex wrapped server errors before they arrived, hence…"). Use this historical framing. Confidence: 0.85
+- Imperative voice in explanatory prose ("The cookie is a JWT and its `sub` claim is the identity, so decoding it locally would be free. Decoding is not verifying."). Confidence: 0.85
+- Use "we" / "this codebase" / "this product" rather than passive voice when describing tradeoffs. Confidence: 0.85
+- Tight ellipses and em-dashes; split long sentences with semicolons. Confidence: 0.8
+- Single seam for cross-cutting concerns (e.g. `currentIdentity()` is the *only* place that knows the auth provider; everything below it deals in `Viewer`). Prefer this over distributed provider abstractions. Confidence: 0.9
+- Identity indirection column (`auth_subject` / `authSubject`) keyed on the provider's stable id, never on email — so the next vendor swap is one column, not a schema rewrite. Confidence: 0.95
+- `'server-only'` import on any module that touches server-only APIs; `'use client'` on any file that uses hooks. Lay these down at the top of the file. Confidence: 0.9
+- `server-only` env values live in `lib/env.ts`; `NEXT_PUBLIC_` values live in a separate `lib/public-env.ts` with a `required()` helper that throws on build-time absence with a `.env.example` reference. Confidence: 0.9
+- Auth seam pattern: `getViewer()` → `userIdForAuthSubject()` → `Viewer` union. Every query takes the Viewer; no path bypasses authorization. Confidence: 0.9
+- No-password auth (Google + GitHub OAuth + emailed 6-digit code) is the explicit product rule. Do not introduce a password field. Confidence: 0.95
+- Email code > magic link: codes survive corporate mail scanners rewriting links and opening in a different browser. Confidence: 0.8
+- Use `@supabase/ssr`'s modern `getAll`/`setAll` cookie adapter, not the deprecated `get`/`set`/`remove` shape. Confidence: 0.9
+- `getUser()` for server-side authorization (validates JWT against Supabase keys); `getSession()` only for client-side display. Never use `getSession()` for authorization. Confidence: 0.95
+- `setAll` writes from a Server Component throw by design; the catch swallows the error in that case and lets the proxy refresh on the next request. Confidence: 0.85
+- Stale-cookie guards: shape-check (`isUsableSupabaseCookie` looks for `{`, `}`, `"`) rather than parsing — cheap and avoids throw-on-bad-cookie lockouts. Strip unparseable cookies from request AND append `Set-Cookie: …; Max-Age=0` on response. Confidence: 0.9
+- Proxy (Next 16 `proxy.ts`) does session refresh only — NO authorization gating here. Authorization lives in the query layer or it doesn't exist. Confidence: 0.95
+- Proxy matcher excludes `/api/scan` so anonymous scans don't pay a round trip to the identity provider. Confidence: 0.85
+- Lazy state init for clients/SDKs that own WebSocket connections: `const [supabase] = useState(() => createClient())`. Rebuilding on every render forces reconnects. Confidence: 0.9
+- Context + hooks pattern over deprecated helper packages (e.g. custom `useSupabaseClient`/`useSession` instead of `@supabase/auth-helpers-react`, which is deprecated). Confidence: 0.85
+- Suspense boundary around any component using `useSearchParams`, to keep the page statically prerendered. Confidence: 0.9
+- Skeleton-on-server-then-real-on-client pattern for hydration: render an identical-pixel skeleton on the server, swap to the real client component in a `useEffect`. Avoids layout shift and matches static-rendered HTML. Confidence: 0.9
+- Portal for modals when the parent has `backdrop-filter` — `backdrop-filter` makes the element the containing block for `position: fixed`, clipping the overlay. Use `createPortal` to escape to `<body>`. Confidence: 0.85
+- Mount provider scopes narrowly (e.g. `(auth)` and `(app)` layouts, NOT the root) when the root pages should remain static server components. The auth context only exists where it's needed. Confidence: 0.85
+- `SessionContextProvider` equivalent: own a `createContext` + `useContext` + a small custom hook set rather than pulling in another helper package. Confidence: 0.8
+- Sign-in error messages use a **whitelist**, not a filter. Mark safe messages with `scanlyfix:` prefix; everything else becomes one fixed fallback sentence. This prevents providers leaking owner email addresses, request IDs, stack traces to a public sign-in page. Confidence: 0.95
+- Keep the first paragraph only (drop SDK wrappers, stacks, request IDs). Confidence: 0.85
+- Vitest. Drop provider-specific tests when migrating providers; keep provider-agnostic tests (e.g. `describeSignInError` is preserved across Convex→Supabase). Confidence: 0.85
+- Tests should guard regressions to specific incidents (e.g. "operator's own address on the public sign-in page"). Reference the incident in a doc comment. Confidence: 0.8
+- pnpm workspaces, turbo for orchestration (`pnpm exec turbo run typecheck test`). Confidence: 0.9
+- Drizzle ORM (Postgres) for the data layer; the schema is a projection of `@scanlyfix/checks` engine types, not an independent model. Severity/category enums compile-time-locked to the engine. Confidence: 0.9
+- Server connects to Postgres as the database owner — RLS is bypassed. Authorization lives in the query layer or it does not exist. Confidence: 0.95
+- Setup docs (`SUPABASE_SETUP.md`, `CONVEX_SETUP.md` style) open with a security rotation warning when secrets were previously committed in plaintext. Confidence: 0.9
+- Use tables for multi-provider configuration (provider / what to enable / where to register redirect URI). Confidence: 0.85
+- Include a "What changed when we moved off X" section at the bottom of migration setup docs — explicit about what is now different. Confidence: 0.8
+- `DEPLOY.md` / setup docs call out a "Skipped" failure mode for each step (what breaks if this step is missed). Confidence: 0.85
+- Prefers detailed, multi-paragraph responses with reasoning over terse confirmations. The user accepts ~5K-token implementation summaries without complaint. Confidence: 0.85
+- Tolerates and benefits from inline citation links to official docs (e.g. "Supabase auth-helpers migration guide", "Sources: …") in final summaries. Confidence: 0.8

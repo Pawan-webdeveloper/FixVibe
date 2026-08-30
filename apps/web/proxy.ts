@@ -1,10 +1,11 @@
 /**
  * Session refresh on every request.
  *
- * Convex Auth's access tokens are short-lived; without something rotating them
- * the session dies mid-use and every signed-in page starts failing
- * intermittently. `convexAuthNextjsMiddleware` is what performs that rotation
- * and rewrites the cookie. That is all it does.
+ * Supabase Auth's access tokens are short-lived; without something rotating
+ * them the session dies mid-use and every signed-in page starts failing
+ * intermittently. The `@supabase/ssr` createServerClient performs that
+ * rotation on every call to `auth.getUser()` and writes the refreshed
+ * cookies through its `setAll` adapter. That is all this file does.
  *
  * It deliberately contains NO authorization. Gating routes here would give the
  * app a second, weaker copy of its access rules — and the copy that lives in
@@ -16,83 +17,136 @@
  *
  * ## The stale-cookie guard around it
  *
- * A refresh token belongs to the deployment that issued it. After the app was
- * repointed to a new Convex deployment, browsers still carrying the old
- * `__convexAuthRefreshToken` cookie made the library's own refresh throw
- * `Can't parse refresh token` — an unhandledRejection that takes the request
- * down instead of degrading to signed-out, and which the sign-in path cannot
- * clear because it refreshes the same doomed cookie on the way through.
+ * A Supabase auth cookie is a JSON blob the SDK wrote. If the cookie's value
+ * is not the JSON the SDK expects — from an older release, a different
+ * Supabase project, or a half-finished sign-in — `createServerClient` will
+ * throw when it tries to parse it. The throw happens before the request has a
+ * chance to render, and the sign-in path itself refreshes the same cookie on
+ * the way through, so a broken session can lock a visitor out entirely.
  *
- * So before the library sees the request, an unparseable refresh cookie is
- * stripped from it, and the response is told to clear it from the browser. The
- * visitor is simply signed out — the honest state for a credential no backend
- * can read — and can sign in again cleanly. A well-formed cookie is left
- * untouched, so a normal session pays nothing for this.
+ * So before the library sees the request, an unparseable Supabase auth
+ * cookie is stripped from it, and the response is told to clear it from the
+ * browser. The visitor is simply signed out — the honest state for a
+ * credential no backend can read — and can sign in again cleanly. A
+ * well-formed cookie is left untouched, so a normal session pays nothing
+ * for this.
  */
 
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
-import { convexAuthNextjsMiddleware } from '@convex-dev/auth/nextjs/server'
+import { createServerClient } from '@supabase/ssr'
 import {
-  JWT_COOKIES,
-  REFRESH_TOKEN_COOKIES,
-  isUsableRefreshCookie,
-} from '@/lib/auth/stale-cookie.ts'
-
-const convexMiddleware = convexAuthNextjsMiddleware()
+  SUPABASE_AUTH_COOKIES,
+  isUsableSupabaseCookie,
+} from '@/lib/auth/supabase-cookie.ts'
+import { publicEnv } from '@/lib/public-env.ts'
+import { serverEnv } from '@/lib/env.ts'
 
 /**
- * The refresh-token cookie names present on this request that the backend could
- * not parse. Usually empty; non-empty only for a browser left over from a
- * previous deployment.
+ * The Supabase auth cookie names present on this request that the backend
+ * could not parse. Usually empty; non-empty only for a browser left over from
+ * a previous deploy, a different project, or a corrupted state.
  */
-function unparseableRefreshCookies(request: NextRequest): string[] {
-  return REFRESH_TOKEN_COOKIES.filter((name) => {
+function unparseableAuthCookies(request: NextRequest): string[] {
+  return SUPABASE_AUTH_COOKIES.filter((name) => {
     const value = request.cookies.get(name)?.value
-    return value !== undefined && !isUsableRefreshCookie(value)
+    return value !== undefined && !isUsableSupabaseCookie(value)
   })
 }
 
 /**
- * A Set-Cookie line that erases one cookie.
- *
- * Written as a header rather than through `response.cookies` because the auth
- * proxy's response for the /api/auth path is a plain `Response`, which has no
- * cookies helper. `__Host-` cookies were set with Secure, and a clearing cookie
- * must match those attributes to replace them, so the prefix carries Secure.
+ * A Set-Cookie line that erases one cookie. `sb-` cookies (the Supabase
+ * auth cookie is `sb-<ref>-auth-token`) are set with Secure in production,
+ * and a clearing cookie must match those attributes to replace them.
  */
 function clearCookie(name: string): string {
-  const secure = name.startsWith('__Host-') ? '; Secure' : ''
+  const secure = name.startsWith('sb-') ? '; Secure' : ''
   return `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`
 }
 
 export async function proxy(request: NextRequest, event: NextFetchEvent) {
-  const doomed = unparseableRefreshCookies(request)
+  warnIfAllowlistMismatched(request)
 
+  const doomed = unparseableAuthCookies(request)
+
+  // The overwhelming common case: a normal session, or none at all.
   if (doomed.length === 0) {
-    // The overwhelming common case: a normal session, or none at all.
-    return convexMiddleware(request, event)
+    return forwardWithSupabase(request, event)
   }
 
-  /*
-   * Hide the bad cookie from the library so its refresh never runs on a value
-   * it will throw on. The JWT is dropped alongside it: on its own it reads as
-   * signed in until it expires and then has no refresh token behind it.
-   */
-  const toClear = [...doomed, ...JWT_COOKIES]
-  for (const name of toClear) {
+  // Hide the bad cookie from the library so it never sees a value it would
+  // throw on.
+  for (const name of doomed) {
     request.cookies.delete(name)
   }
 
-  const response = (await convexMiddleware(request, event)) ?? NextResponse.next()
+  const response = (await forwardWithSupabase(request, event)) ?? NextResponse.next()
 
   // Tell the browser to drop them too, so the next request arrives clean
   // instead of repeating this every time. Appended as headers so this works
-  // whether the library handed back a NextResponse or a plain Response.
-  for (const name of toClear) {
+  // whether createServerClient handed back a NextResponse or a plain Response.
+  for (const name of doomed) {
     response.headers.append('Set-Cookie', clearCookie(name))
   }
 
   return response
+}
+
+async function forwardWithSupabase(request: NextRequest, event: NextFetchEvent) {
+  // Build a response that will receive any Set-Cookie the client emits when
+  // it refreshes the session. createServerClient writes through the
+  // getAll/setAll adapter below.
+  let supabaseResponse = NextResponse.next({ request })
+
+  const supabase = createServerClient(publicEnv.supabaseUrl(), publicEnv.supabaseAnonKey(), {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        for (const { name, value } of cookiesToSet) {
+          request.cookies.set(name, value)
+        }
+        supabaseResponse = NextResponse.next({ request })
+        for (const { name, value, options } of cookiesToSet) {
+          supabaseResponse.cookies.set(name, value, options)
+        }
+      },
+    },
+  })
+
+  // Touch the session. getUser() refreshes the access token when it is close
+  // to expiry and writes the new value back through the adapter above. Do
+  // not run any other auth code between createServerClient and getUser().
+  await supabase.auth.getUser()
+  // event is unused today; reserved for future abort signalling.
+  void event
+
+  return supabaseResponse
+}
+
+/**
+ * One warning per process, not one per request. A boot-time log line is what
+ * an operator notices; a per-request log line is what they mute.
+ */
+let allowlistWarned = false
+function warnIfAllowlistMismatched(request: NextRequest): void {
+  if (allowlistWarned) return
+  allowlistWarned = true
+
+  const allowlist = serverEnv.redirectAllowlist
+  if (allowlist.length === 0) {
+    console.warn('[auth] SUPABASE_REDIRECT_ALLOWLIST is not set; sign-in may fail.')
+    return
+  }
+  const callback = `${serverEnv.appUrl}/auth/callback`
+  if (allowlist.includes(callback)) return
+
+  console.warn(
+    `[auth] appUrl ${serverEnv.appUrl} is not in SUPABASE_REDIRECT_ALLOWLIST. ` +
+      `Add "${callback}" to the Supabase Auth → URL Configuration redirect allowlist, ` +
+      `or every OAuth sign-in will fail with redirect_uri_not_in_whitelist. ` +
+      `Saw it from request: ${request.nextUrl.pathname}`,
+  )
 }
 
 export const config = {

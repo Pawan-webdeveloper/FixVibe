@@ -1,5 +1,5 @@
 /**
- * A client island that mounts the Convex Auth provider around the standard
+ * A client island that mounts the Supabase Auth provider around the standard
  * ScanForm so it can read signed-in state.
  *
  * Used by final-cta.tsx on the marketing landing page, where the rest of the
@@ -10,7 +10,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ConvexClientAuthProvider } from '@/components/auth/convex-provider-client.tsx'
+import { SupabaseClientAuthProvider } from '@/components/auth/supabase-provider-client.tsx'
 import { ScanForm } from './scan-form.tsx'
 import { ScanFormSkeleton } from './scan-form-skeleton.tsx'
 
@@ -28,8 +28,8 @@ export function ScanFormClient() {
   }
 
   return (
-    <ConvexClientAuthProvider>
+    <SupabaseClientAuthProvider>
       <ScanForm />
-    </ConvexClientAuthProvider>
+    </SupabaseClientAuthProvider>
   )
 }

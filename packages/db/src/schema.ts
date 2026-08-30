@@ -8,9 +8,9 @@
  * so the severity/category enums below are compile-time locked to the unions in
  * `packages/checks/src/types.ts`.
  *
- * Identity: `users` mirrors Supabase `auth.users`. Supabase Auth owns
- * credentials; this table only carries the app-level row everything else
- * foreign-keys to.
+ * Identity: `users.authSubject` mirrors the Supabase `auth.users.id` (a UUID).
+ * Supabase Auth owns credentials; this table only carries the app-level row
+ * everything else foreign-keys to.
  */
 
 import type { Category, ScanScores, Severity } from '@scanlyfix/checks'
@@ -106,10 +106,10 @@ export interface ScanContextMeta {
  * App-level user row.
  *
  * `id` is the APPLICATION's own identifier and is generated here. It used to be
- * copied from Supabase `auth.users.id`, which made the primary key of six
- * tables a foreign vendor's identifier — and moving to Convex would then have
- * meant migrating every one of them. `authSubject` carries the provider's id
- * instead, so the next swap is one column rather than a schema rewrite.
+ * copied from the provider's user id, which made the primary key of six
+ * tables a foreign vendor's identifier — and every later provider swap would
+ * have meant migrating every one of them. `authSubject` carries the provider's
+ * id instead, so the next swap is one column rather than a schema rewrite.
  *
  * No password or name columns. The identity provider owns credentials, and a
  * duplicated credential is a liability with no upside.
@@ -117,7 +117,7 @@ export interface ScanContextMeta {
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   /**
-   * The identity provider's stable id for this person — a Convex user id today.
+   * The identity provider's stable id for this person — a Supabase UUID today.
    *
    * Unique, so two app rows can never claim one identity. Nullable only so the
    * column could be added to an existing table; every row written since carries

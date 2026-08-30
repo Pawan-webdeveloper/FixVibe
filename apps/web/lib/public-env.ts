@@ -4,7 +4,7 @@
  * Separate from lib/env.ts on purpose: that module carries `server-only`, so a
  * client component importing it fails the build. These are NEXT_PUBLIC_,
  * meaning Next inlines them into the bundle at build time — they are public by
- * definition, and a Convex deployment URL is an address, not a secret.
+ * definition, and a Supabase project URL is an address, not a secret.
  */
 
 function required(name: string, value: string | undefined): string {
@@ -22,6 +22,35 @@ function required(name: string, value: string | undefined): string {
 }
 
 export const publicEnv = {
-  /** The Convex deployment that proves identities, e.g. https://x-y-1.convex.cloud */
-  convexUrl: () => required('NEXT_PUBLIC_CONVEX_URL', process.env.NEXT_PUBLIC_CONVEX_URL),
+  /** The Supabase project URL, e.g. https://mxjrcpkfechlylaiaape.supabase.co */
+  supabaseUrl: () => required('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL),
+  /** The Supabase publishable/anon key. Public by definition; sent to the browser. */
+  supabaseAnonKey: () =>
+    required('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+  /**
+   * The deployment's public URL, e.g. https://scanlyfix.com. Used by the login
+   * form to build the post-OAuth redirect. Required: a localhost fallback here
+   * is the silent failure mode that makes sign-in appear to work in dev and
+   * break in production.
+   */
+  appUrl: () => required('NEXT_PUBLIC_APP_URL', process.env.NEXT_PUBLIC_APP_URL),
+  /**
+   * The redirect URIs this deployment will accept. Mirrors the Supabase
+   * dashboard's allowlist; the login form uses it to assert a click on
+   * "Continue with Google" will land somewhere the server can act on before
+   * the round-trip to Google. Not a secret — already discoverable from the
+   * Supabase error page on a misconfigured sign-in.
+   */
+  redirectAllowlist: (): readonly string[] => {
+    const raw = process.env.SUPABASE_REDIRECT_ALLOWLIST
+    if (!raw) return []
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return []
+    }
+    if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === 'string')) return []
+    return parsed as readonly string[]
+  },
 } as const

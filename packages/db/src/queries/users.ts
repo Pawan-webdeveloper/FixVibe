@@ -6,9 +6,9 @@
  * account keyed on one silently becomes a different account the day it does.
  *
  * `users.id` is generated here rather than copied from the provider. It was
- * copied, from Supabase, and that made a vendor's identifier the primary key of
- * six tables — so moving to Convex would have meant migrating every one of
- * them. One indirection column is the price of never doing that again.
+ * once copied, from Supabase, and that made a vendor's identifier the primary
+ * key of six tables — so every later provider swap is one indirection column
+ * rather than a schema rewrite of every one of them.
  */
 
 import type { Category } from '@scanlyfix/checks'
@@ -18,7 +18,7 @@ import { memberships, organizations, subscriptions, users } from '../schema.ts'
 import type { Viewer } from './viewer.ts'
 
 export interface AuthIdentity {
-  /** The provider's stable id for this person. Never invent one here. */
+  /** The provider's stable id for this person. A Supabase UUID today. */
   subject: string
   email: string
 }
@@ -29,22 +29,22 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 /**
  * The application user id for a sign-in, creating the row the first time.
  *
- * The subject is the provider's id and the email is the person. Both are unique
- * columns, and a returning person can arrive with a NEW subject against an
- * existing email — because the subject is only stable within one Convex
- * deployment, and pointing the app at a new deployment renumbers everyone. A
- * plain `insert ... on conflict (auth_subject)` cannot express that: the new
- * subject does not collide, so the insert hits the EMAIL unique constraint
- * instead and throws, which is the "could not create the account row" failure
- * that locked every returning user out after the deployment moved.
+ * The subject is the provider's id and the email is the person. Both are
+ * unique columns, and a returning person can arrive with a NEW subject against
+ * an existing email — a Supabase UUID is stable for the lifetime of the
+ * project, but a person who signs in with Google then later with GitHub
+ * receives two distinct subject values for the same inbox, and the new
+ * subject does not collide on `auth_subject` so a plain
+ * `insert ... on conflict (auth_subject)` would hit the EMAIL unique
+ * constraint and throw, locking that account out.
  *
  * So resolve by identity explicitly, in order:
  *
  *   1. Known subject — the ordinary repeat sign-in. Refresh the email, which
  *      can change upstream and is where this account's alerts are sent.
  *   2. Known email, new subject — the same person, proven again by a provider
- *      that now names them differently (a new deployment, or Google after
- *      GitHub). Adopt the new subject; the account follows the address.
+ *      that now names them differently. Adopt the new subject; the account
+ *      follows the address.
  *   3. Neither — a genuinely new person. Insert.
  *
  * Adopting a subject by email is safe precisely because there is no password:
@@ -129,8 +129,8 @@ export async function ensureUser(identity: AuthIdentity): Promise<string> {
  * The provider's id, resolved to this application's user id.
  *
  * Called on every request that needs to know who is asking, so it reads one
- * indexed column and returns one value. Null means the token is valid but no
- * app row was ever created for it — which getViewer treats as signed out
+ * indexed column and returns one value. Null means the session is valid but
+ * no app row was ever created for it — which getViewer treats as signed out
  * rather than as an error, because the repair is to send them through the
  * callback that runs ensureUser.
  */
