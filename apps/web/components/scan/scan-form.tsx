@@ -2,7 +2,7 @@
 
 import { useId, useRef } from 'react'
 import { useScanSubmit } from './use-scan-submit.ts'
-import { useSession } from '@/components/auth/supabase-provider.tsx'
+import { useSession } from '@/components/auth/supabase-context.ts'
 
 /**
  * The standard scan form, used wherever the page is not the hero.

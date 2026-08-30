@@ -1,11 +1,5 @@
 /**
- * The Supabase Auth React context, for the (auth) and (app) layouts.
- *
- * Wraps the children in a small `SupabaseContext` so descendants can call
- * `useSupabaseClient` and `useSession` to read the auth state. The context
- * owns the WebSocket connection to Supabase's realtime auth events; mounting
- * it once at the layout, rather than at every consumer, gives the whole
- * subtree a single live client.
+ * The Supabase Auth React provider, for the (auth) and (app) layouts.
  *
  * Mounted at the (auth) and (app) layouts rather than the root, because
  * the marketing landing page is a static server component and the Supabase
@@ -14,42 +8,22 @@
  * job is to give client components a typed client for `signOut`, the OAuth
  * flows, and `verifyOtp`.
  *
- * The auth-helpers packages (`@supabase/auth-helpers-react`) are deprecated;
- * @supabase/ssr is the supported path forward. The SSR package does not
- * ship React hooks, so this module provides the small context they used to
- * and the hooks above it consume.
+ * Both this provider and the marketing page's `SupabaseClientAuthProvider`
+ * share the same `SupabaseContext`, so any descendant can call
+ * `useSupabaseClient` / `useSession` regardless of which one is the closest
+ * ancestor. The shared context lives in `supabase-context.ts`; this file
+ * re-exports the hooks for callers that historically imported them from
+ * here.
  */
 
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Session, SupabaseClient } from '@supabase/supabase-js'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/browser.ts'
+import { SupabaseContext } from './supabase-context.ts'
 
-/**
- * The shape exposed through `useSupabaseClient` / `useSession`. The session
- * field is `null` on first render and after `signOut`; the loading flag is
- * `true` while the SDK is resolving the cookie on the client.
- */
-export interface SupabaseContextValue {
-  supabase: SupabaseClient
-  session: Session | null
-  isLoading: boolean
-}
-
-const SupabaseContext = createContext<SupabaseContextValue | null>(null)
-
-export function useSupabaseClient(): SupabaseClient {
-  const ctx = useContext(SupabaseContext)
-  if (!ctx) throw new Error('useSupabaseClient must be used inside <SupabaseAuthProvider>')
-  return ctx.supabase
-}
-
-export function useSession(): { data: { session: Session | null } | null; isLoading: boolean } {
-  const ctx = useContext(SupabaseContext)
-  if (!ctx) throw new Error('useSession must be used inside <SupabaseAuthProvider>')
-  return { data: { session: ctx.session }, isLoading: ctx.isLoading }
-}
+export { useSupabaseClient, useSession } from './supabase-context.ts'
 
 export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   // Built once per provider mount. The supabase-js client opens realtime
@@ -88,7 +62,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
   }, [supabase])
 
-  const value = useMemo<SupabaseContextValue>(
+  const value = useMemo(
     () => ({ supabase, session, isLoading }),
     [supabase, session, isLoading],
   )

@@ -3,7 +3,7 @@
 import { useId, useRef } from 'react'
 import Link from 'next/link'
 import { useScanSubmit } from '@/components/scan/use-scan-submit.ts'
-import { useClientSession } from '@/components/auth/supabase-provider-client.tsx'
+import { useSession } from '@/components/auth/supabase-context.ts'
 import { ArrowRight, Globe } from './icons.tsx'
 
 /**
@@ -40,7 +40,7 @@ export function HeroScanForm() {
   // This stays opted-in as a fallback: takePendingUrl is read-once, so if a
   // visitor ever returns here signed in with a URL still stashed, this reclaims
   // it without being able to fight the dashboard for the same key.
-  const session = useClientSession()
+  const session = useSession()
   const { value, setValue, pending, error, submit } = useScanSubmit({
     restore: true,
     inputRef,
