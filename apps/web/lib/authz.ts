@@ -6,15 +6,16 @@
  * another account already refuses to run without one.
  *
  * This is also the seam an identity provider swap has to touch, and it has now
- * been used as one: it read Supabase, it reads Convex, and nothing below it
- * changed either time. The Viewer carries this application's own user id, never
- * the provider's — see users.authSubject for why that indirection exists.
+ * been used as one: it has read Supabase (twice, through two different
+ * implementations) and Convex, and nothing below it changed either time. The
+ * Viewer carries this application's own user id, never the provider's — see
+ * users.authSubject for why that indirection exists.
  */
 
 import 'server-only'
 import { redirect } from 'next/navigation'
 import { ANONYMOUS, getUserContext, userIdForAuthSubject, type UserContext, type Viewer } from '@scanlyfix/db'
-import { currentIdentity } from './auth/convex.ts'
+import { currentIdentity } from './auth/supabase.ts'
 
 export async function getViewer(): Promise<Viewer> {
   const identity = await currentIdentity()

@@ -32,6 +32,18 @@ export const serverEnv = {
   },
 
   /**
+   * Supabase Auth. The publishable key is also NEXT_PUBLIC_ — same value, read
+   * here for server code that wants a typed access path rather than a raw
+   * process.env lookup.
+   */
+  get supabaseUrl() {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  },
+  get supabaseAnonKey() {
+    return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+  },
+
+  /**
    * Salt for hashing visitor addresses before they reach the database. Without
    * one, a hash of an IPv4 address is trivially reversed — there are only four
    * billion of them, which is minutes of brute force.

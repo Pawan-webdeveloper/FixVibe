@@ -2,6 +2,7 @@
 
 import { useId, useRef } from 'react'
 import { useScanSubmit } from './use-scan-submit.ts'
+import { useSession } from '@/components/auth/supabase-provider.tsx'
 
 /**
  * The standard scan form, used wherever the page is not the hero.
@@ -19,7 +20,12 @@ export function ScanForm({ restore = false }: { restore?: boolean } = {}) {
   const inputId = useId()
   const errorId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
-  const { value, setValue, pending, error, submit } = useScanSubmit({ restore, inputRef })
+  const session = useSession()
+  const { value, setValue, pending, error, submit } = useScanSubmit({
+    restore,
+    inputRef,
+    authState: { isAuthenticated: session.data?.session?.user != null, isLoading: session.isLoading },
+  })
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

@@ -4,7 +4,7 @@
  * Separate from lib/env.ts on purpose: that module carries `server-only`, so a
  * client component importing it fails the build. These are NEXT_PUBLIC_,
  * meaning Next inlines them into the bundle at build time — they are public by
- * definition, and a Convex deployment URL is an address, not a secret.
+ * definition, and a Supabase project URL is an address, not a secret.
  */
 
 function required(name: string, value: string | undefined): string {
@@ -22,6 +22,9 @@ function required(name: string, value: string | undefined): string {
 }
 
 export const publicEnv = {
-  /** The Convex deployment that proves identities, e.g. https://x-y-1.convex.cloud */
-  convexUrl: () => required('NEXT_PUBLIC_CONVEX_URL', process.env.NEXT_PUBLIC_CONVEX_URL),
+  /** The Supabase project URL, e.g. https://mxjrcpkfechlylaiaape.supabase.co */
+  supabaseUrl: () => required('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL),
+  /** The Supabase publishable/anon key. Public by definition; sent to the browser. */
+  supabaseAnonKey: () =>
+    required('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
 } as const

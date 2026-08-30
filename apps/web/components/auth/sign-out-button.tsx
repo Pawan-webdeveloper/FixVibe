@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { useAuthActions } from '@convex-dev/auth/react'
+import { useSupabaseClient } from '@/components/auth/supabase-provider.tsx'
 
 /**
  * Signing out is a client action now, not a POST to a route.
  *
- * Convex Auth holds the session in a cookie it manages from the client, and
+ * Supabase Auth holds the session in a cookie it manages from the client, and
  * `signOut()` is what clears it along with the refresh token on the server. A
  * route handler could delete the cookie but not the session behind it, which
  * would leave a token that still works if it were ever recovered.
@@ -33,7 +33,7 @@ import { useAuthActions } from '@convex-dev/auth/react'
  * `fixed inset-0` finally means the whole screen.
  */
 export function SignOutButton({ className }: { className?: string }) {
-  const { signOut } = useAuthActions()
+  const supabase = useSupabaseClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
@@ -59,7 +59,7 @@ export function SignOutButton({ className }: { className?: string }) {
   async function confirmSignOut() {
     setPending(true)
     try {
-      await signOut()
+      await supabase.auth.signOut()
       router.push('/')
       router.refresh()
     } finally {

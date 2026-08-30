@@ -51,26 +51,24 @@ health check at it.
 
 ---
 
-## 3. Convex — identity
+## 3. Supabase — identity
 
-Convex holds **only** identity. Users, scans, projects and subscriptions live
-in Postgres.
+Supabase holds **only** identity. Users, scans, projects and subscriptions
+live in Postgres.
 
-1. Push the functions and schema — nothing signs in until this is done:
+1. Confirm the production project exists at the Supabase dashboard and the
+   `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   environment variables are set to its values.
+2. In the Supabase dashboard, register the production redirect URL at
+   **Authentication → URL Configuration → Additional Redirect URLs**:
+   `https://<your domain>/auth/callback`
+3. In **Authentication → Providers**, enable Google and GitHub and paste the
+   OAuth credentials. For each, register the Supabase-side callback URL
+   Supabase shows beneath the toggle (the one beginning with the project's
+   `*.supabase.co/auth/v1/callback?provider=…`) on the provider's own
+   developer console.
 
-   ```sh
-   cd apps/web && npx convex deploy
-   ```
-
-2. Set `SITE_URL` on the deployment to the production origin. It is what the
-   emailed sign-in codes link to, so a stale value mails real users a link to
-   localhost.
-
-3. Register the production redirect URIs with **both** OAuth providers. The
-   URI is `<CONVEX_SITE_URL>/api/auth/callback/<provider>` — the `.convex.site`
-   origin, not `.convex.cloud`.
-
-See [CONVEX_SETUP.md](CONVEX_SETUP.md) for the full list, and note the
+See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for the full list, and note the
 rotation warning at the top of it.
 
 **Skipped:** all three sign-in methods fail. Nothing else in the product is

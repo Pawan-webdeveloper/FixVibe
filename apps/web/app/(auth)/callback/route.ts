@@ -1,11 +1,14 @@
 /**
  * Where every sign-in lands, whichever way it started.
  *
- * Convex Auth has already done the hard part by the time this runs: the OAuth
- * dance and the code check happen at /api/auth, and the session cookie is
- * set. What this route owns is the APPLICATION's side of a new account — the
- * users row, the personal organization and the free subscription — created
- * here so every later page can assume they exist rather than checking.
+ * Supabase Auth has already done the hard part by the time this runs: the
+ * OAuth dance happens at the provider, the email-code check happens in the
+ * browser via `verifyOtp`, and the session cookie is set. Both end up
+ * here — OAuth via `/auth/callback` which forwards with the cookie, email
+ * via `window.location.assign` from the sign-in form. What this route owns
+ * is the APPLICATION's side of a new account — the users row, the personal
+ * organization and the free subscription — created here so every later page
+ * can assume they exist rather than checking.
  *
  * It is idempotent, because it runs on every sign-in and not only the first.
  * ensureUser upserts on the provider's subject.
@@ -13,7 +16,7 @@
 
 import { NextResponse } from 'next/server'
 import { ensureUser, getUserContext } from '@scanlyfix/db'
-import { currentIdentity } from '@/lib/auth/convex.ts'
+import { currentIdentity } from '@/lib/auth/supabase.ts'
 import { safeNextPath } from '@/lib/authz.ts'
 
 export const runtime = 'nodejs'

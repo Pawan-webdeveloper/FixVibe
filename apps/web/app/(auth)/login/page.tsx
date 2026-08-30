@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useAuthActions } from '@convex-dev/auth/react'
+import { useSupabaseClient } from '@/components/auth/supabase-provider.tsx'
 import { LogoBadge } from '@/components/brand/logo.tsx'
 import { GitHubMark, GoogleMark } from '@/components/auth/provider-marks.tsx'
 import { describeSignInError } from '@/components/auth/sign-in-error.ts'
@@ -18,6 +18,11 @@ import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
  * rewriting it, opening in whichever browser the mail client prefers, and being
  * clicked in the same session it was asked for. A code is read with the eyes
  * and typed into the tab that is already open.
+ *
+ * The Supabase Auth client handles the three flows: `signInWithOAuth` for the
+ * two providers, `signInWithOtp` for the email code, and `verifyOtp` for
+ * redeeming the code. The application-side /callback route runs after any of
+ * them, creating the row in the Postgres `users` table.
  *
  * There is no password field anywhere in this product, which removes an entire
  * category of breach: no hashing to get wrong, no reset flow to phish, and
@@ -98,7 +103,7 @@ function ModeSwitch({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => voi
 function LoginForm() {
   const params = useSearchParams()
   const next = params.get('next') ?? ''
-  const { signIn } = useAuthActions()
+  const supabase = useSupabaseClient()
 
   const [mode, setMode] = useState<Mode>(params.get('mode') === 'signup' ? 'signup' : 'signin')
   const [email, setEmail] = useState('')
@@ -108,8 +113,10 @@ function LoginForm() {
 
   const copy = COPY[mode]
 
-  /** Where Convex Auth sends the browser once the session cookie is set. */
-  const redirectTo = next ? `/callback?next=${encodeURIComponent(next)}` : '/callback'
+  /** Where Supabase Auth sends the browser once the session cookie is set. */
+  const redirectTo = next
+    ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+    : `${window.location.origin}/auth/callback`
 
   /*
    * Keep the chosen mode in the URL without a navigation, so a refresh holds it
@@ -130,7 +137,14 @@ function LoginForm() {
     setPending(provider)
     setError(null)
     try {
-      await signIn(provider, { redirectTo })
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo },
+      })
+      if (oauthError) throw oauthError
+      // signInWithOAuth does a window.location redirect to the provider on
+      // success; reaching the line below means the redirect did not happen and
+      // the visitor is still on /login. Surface the SDK's message if any.
     } catch (cause) {
       setPending(null)
       setError(describeSignInError(cause))
@@ -142,9 +156,11 @@ function LoginForm() {
     setPending('email')
     setError(null)
     try {
-      const form = new FormData()
-      form.set('email', email)
-      await signIn('resend-otp', form)
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
+      })
+      if (otpError) throw otpError
       setStep('code')
     } catch (cause) {
       setError(describeSignInError(cause))
@@ -157,23 +173,23 @@ function LoginForm() {
     event.preventDefault()
     setPending('email')
     setError(null)
+    const form = new FormData(event.currentTarget)
+    const code = String(form.get('code') ?? '').trim()
     try {
-      const form = new FormData(event.currentTarget)
-      // The address goes back with the code on purpose. The provider checks
-      // that the code was issued for THIS address, so a code read from someone
-      // else's screen cannot be redeemed against another account.
-      form.set('email', email)
-      form.set('redirectTo', redirectTo)
-      await signIn('resend-otp', form)
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: 'email',
+      })
+      if (verifyError) throw verifyError
 
       /*
-       * Navigate ourselves, because signIn will not. On the OAuth path it does
-       * a window.location redirect from inside the library; on the code path it
-       * verifies, sets the session token, and returns WITHOUT redirecting —
-       * `redirectTo` is only consulted by the OAuth flow. Left to itself the
-       * page just sits on /login with a valid session and never runs /callback,
-       * so ensureUser never creates the account row and every signed-in page
-       * then bounces back here.
+       * Navigate ourselves, because verifyOtp does not. It verifies, sets the
+       * session cookie, and returns WITHOUT redirecting — the SDK only uses
+       * `emailRedirectTo` on the magic-link flow, and we are on the
+       * token (code) flow. Left to itself the page just sits on /login with a
+       * valid session and never runs /callback, so ensureUser never creates
+       * the account row and every signed-in page then bounces back here.
        *
        * A full-document navigation rather than a client push: /callback is a
        * server route that reads the freshly set auth cookie, and the request
@@ -181,8 +197,8 @@ function LoginForm() {
        */
       window.location.assign(redirectTo)
     } catch {
-      // Deliberately not the provider's message. "Token not found" is what an
-      // expired code and a mistyped one both produce, and neither is worth
+      // Deliberately not the provider's message. An expired code and a
+      // mistyped one both produce the same SDK error, and neither is worth
       // translating into something that sounds like our fault.
       setError('That code is not right, or it has expired. Ask for a new one.')
       setPending(null)
