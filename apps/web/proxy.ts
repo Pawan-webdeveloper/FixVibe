@@ -39,6 +39,7 @@ import {
   isUsableSupabaseCookie,
 } from '@/lib/auth/supabase-cookie.ts'
 import { publicEnv } from '@/lib/public-env.ts'
+import { serverEnv } from '@/lib/env.ts'
 
 /**
  * The Supabase auth cookie names present on this request that the backend
@@ -63,6 +64,8 @@ function clearCookie(name: string): string {
 }
 
 export async function proxy(request: NextRequest, event: NextFetchEvent) {
+  warnIfAllowlistMismatched(request)
+
   const doomed = unparseableAuthCookies(request)
 
   // The overwhelming common case: a normal session, or none at all.
@@ -119,6 +122,31 @@ async function forwardWithSupabase(request: NextRequest, event: NextFetchEvent) 
   void event
 
   return supabaseResponse
+}
+
+/**
+ * One warning per process, not one per request. A boot-time log line is what
+ * an operator notices; a per-request log line is what they mute.
+ */
+let allowlistWarned = false
+function warnIfAllowlistMismatched(request: NextRequest): void {
+  if (allowlistWarned) return
+  allowlistWarned = true
+
+  const allowlist = serverEnv.redirectAllowlist
+  if (allowlist.length === 0) {
+    console.warn('[auth] SUPABASE_REDIRECT_ALLOWLIST is not set; sign-in may fail.')
+    return
+  }
+  const callback = `${serverEnv.appUrl}/auth/callback`
+  if (allowlist.includes(callback)) return
+
+  console.warn(
+    `[auth] appUrl ${serverEnv.appUrl} is not in SUPABASE_REDIRECT_ALLOWLIST. ` +
+      `Add "${callback}" to the Supabase Auth → URL Configuration redirect allowlist, ` +
+      `or every OAuth sign-in will fail with redirect_uri_not_in_whitelist. ` +
+      `Saw it from request: ${request.nextUrl.pathname}`,
+  )
 }
 
 export const config = {

@@ -72,7 +72,36 @@ export const serverEnv = {
     return required('RAZORPAY_WEBHOOK_SECRET')
   },
   get appUrl() {
-    return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    // Required: a silent fallback to localhost in production was the exact bug
+    // that made OAuth sign-in appear to work locally and silently fail in
+    // production. The matching "Site URL" lives in the Supabase Auth → URL
+    // Configuration dashboard, and `${appUrl}/auth/callback` must be on its
+    // redirect allowlist — see SUPABASE_REDIRECT_ALLOWLIST below.
+    return required('NEXT_PUBLIC_APP_URL')
+  },
+
+  /**
+   * Redirect URIs this deployment will accept. Mirrors the Supabase dashboard's
+   * allowlist so a misconfiguration surfaces as a single boot-time log line
+   * instead of a silent sign-in failure. Not a security boundary — Supabase
+   * already refuses to redirect to anything not in its own allowlist.
+   */
+  get redirectAllowlist(): readonly string[] {
+    const raw = process.env.SUPABASE_REDIRECT_ALLOWLIST
+    if (!raw) return []
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      throw new Error(
+        'SUPABASE_REDIRECT_ALLOWLIST is not valid JSON. ' +
+          'Expected something like: ["https://example.com/auth/callback"]',
+      )
+    }
+    if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === 'string')) {
+      throw new Error('SUPABASE_REDIRECT_ALLOWLIST must be a JSON array of strings.')
+    }
+    return parsed as readonly string[]
   },
   /**
    * True when a subscription can actually be created, so a route can refuse
@@ -115,4 +144,6 @@ export const serverEnv = {
 export function assertServerEnv(): void {
   void serverEnv.databaseUrl
   void serverEnv.ipHashSalt
+  void serverEnv.appUrl
+  void serverEnv.redirectAllowlist
 }

@@ -73,4 +73,26 @@ describe('describeSignInError', () => {
       'That did not work. Try again in a moment.',
     )
   })
+
+  /**
+   * The Supabase SDK puts its own error code on `error.code`. Mapping codes
+   * (not messages) to safe text means a third party cannot smuggle arbitrary
+   * strings onto the sign-in page by changing the SDK's wording.
+   */
+  it('maps the Supabase redirect_uri_not_in_whitelist code to a safe sentence', () => {
+    const cause = Object.assign(new Error('redirect_uri not in whitelist'), { code: 'redirect_uri_not_in_whitelist' })
+    const shown = describeSignInError(cause)
+    expect(shown).toContain('misconfigured')
+    expect(shown).not.toContain('redirect_uri')
+  })
+
+  it('maps email_provider_disabled to the friendly fallback', () => {
+    const cause = Object.assign(new Error('Email signups are disabled'), { code: 'email_provider_disabled' })
+    expect(describeSignInError(cause)).toContain('Email sign-in is not available')
+  })
+
+  it('does not trust an arbitrary code that is not in the whitelist', () => {
+    const cause = Object.assign(new Error('arbitrary provider error'), { code: 'something_internal' })
+    expect(describeSignInError(cause)).toBe('That did not work. Try again in a moment.')
+  })
 })

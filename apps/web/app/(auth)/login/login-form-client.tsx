@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useSupabaseClient } from '@/components/auth/supabase-context.ts'
@@ -9,6 +9,7 @@ import { GitHubMark, GoogleMark } from '@/components/auth/provider-marks.tsx'
 import { describeSignInError } from '@/components/auth/sign-in-error.ts'
 import { LabeledRule } from '@/components/ui/labeled-rule.tsx'
 import { SupabaseAuthProvider } from '@/components/auth/supabase-provider.tsx'
+import { publicEnv } from '@/lib/public-env.ts'
 
 /**
  * Three ways in, none of them a password.
@@ -128,10 +129,30 @@ function LoginForm() {
 
   const copy = COPY[mode]
 
-  /** Where Supabase Auth sends the browser once the session cookie is set. */
-  const redirectTo = next
-    ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-    : `${window.location.origin}/auth/callback`
+  /**
+   * Where Supabase Auth sends the browser once the session cookie is set.
+   *
+   * Built from `publicEnv.appUrl()` — the deployment's public URL — rather
+   * than `window.location.origin`. A visitor hitting the app through a
+   * preview deploy, a stale DNS, or `localhost` in production would
+   * otherwise have Supabase hand the session back to a URL that is not on
+   * the configured redirect allowlist, and the round-trip would 404 or
+   * silently fail. The post-mount check against `publicEnv.redirectAllowlist`
+   * catches the misconfiguration before the request is made, so the form
+   * shows a clear "this app is misconfigured" message instead of letting
+   * the user click through to a broken Supabase redirect.
+   */
+  const redirectTo = useMemo(() => {
+    const origin = publicEnv.appUrl()
+    return next ? `${origin}/auth/callback?next=${encodeURIComponent(next)}` : `${origin}/auth/callback`
+  }, [next])
+
+  /**
+   * The callback URL the Supabase client will redirect to, paired with the
+   * allowlist entry it must match. Computed once per render so the two
+   * strings cannot drift.
+   */
+  const callbackUrl = `${publicEnv.appUrl()}/auth/callback`
 
   /*
    * Keep the chosen mode in the URL without a navigation, so a refresh holds it
@@ -148,10 +169,27 @@ function LoginForm() {
     }
   }
 
+  /**
+   * Thrown when the deployment's app URL is not on the redirect allowlist, so
+   * the message can be thrown to `describeSignInError` and the form shows
+   * something specific instead of the generic "did not work" fallback. The
+   * `scanlyfix:` prefix is what makes `describeSignInError` trust the text.
+   */
+  function assertAllowlisted(): void {
+    const allowlist = publicEnv.redirectAllowlist()
+    if (allowlist.length === 0) return
+    if (allowlist.includes(callbackUrl)) return
+    throw new Error(
+      `scanlyfix:This sign-in is misconfigured: ${callbackUrl} is not on the redirect allowlist. ` +
+        'Update NEXT_PUBLIC_APP_URL and SUPABASE_REDIRECT_ALLOWLIST to match the Supabase dashboard.',
+    )
+  }
+
   async function withProvider(provider: 'google' | 'github') {
     setPending(provider)
     setError(null)
     try {
+      assertAllowlisted()
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo },
@@ -168,6 +206,7 @@ function LoginForm() {
     setPending('email')
     setError(null)
     try {
+      assertAllowlisted()
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
