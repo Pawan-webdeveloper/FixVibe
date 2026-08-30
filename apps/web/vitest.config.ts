@@ -2,11 +2,12 @@ import { config } from 'dotenv'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-// Mirror next.config.ts: the workspace keeps one .env at the app root, and
-// tests should see the same env the Next runtime does. Without this, a
-// `required('NEXT_PUBLIC_APP_URL')` call at import time throws in the test
-// process even though it would not in `next dev` or `next build`.
-config({ path: fileURLToPath(new URL('./.env', import.meta.url)), quiet: true })
+// Mirror next.config.ts, which loads `../../.env`: the workspace keeps ONE
+// .env at the REPOSITORY root, not beside the app. Pointing at './.env' here
+// loaded nothing — that file does not exist — so a `required('NEXT_PUBLIC_APP_URL')`
+// at import time threw in the test process even though it would not in
+// `next dev` or `next build`. The two configs must name the same file.
+config({ path: fileURLToPath(new URL('../../.env', import.meta.url)), quiet: true })
 
 export default defineConfig({
   test: {

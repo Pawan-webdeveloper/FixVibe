@@ -34,23 +34,11 @@ export const publicEnv = {
    * break in production.
    */
   appUrl: () => required('NEXT_PUBLIC_APP_URL', process.env.NEXT_PUBLIC_APP_URL),
-  /**
-   * The redirect URIs this deployment will accept. Mirrors the Supabase
-   * dashboard's allowlist; the login form uses it to assert a click on
-   * "Continue with Google" will land somewhere the server can act on before
-   * the round-trip to Google. Not a secret — already discoverable from the
-   * Supabase error page on a misconfigured sign-in.
+  /*
+   * There is deliberately no `redirectAllowlist` here. One existed and read
+   * `SUPABASE_REDIRECT_ALLOWLIST`, which has no NEXT_PUBLIC_ prefix — so Next
+   * never inlined it into the browser bundle and every client-side read got
+   * `undefined`. The allowlist is server configuration and is read where it
+   * exists, in `serverEnv`; see proxy.ts for the boot-time check.
    */
-  redirectAllowlist: (): readonly string[] => {
-    const raw = process.env.SUPABASE_REDIRECT_ALLOWLIST
-    if (!raw) return []
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      return []
-    }
-    if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === 'string')) return []
-    return parsed as readonly string[]
-  },
 } as const

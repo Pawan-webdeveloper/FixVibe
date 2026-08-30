@@ -15,7 +15,7 @@ import { publicEnv } from '@/lib/public-env.ts'
  * Three ways in, none of them a password.
  *
  * Google and GitHub are one click and leave no credential of ours to store. For
- * everyone else, a six-digit code to the address they type — a CODE rather than
+ * everyone else, a numeric code to the address they type — a CODE rather than
  * a magic link, because a link has to survive a corporate mail scanner
  * rewriting it, opening in whichever browser the mail client prefers, and being
  * clicked in the same session it was asked for. A code is read with the eyes
@@ -132,27 +132,26 @@ function LoginForm() {
   /**
    * Where Supabase Auth sends the browser once the session cookie is set.
    *
-   * Built from `publicEnv.appUrl()` — the deployment's public URL — rather
-   * than `window.location.origin`. A visitor hitting the app through a
-   * preview deploy, a stale DNS, or `localhost` in production would
-   * otherwise have Supabase hand the session back to a URL that is not on
-   * the configured redirect allowlist, and the round-trip would 404 or
-   * silently fail. The post-mount check against `publicEnv.redirectAllowlist`
-   * catches the misconfiguration before the request is made, so the form
-   * shows a clear "this app is misconfigured" message instead of letting
-   * the user click through to a broken Supabase redirect.
+   * Built from the origin the person is ACTUALLY on, not from
+   * `NEXT_PUBLIC_APP_URL`. That variable names the canonical production URL,
+   * so using it here sent every local and preview sign-in to production: you
+   * pressed "Continue with Google" on localhost and Supabase handed the
+   * session to scanlyfix.com, where your browser had no flow in progress.
+   * The origin is also what the PKCE verifier cookie is scoped to, so
+   * redeeming the code anywhere else cannot work even in principle.
+   *
+   * Safe, because this is not the security boundary: Supabase refuses any
+   * `redirectTo` that is not on its dashboard allowlist, and this code only
+   * ever runs on our own origin — an attacker who could change
+   * `window.location.origin` is already serving the app.
+   *
+   * `window` is guarded for the server pass; the island only renders this
+   * after mount, so the fallback is never what a real click uses.
    */
   const redirectTo = useMemo(() => {
-    const origin = publicEnv.appUrl()
+    const origin = typeof window === 'undefined' ? publicEnv.appUrl() : window.location.origin
     return next ? `${origin}/auth/callback?next=${encodeURIComponent(next)}` : `${origin}/auth/callback`
   }, [next])
-
-  /**
-   * The callback URL the Supabase client will redirect to, paired with the
-   * allowlist entry it must match. Computed once per render so the two
-   * strings cannot drift.
-   */
-  const callbackUrl = `${publicEnv.appUrl()}/auth/callback`
 
   /*
    * Keep the chosen mode in the URL without a navigation, so a refresh holds it
@@ -169,27 +168,22 @@ function LoginForm() {
     }
   }
 
-  /**
-   * Thrown when the deployment's app URL is not on the redirect allowlist, so
-   * the message can be thrown to `describeSignInError` and the form shows
-   * something specific instead of the generic "did not work" fallback. The
-   * `scanlyfix:` prefix is what makes `describeSignInError` trust the text.
+  /*
+   * There is no allowlist check here any more. It read
+   * `SUPABASE_REDIRECT_ALLOWLIST`, which is not a NEXT_PUBLIC_ variable, so
+   * Next never inlined it into the browser bundle: in the one place the check
+   * ran it always saw an empty list and returned early. A guard that cannot
+   * fire is worse than none, because it reads as cover. The allowlist is
+   * still validated where the value actually exists — `serverEnv` parses it
+   * and the proxy warns at boot when it does not contain this deployment's
+   * callback URL — and Supabase itself refuses an unlisted `redirectTo`,
+   * which is the boundary that matters.
    */
-  function assertAllowlisted(): void {
-    const allowlist = publicEnv.redirectAllowlist()
-    if (allowlist.length === 0) return
-    if (allowlist.includes(callbackUrl)) return
-    throw new Error(
-      `scanlyfix:This sign-in is misconfigured: ${callbackUrl} is not on the redirect allowlist. ` +
-        'Update NEXT_PUBLIC_APP_URL and SUPABASE_REDIRECT_ALLOWLIST to match the Supabase dashboard.',
-    )
-  }
 
   async function withProvider(provider: 'google' | 'github') {
     setPending(provider)
     setError(null)
     try {
-      assertAllowlisted()
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo },
@@ -206,7 +200,6 @@ function LoginForm() {
     setPending('email')
     setError(null)
     try {
-      assertAllowlisted()
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
@@ -260,8 +253,25 @@ function LoginForm() {
     return (
       <>
         <p className="text-[15px] leading-relaxed text-muted text-pretty">
-          We sent a six-digit code to <span className="text-ink">{email}</span>. It expires in 15
-          minutes and works once.
+          We sent a code to <span className="text-ink">{email}</span>. Enter it below — it
+          expires shortly and works once.
+        </p>
+
+        {/*
+          Said out loud because the email can legitimately carry either. Which
+          one Supabase sends is decided by its Magic Link template — a template
+          holding `{{ .Token }}` sends the code this form asks for, one holding
+          only `{{ .ConfirmationURL }}` sends a link — and a reader staring at a
+          code box while holding a link has no way to guess that.
+
+          "In this browser" is not politeness. The sign-in is PKCE: the verifier
+          that redeems it was written as a cookie in the tab that asked, so a
+          link opened on a phone against a request made on a laptop cannot
+          complete and fails as a refused sign-in.
+        */}
+        <p className="mt-2 text-[15px] leading-relaxed text-muted text-pretty">
+          If the email carries a sign-in link instead, open it in this browser — it only completes
+          in the tab that asked for it.
         </p>
 
         <form onSubmit={submitCode} className="mt-6 flex flex-col gap-3">
@@ -275,11 +285,13 @@ function LoginForm() {
             autoFocus
             inputMode="numeric"
             autoComplete="one-time-code"
-            // Six digits, digits only. The pattern is what makes a phone show a
-            // number pad and what lets the browser offer the code it just saw
-            // arrive in a message.
-            pattern="[0-9]{6}"
-            maxLength={6}
+            // Digits only. The email OTP length is a Supabase Auth setting
+            // (6–10 digits), so the field must accept the whole range or a
+            // longer code gets silently truncated and every verify fails as
+            // `otp_expired`. The pattern still forces a number pad and lets the
+            // browser offer the code it just saw arrive in a message.
+            pattern="[0-9]{6,10}"
+            maxLength={10}
             placeholder="000000"
             className={`${FIELD} text-center text-lg tracking-[0.4em]`}
           />
