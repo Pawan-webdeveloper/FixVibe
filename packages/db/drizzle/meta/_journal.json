@@ -50,6 +50,13 @@
       "when": 1787806991958,
       "tag": "0006_auth_subject",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788171483957,
+      "tag": "0007_late_shocker",
+      "breakpoints": true
     }
   ]
 }

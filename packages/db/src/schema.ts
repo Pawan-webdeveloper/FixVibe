@@ -14,8 +14,10 @@
  */
 
 import type { Category, ScanScores, Severity } from '@scanlyfix/checks'
+import type { RepoCategory, RepoScanScores } from '@scanlyfix/repo-checks'
 import { desc, relations } from 'drizzle-orm'
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -72,6 +74,20 @@ export const memberRoleEnum = pgEnum('member_role', ['owner', 'admin', 'member']
 export const alertChannelEnum = pgEnum('alert_channel', ['email', 'webhook'])
 export const reportFormatEnum = pgEnum('report_format', ['pdf', 'md'])
 
+/**
+ * Repo-scan enums. These mirror the union the repo engine emits, the same way
+ * severityEnum/categoryEnum mirror the site engine — and the compile-time lock
+ * below catches a drift in EITHER direction so a stored repo finding can never
+ * land under a pillar the engine never emits.
+ */
+const REPO_CATEGORY_VALUES = ['secrets', 'supply-chain', 'ci-cd', 'code-quality', 'dependencies', 'governance'] as const
+export const _repoCategoryLocked: Exact<RepoCategory, (typeof REPO_CATEGORY_VALUES)[number]> = true
+
+export const repoCategoryEnum = pgEnum('repo_category', REPO_CATEGORY_VALUES)
+export const repoScanStatusEnum = pgEnum('repo_scan_status', ['queued', 'running', 'done', 'failed'])
+export const repoScanProfileEnum = pgEnum('repo_scan_profile', ['shallow', 'deep'])
+export const repoFindingStatusEnum = pgEnum('repo_finding_status', ['open', 'fixed', 'ignored'])
+
 /* -------------------------------------------------------------------------- */
 /* jsonb payload shapes                                                       */
 /* -------------------------------------------------------------------------- */
@@ -96,6 +112,23 @@ export interface ScanContextMeta {
   platform: string | null
   /** ISO-8601 — jsonb has no Date type, so it round-trips as a string. */
   tlsExpiry: string | null
+}
+
+/**
+ * Storable summary of the RepoCheckContext a repo scan ran against. Same
+ * discipline as ScanContextMeta: jsonb rather than columns because it is
+ * display/debug metadata, never a query predicate.
+ */
+export interface RepoScanContextMeta {
+  defaultBranch: string
+  /** Detected framework/language mix, for stack-aware fix prompts. */
+  framework: string | null
+  /** Whether the scan cloned the repo (`deep`) or read the API only (`shallow`). */
+  profile: 'shallow' | 'deep'
+  /** Repo size in KiB as seen at scan time; null on a shallow scan that did not clone. */
+  sizeKib: number | null
+  /** The installation id the scan was authorised under — audit, not lookup. */
+  installationId: number
 }
 
 /* -------------------------------------------------------------------------- */
@@ -480,6 +513,134 @@ export const reports = pgTable(
 )
 
 /* -------------------------------------------------------------------------- */
+/* GitHub repositories                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One row per GitHub App installation a user authorised. An installation is a
+ * SCOPED, REVOCABLE grant the user makes at install time (they pick which
+ * repos); it is not a long-lived token. The token itself is minted per request
+ * from the App's private key and lives ~1h, so the only thing stored here is
+ * GitHub's stable installation id plus the account it belongs to.
+ *
+ * Separate from the Supabase-managed GitHub OAuth used for login: that proves
+ * who someone is, this proves which repos they let us read.
+ */
+export const githubInstallations = pgTable(
+  'github_installations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** GitHub's numeric installation id — the thing the JWT/token exchange keys on. */
+    installationId: bigint('installation_id', { mode: 'number' }).notNull().unique(),
+    accountLogin: text('account_login').notNull(),
+    /** "Organization" | "User" — drives the org-vs-person UI copy. */
+    accountType: text('account_type').notNull(),
+    installedAt: timestamp('installed_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('github_installations_user_installation_idx').on(t.userId, t.installationId)],
+)
+
+/**
+ * Repos a user has chosen to scan, picked from the installation's granted set.
+ * Stored rather than re-listed on every scan because a scan needs a stable
+ * `repo_id` to hang history off, and a repo the user removed from the grant
+ * must be detectable (the scan then fails cleanly on a revoked token).
+ */
+export const githubRepos = pgTable(
+  'github_repos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    installationId: uuid('installation_id')
+      .notNull()
+      .references(() => githubInstallations.id, { onDelete: 'cascade' }),
+    owner: text('owner').notNull(),
+    name: text('name').notNull(),
+    fullName: text('full_name').notNull(),
+    defaultBranch: text('default_branch').notNull().default('main'),
+    private: boolean('private').notNull().default(false),
+    /** GitHub's numeric repo id — stable across renames, unlike full_name. */
+    githubId: bigint('github_id', { mode: 'number' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('github_repos_installation_owner_name_idx').on(t.installationId, t.owner, t.name)],
+)
+
+/**
+ * Parallel to `scans`, with its own engine version for comparability. A repo
+ * scan never shares the `scans` table because a repo scan's score is across
+ * repo pillars (secrets/supply-chain/…), not site pillars (seo/aeo/…), and a
+ * `kind` column would force one scoring model to pretend to be two.
+ */
+export const repoScans = pgTable(
+  'repo_scans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => githubRepos.id, { onDelete: 'cascade' }),
+    requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+    profile: repoScanProfileEnum('profile').notNull().default('shallow'),
+    status: repoScanStatusEnum('status').notNull().default('queued'),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    durationMs: integer('duration_ms'),
+    scores: jsonb('scores').$type<RepoScanScores>(),
+    contextMeta: jsonb('context_meta').$type<RepoScanContextMeta>(),
+    /**
+     * Which repo engine produced this reading. The same comparability rule as
+     * scans.engine_version applies: a feature that diffs two repo scans must
+     * refuse across a change in it, or shipping the deep-scan checks would tell
+     * every monitored repo it got worse.
+     */
+    engineVersion: text('engine_version').notNull(),
+    checksRun: integer('checks_run').notNull(),
+    checkErrors: jsonb('check_errors')
+      .$type<Array<{ checkId: string; message: string }>>()
+      .notNull()
+      .default([]),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('repo_scans_repo_created_idx').on(t.repoId, desc(t.createdAt)),
+    index('repo_scans_status_idx').on(t.status),
+  ],
+)
+
+/**
+ * Parallel to `findings`; same field shape, repo_category enum. `severity` is
+ * the SAME severityEnum as site findings — a leaked key is `critical` whether
+ * it is in a bundle or a commit, and one ladder is how the report keeps that.
+ */
+export const repoFindings = pgTable(
+  'repo_findings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    repoScanId: uuid('repo_scan_id')
+      .notNull()
+      .references(() => repoScans.id, { onDelete: 'cascade' }),
+    checkId: text('check_id').notNull(),
+    category: repoCategoryEnum('category').notNull(),
+    severity: severityEnum('severity').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    evidence: jsonb('evidence').$type<Record<string, unknown>>(),
+    remediation: text('remediation').notNull(),
+    fixPrompt: text('fix_prompt').notNull(),
+    status: repoFindingStatusEnum('status').notNull().default('open'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('repo_findings_scan_severity_idx').on(t.repoScanId, t.severity),
+    index('repo_findings_scan_check_idx').on(t.repoScanId, t.checkId),
+  ],
+)
+
+/* -------------------------------------------------------------------------- */
 /* Relations — required for the `db.query.*` API. `.references()` alone only   */
 /* emits the SQL constraint; it does not teach Drizzle how to join.           */
 /* -------------------------------------------------------------------------- */
@@ -490,6 +651,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   apiKeys: many(apiKeys),
   ownedOrganizations: many(organizations),
   subscription: one(subscriptions),
+  githubInstallations: many(githubInstallations),
 }))
 
 export const organizationsRelations = relations(organizations, ({ one, many }) => ({
@@ -547,6 +709,26 @@ export const reportsRelations = relations(reports, ({ one }) => ({
   scan: one(scans, { fields: [reports.scanId], references: [scans.id] }),
 }))
 
+export const githubInstallationsRelations = relations(githubInstallations, ({ one, many }) => ({
+  user: one(users, { fields: [githubInstallations.userId], references: [users.id] }),
+  repos: many(githubRepos),
+}))
+
+export const githubReposRelations = relations(githubRepos, ({ one, many }) => ({
+  installation: one(githubInstallations, { fields: [githubRepos.installationId], references: [githubInstallations.id] }),
+  scans: many(repoScans),
+}))
+
+export const repoScansRelations = relations(repoScans, ({ one, many }) => ({
+  repo: one(githubRepos, { fields: [repoScans.repoId], references: [githubRepos.id] }),
+  requester: one(users, { fields: [repoScans.requestedBy], references: [users.id] }),
+  findings: many(repoFindings),
+}))
+
+export const repoFindingsRelations = relations(repoFindings, ({ one }) => ({
+  scan: one(repoScans, { fields: [repoFindings.repoScanId], references: [repoScans.id] }),
+}))
+
 /* -------------------------------------------------------------------------- */
 /* Inferred row types — import these instead of hand-writing DTOs.            */
 /* -------------------------------------------------------------------------- */
@@ -579,3 +761,14 @@ export type Subscription = typeof subscriptions.$inferSelect
 export type NewSubscription = typeof subscriptions.$inferInsert
 export type Report = typeof reports.$inferSelect
 export type NewReport = typeof reports.$inferInsert
+export type GithubInstallation = typeof githubInstallations.$inferSelect
+export type NewGithubInstallation = typeof githubInstallations.$inferInsert
+export type GithubRepo = typeof githubRepos.$inferSelect
+export type NewGithubRepo = typeof githubRepos.$inferInsert
+/** 'shallow' | 'deep' — the enum's values, so callers never retype the union. */
+export type RepoScanProfile = (typeof repoScanProfileEnum.enumValues)[number]
+export type RepoScan = typeof repoScans.$inferSelect
+export type NewRepoScan = typeof repoScans.$inferInsert
+/** Persisted repo finding row. Distinct from `@scanlyfix/repo-checks`'s in-memory `RepoFinding`. */
+export type RepoFindingRow = typeof repoFindings.$inferSelect
+export type NewRepoFindingRow = typeof repoFindings.$inferInsert

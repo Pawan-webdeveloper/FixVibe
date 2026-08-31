@@ -58,6 +58,9 @@ importers:
       '@scanlyfix/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@scanlyfix/repo-checks':
+        specifier: workspace:*
+        version: link:../../packages/repo-checks
       '@supabase/ssr':
         specifier: ^0.7.0
         version: 0.7.0(@supabase/supabase-js@2.112.4(@opentelemetry/api@1.9.1))
@@ -135,6 +138,9 @@ importers:
       '@scanlyfix/checks':
         specifier: workspace:*
         version: link:../checks
+      '@scanlyfix/repo-checks':
+        specifier: workspace:*
+        version: link:../repo-checks
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -160,6 +166,25 @@ importers:
 
   packages/mcp-server:
     devDependencies:
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+
+  packages/repo-checks:
+    dependencies:
+      '@scanlyfix/checks':
+        specifier: workspace:*
+        version: link:../checks
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))

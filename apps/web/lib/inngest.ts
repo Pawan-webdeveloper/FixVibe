@@ -41,4 +41,11 @@ export const EVENTS = {
    * tier was busy. The download route does not use it.
    */
   reportRequested: 'scanlyfix/report.requested',
+  /**
+   * A repo scan that has been reserved but not run. A repo scan always
+   * queues (cloning a repo and running gitleaks/osv-scanner cannot finish
+   * inside a request) so the same reserve/execute pattern as a deep site
+   * scan applies, just on a different model.
+   */
+  repoScanRequested: 'scanlyfix/repo-scan.requested',
 } as const
