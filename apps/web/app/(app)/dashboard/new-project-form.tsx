@@ -33,14 +33,14 @@ export function NewProjectForm({ orgId }: { orgId: string }) {
           placeholder="example.com"
           disabled={pending}
           aria-invalid={Boolean(state.error)}
-          className="rounded-lg border border-c-line bg-c-card px-3 py-2 text-[13.5px] text-c-ink
+          className="rounded-xl border border-c-line bg-c-card px-4 py-2.5 text-[14px] text-c-ink
                      placeholder:text-c-muted focus-visible:outline-2 focus-visible:outline-offset-1
-                     focus-visible:outline-c-brand disabled:opacity-60"
+                     focus-visible:outline-c-ink disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-c-brand px-4 py-2 text-[13.5px] font-semibold text-c-brand-ink
+          className="rounded-full bg-c-ink px-5 py-2.5 text-[13px] font-medium text-c-brand-ink
                      transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           {pending ? 'Adding…' : 'Add domain'}

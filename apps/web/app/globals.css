@@ -457,6 +457,7 @@ body {
   --color-c-ink: var(--c-ink);
   --color-c-muted: var(--c-muted);
   --color-c-soft: var(--c-soft);
+  --color-c-body: var(--c-body);
   --color-c-side: var(--c-side);
   --color-c-side-ink: var(--c-side-ink);
   --color-c-side-dim: var(--c-side-dim);
@@ -464,9 +465,12 @@ body {
   --color-c-brand: var(--c-brand);
   --color-c-brand-ink: var(--c-brand-ink);
 
-  /* Severity, tuned for a light card rather than for the mono theme. These sit
-     beside --critical etc. rather than replacing them: the report page still
-     uses those, and the two surfaces are allowed to weight colour differently. */
+  --color-c-gradient-mint: var(--c-gradient-mint);
+  --color-c-gradient-peach: var(--c-gradient-peach);
+  --color-c-gradient-lavender: var(--c-gradient-lavender);
+  --color-c-gradient-sky: var(--c-gradient-sky);
+  --color-c-gradient-rose: var(--c-gradient-rose);
+
   --color-sev-critical: var(--sev-critical);
   --color-sev-high: var(--sev-high);
   --color-sev-medium: var(--sev-medium);
@@ -477,18 +481,25 @@ body {
 }
 
 :root {
-  --c-bg: #f7f8fa;
+  --c-bg: #f5f5f5;
   --c-card: #ffffff;
-  --c-line: #e6e8ee;
-  --c-ink: #16181d;
-  --c-muted: #6b7280;
-  --c-soft: #f3f4f8;
-  --c-side: #3b3ba8;
+  --c-line: #e7e5e4;
+  --c-ink: #0c0a09;
+  --c-body: #3f3f3f;
+  --c-muted: #5a5a5a;
+  --c-soft: #f0efed;
+  --c-side: #0c0a09;
   --c-side-ink: #ffffff;
-  --c-side-dim: #b9bcf0;
+  --c-side-dim: #a8a29e;
   --c-side-active: #ffffff1f;
-  --c-brand: #4f46e5;
+  --c-brand: #292524;
   --c-brand-ink: #ffffff;
+
+  --c-gradient-mint: #a7e5d3;
+  --c-gradient-peach: #f4c5a8;
+  --c-gradient-lavender: #c8b8e0;
+  --c-gradient-sky: #a8c8e8;
+  --c-gradient-rose: #e8b8c4;
 
   --sev-critical: #9f1239;
   --sev-high: #ef4444;
@@ -499,18 +510,25 @@ body {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-bg: #0e1116;
-    --c-card: #161a21;
-    --c-line: #262c36;
-    --c-ink: #e8ebf0;
-    --c-muted: #98a1b0;
-    --c-soft: #1c212a;
-    --c-side: #1b1c3d;
+    --c-bg: #0c0a09;
+    --c-card: #1c1917;
+    --c-line: #292524;
+    --c-ink: #ffffff;
+    --c-body: #a8a29e;
+    --c-muted: #a8a29e;
+    --c-soft: #1c1917;
+    --c-side: #0c0a09;
     --c-side-ink: #ffffff;
-    --c-side-dim: #9ea3d8;
+    --c-side-dim: #a8a29e;
     --c-side-active: #ffffff1a;
-    --c-brand: #6366f1;
-    --c-brand-ink: #ffffff;
+    --c-brand: #e9edf2;
+    --c-brand-ink: #0c0a09;
+
+    --c-gradient-mint: #a7e5d3;
+    --c-gradient-peach: #f4c5a8;
+    --c-gradient-lavender: #c8b8e0;
+    --c-gradient-sky: #a8c8e8;
+    --c-gradient-rose: #e8b8c4;
 
     --sev-critical: #fb7185;
     --sev-high: #f87171;
@@ -530,7 +548,7 @@ body {
 .console,
 .console :where(button, input, textarea, select, a, div, span, li, dd, dt, p, h1, h2, h3) {
   font-family: var(--font-sans);
-  letter-spacing: normal;
+  letter-spacing: 0.01em;
 }
 
 /* Tabular figures wherever a count sits next to another count. */

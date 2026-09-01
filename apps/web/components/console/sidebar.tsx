@@ -38,7 +38,7 @@ export function Sidebar({
   const counts = { sites, scans }
 
   const rail = (
-    <div className="console flex h-full flex-col gap-6 overflow-y-auto bg-c-side px-4 py-5 text-c-side-ink">
+    <div className="console flex h-full flex-col gap-6 overflow-hidden bg-c-side px-4 py-5 text-c-side-ink">
       <div className="flex items-center gap-2.5">
         <LogoBadge size={34} />
         <span className="text-[15px] font-semibold tracking-tight">ScanlyFix</span>
@@ -122,7 +122,7 @@ export function Sidebar({
         type="button"
         onClick={() => setOpen(true)}
         aria-expanded={open}
-        className="fixed left-3 top-3 z-40 grid h-10 w-10 place-items-center rounded-lg border border-c-line
+        className="fixed left-3 top-3 z-40 grid h-10 w-10 place-items-center rounded-full border border-c-line/60
                    bg-c-card text-c-ink shadow-sm lg:hidden"
       >
         <span className="sr-only">Open navigation</span>
@@ -131,7 +131,7 @@ export function Sidebar({
         </span>
       </button>
 
-      <aside className="hidden w-[260px] shrink-0 lg:block">{rail}</aside>
+      <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 overflow-hidden lg:block">{rail}</aside>
 
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
