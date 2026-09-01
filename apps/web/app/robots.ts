@@ -5,8 +5,16 @@
  * own check on its own domain, so this file is not optional here the way it is
  * elsewhere.
  *
- * The interesting decision is what to keep OUT. Two kinds of page are
- * deliberately excluded:
+ * Public pages that are allowed:
+ *   - / — landing page
+ *   - /pricing — conversion page
+ *   - /about — company / product info
+ *   - /contact — support contact
+ *   - /privacy — privacy policy (required by payment processors)
+ *   - /terms — terms of service (required by payment processors)
+ *   - /status/<slug> — public status pages, crawlable by design
+ *
+ * Two kinds of page are deliberately excluded:
  *
  *   - The signed-in app. Every one of these redirects a crawler to /login, so
  *     indexing them spends crawl budget to produce nothing.
@@ -16,9 +24,6 @@
  *     thousands of them puts other companies' security and SEO problems into
  *     public results under our domain. That is a liability to them and, to us,
  *     a mass of near-duplicate thin pages that drags the domain down.
- *
- * /status/<slug> is deliberately left crawlable. It is public by design and is
- * the one page in the product that appears in front of somebody else's users.
  */
 
 import type { MetadataRoute } from 'next'
