@@ -14,6 +14,8 @@ import { TOTAL_CHECKS } from '@/lib/pillars.ts'
 const LINKS: ReadonlyArray<{ href: string; label: string }> = [
   { href: '/#checks', label: 'Checks' },
   { href: '/pricing', label: 'Pricing' },
+  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
   { href: '/#faq', label: 'FAQ' },
   { href: '/login', label: 'Sign in' },
 ]

@@ -29,6 +29,10 @@ const QA: ReadonlyArray<{ q: string; a: string }> = [
     a: 'Eight checks on whether an answer engine can read, resolve and cite your page: whether the text survives without JavaScript, whether AI crawlers are allowed, whether there is schema tying the page to a real entity, and whether anything dates the content. Search Console reports none of this.',
   },
   {
+    q: 'Is there a free plan?',
+    a: 'Yes. The free plan includes scans with all checks, the worst findings in full, and per-finding fix prompts. No credit card, no trial period \u2014 it stays free as long as you use it.',
+  },
+  {
     q: 'Can I run it in CI or from my editor?',
     a: 'Yes. There is a CLI with JSON output, and ScanlyFix is an MCP server — point Claude Code or Cursor at it and the agent runs the scan and applies the fixes itself.',
   },
@@ -39,6 +43,18 @@ const QA: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: 'What happens if a check fails?',
     a: 'It is recorded as our error, not your finding, and the pillar it belongs to is marked provisional. A partly broken instrument is never presented as a measurement.',
+  },
+  {
+    q: 'What do you store about me?',
+    a: 'Almost nothing. Your email, the pillars you chose, and an opaque auth identifier. No name, no password, no phone number, no payment details \u2014 Razorpay holds those. Scans store the URL, scores, and findings. See the full list on the privacy page.',
+  },
+  {
+    q: 'Do you share my data?',
+    a: 'Only what each processor needs to do its job: Supabase stores it, Resend sends your alerts, Inngest runs scans, Razorpay handles billing. We do not sell data, run advertising, or place tracking cookies.',
+  },
+  {
+    q: 'Can I delete my account?',
+    a: 'Email us from the address on your account and everything is deleted within 30 days \u2014 account, scans, findings, monitors. You can also request a copy of what we hold.',
   },
 ]
 

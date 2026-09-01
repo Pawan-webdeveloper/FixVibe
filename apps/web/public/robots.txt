@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://scanlyfix.com/sitemap.xml

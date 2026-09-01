@@ -16,6 +16,7 @@
 import 'server-only'
 import type { RepoScanProfile } from '@scanlyfix/db'
 import type { RepoFinding, RepoCheckError } from '@scanlyfix/repo-checks'
+import { serverEnv } from '@/lib/env.ts'
 
 export interface RepoWorkerRequest {
   installationId: number
@@ -30,9 +31,6 @@ export interface RepoWorkerResult {
   errors: RepoCheckError[]
 }
 
-const SCANNER_URL = process.env['SCANLYFIX_REPO_SCANNER_URL']
-const SCANNER_TOKEN = process.env['SCANLYFIX_REPO_SCANNER_TOKEN']
-
 /**
  * Run a repo scan through the worker. Throws on our own failures (network,
  * auth, the worker not configured) and returns a `RepoWorkerResult` for the
@@ -40,19 +38,19 @@ const SCANNER_TOKEN = process.env['SCANLYFIX_REPO_SCANNER_TOKEN']
  * of how many came back.
  */
 export async function runRepoScan(request: RepoWorkerRequest): Promise<RepoWorkerResult> {
-  if (SCANNER_URL && SCANNER_TOKEN) {
-    // Phase B: real call. Implemented as a guarded branch so Phase A is
-    // fully testable without the worker, and Phase B can ship by setting
-    // the two env vars — the executor does not change.
+  if (serverEnv.repoScannerConfigured) {
+    // Real call. Guarded so a worker-less environment stays on the stub, and
+    // the real path ships by setting the two env vars — the executor does not
+    // change.
     return callWorker(request)
   }
   return stubScan(request)
 }
 
 async function callWorker(request: RepoWorkerRequest): Promise<RepoWorkerResult> {
-  const res = await fetch(SCANNER_URL!, {
+  const res = await fetch(serverEnv.repoScannerUrl, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-scanner-token': SCANNER_TOKEN! },
+    headers: { 'content-type': 'application/json', 'x-scanner-token': serverEnv.repoScannerToken },
     body: JSON.stringify(request),
     // A clone + gitleaks + osv-scanner run is closer to a minute than to a
     // request; the worker has its own timeout, so 5 minutes is the cap.

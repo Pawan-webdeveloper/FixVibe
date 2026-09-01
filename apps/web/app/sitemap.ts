@@ -42,6 +42,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
      * one more thing for a reviewer to fail to find.
      */
     {
+      url: `${base}/about`,
+      lastModified,
+      changeFrequency: 'yearly',
+      priority: 0.5,
+    },
+    {
+      url: `${base}/contact`,
+      lastModified,
+      changeFrequency: 'yearly',
+      priority: 0.5,
+    },
+    {
       url: `${base}/privacy`,
       lastModified,
       changeFrequency: 'yearly',

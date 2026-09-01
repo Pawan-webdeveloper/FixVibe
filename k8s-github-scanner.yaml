@@ -1,0 +1,155 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: scanlyfix
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-scanner-token
+  namespace: scanlyfix
+type: Opaque
+stringData:
+  token: "5f8450ec62babd2cd92cb558315341215e83ea6d40163f5e"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-scanner
+  namespace: scanlyfix
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: github-scanner
+  template:
+    metadata:
+      labels:
+        app: github-scanner
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: scanner
+        image: scanlyfix/github-scanner:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8081
+          protocol: TCP
+        env:
+        - name: SCANLYFIX_REPO_SCANNER_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-scanner-token
+              key: token
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: github-scanner
+  namespace: scanlyfix
+spec:
+  selector:
+    app: github-scanner
+  ports:
+  - name: http
+    port: 8081
+    targetPort: http
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: github-scanner-egress-lock
+  namespace: scanlyfix
+spec:
+  podSelector:
+    matchLabels:
+      app: github-scanner
+  policyTypes:
+  - Ingress
+  - Egress
+  # Allow ingress from within cluster only
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: scanlyfix
+    ports:
+    - protocol: TCP
+      port: 8081
+  # Allow egress: DNS (UDP 53) + github.com (TCP 443)
+  egress:
+  # DNS queries (required for github.com resolution)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+  # HTTPS to external (github.com)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        # Deny private networks (no database access)
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 127.0.0.0/8
+        - 169.254.0.0/16
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: github-scanner-pdb
+  namespace: scanlyfix
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: github-scanner

@@ -121,6 +121,24 @@ export const serverEnv = {
   },
 
   /**
+   * Repo-scanner worker (GitHub repo scans). Both variables are required
+   * together; the token is a shared secret you choose and the worker refuses to
+   * start without it. Gated exactly like billing: a deployment with no repo
+   * scanner still runs site scans, and repo scans fall back to the stub worker
+   * until this is configured — see lib/repo-scanner.ts. Deliberately NOT part
+   * of assertServerEnv, so an un-provisioned deploy boots and scans sites.
+   */
+  get repoScannerUrl() {
+    return process.env.SCANLYFIX_REPO_SCANNER_URL ?? ''
+  },
+  get repoScannerToken() {
+    return process.env.SCANLYFIX_REPO_SCANNER_TOKEN ?? ''
+  },
+  get repoScannerConfigured() {
+    return Boolean(process.env.SCANLYFIX_REPO_SCANNER_URL && process.env.SCANLYFIX_REPO_SCANNER_TOKEN)
+  },
+
+  /**
    * Alert email. Absent means monitoring records alerts that reach nobody, so
    * the transport logs loudly rather than failing quietly — see lib/email.ts.
    * Deliberately not part of assertServerEnv: a deployment with no mail
