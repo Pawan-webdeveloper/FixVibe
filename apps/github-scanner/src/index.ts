@@ -24,6 +24,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
 import { detectToolVersions, registeredToolVersions } from './tools.ts'
+import { parseScanRequest, type ScanRequest } from './request.ts'
 
 const PORT = Number(process.env['PORT'] ?? 8081)
 const TOKEN = process.env['SCANLYFIX_REPO_SCANNER_TOKEN'] ?? ''
@@ -31,16 +32,6 @@ const TOKEN = process.env['SCANLYFIX_REPO_SCANNER_TOKEN'] ?? ''
 /** A clone + gitleaks + osv-scanner run is heavy; serialize them. */
 const MAX_CONCURRENT_SCANS = 1
 const MAX_BODY_BYTES = 8 * 1024
-/** Hard cap on the history window the caller may request. */
-export const MAX_HISTORY_DEPTH = 2000
-
-export interface ScanRequest {
-  installationId: number
-  owner: string
-  name: string
-  defaultBranch: string
-  historyDepth?: number
-}
 
 if (!TOKEN) {
   console.error(
@@ -129,49 +120,6 @@ async function runScan(request: ScanRequest): Promise<{ status: number; body: Re
       errors: [],
     },
   }
-}
-
-/**
- * Pure request validation, split out so it is unit-testable without an HTTP
- * socket. Accepts the current web-side contract (installationId/owner/name/
- * defaultBranch) and tolerates the fields the pipeline will add (historyDepth),
- * ignoring anything else it is sent.
- */
-export function parseScanRequest(raw: unknown): { ok: true; value: ScanRequest } | { ok: false; error: string } {
-  if (typeof raw !== 'object' || raw === null) {
-    return { ok: false, error: 'Body must be a JSON object' }
-  }
-  const body = raw as Record<string, unknown>
-
-  const installationId = body['installationId']
-  if (typeof installationId !== 'number' || !Number.isInteger(installationId) || installationId <= 0) {
-    return { ok: false, error: 'installationId must be a positive integer' }
-  }
-  const owner = body['owner']
-  if (typeof owner !== 'string' || owner.trim() === '') {
-    return { ok: false, error: 'owner is required' }
-  }
-  const name = body['name']
-  if (typeof name !== 'string' || name.trim() === '') {
-    return { ok: false, error: 'name is required' }
-  }
-  const defaultBranch = body['defaultBranch']
-  if (typeof defaultBranch !== 'string' || defaultBranch.trim() === '') {
-    return { ok: false, error: 'defaultBranch is required' }
-  }
-
-  const value: ScanRequest = { installationId, owner, name, defaultBranch }
-
-  const historyDepth = body['historyDepth']
-  if (historyDepth !== undefined) {
-    if (typeof historyDepth !== 'number' || !Number.isInteger(historyDepth) || historyDepth <= 0) {
-      return { ok: false, error: 'historyDepth must be a positive integer' }
-    }
-    // Callers may ask for less; nobody may ask for more than the cap.
-    value.historyDepth = Math.min(historyDepth, MAX_HISTORY_DEPTH)
-  }
-
-  return { ok: true, value }
 }
 
 /**
