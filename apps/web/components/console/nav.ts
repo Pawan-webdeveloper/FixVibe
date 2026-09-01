@@ -40,14 +40,14 @@ export const NAV: readonly NavSection[] = [
     title: null,
     items: [
       { label: 'Dashboard', icon: 'home', href: '/dashboard' },
-      { label: 'Feed', icon: 'feed', soon: true },
+      { label: 'Feed', icon: 'feed', href: '/feed' },
       { label: 'AutoFix', icon: 'wrench', soon: true },
     ],
   },
   {
     title: 'Assets',
     items: [
-      { label: 'Repositories', icon: 'repo', soon: true },
+      { label: 'Repositories', icon: 'repo', href: '/feed#repositories' },
       { label: 'Containers', icon: 'container', soon: true },
       { label: 'Clouds', icon: 'cloud', soon: true },
       /*
