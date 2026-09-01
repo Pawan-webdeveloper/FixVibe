@@ -153,7 +153,7 @@ describe.skipIf(!live)('monitors and alerts (SCANLYFIX_DB=1)', () => {
 
       const [row] = await db.select().from(monitors).where(eq(monitors.id, monitor!.id))
       const events = await db.select().from(monitorEvents).where(eq(monitorEvents.monitorId, monitor!.id))
-      expect(row?.lastStatus).toBe('failed')
+      expect(row?.lastStatus).toBe('down')
       expect(row?.lastRunAt).toBeInstanceOf(Date)
       expect(events[0]?.statusCode).toBe(503)
     })

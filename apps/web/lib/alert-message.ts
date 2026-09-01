@@ -51,6 +51,10 @@ function str(payload: Record<string, unknown> | null, key: string): string | nul
   return typeof value === 'string' ? value : null
 }
 
+function bool(payload: Record<string, unknown> | null, key: string): boolean {
+  return payload?.[key] === true
+}
+
 /**
  * One renderer per kind, and a fallback that still says something true.
  *
@@ -83,6 +87,81 @@ export function render(alert: AlertSubject): Rendered {
         '',
         'You will not be emailed again about this today, however long it lasts.',
       ]),
+    }
+  }
+
+  if (alert.kind === 'tls_expiring') {
+    const days = num(alert.payload, 'daysUntilExpiry')
+    const expiresAt = str(alert.payload, 'expiresAt')
+    const subject_ = str(alert.payload, 'subject')
+    const urgent = bool(alert.payload, 'urgent')
+    const expired = days !== null && days <= 0
+
+    const expirySummary = expiresAt
+      ? `Expiry date: ${new Date(expiresAt).toDateString()}`
+      : null
+
+    return {
+      subject: expired
+        ? `${host} — TLS certificate has expired`
+        : urgent
+          ? `${host} — TLS certificate expires in ${days} days`
+          : `${host} — TLS certificate expires in ${days} days`,
+      text: lines([
+        expired
+          ? `The TLS certificate for ${host} has expired. Visitors are seeing a browser warning instead of the site.`
+          : `The TLS certificate for ${host} expires in ${days} day${days === 1 ? '' : 's'}.`,
+        '',
+        subject_ ? `Certificate issued for: ${subject_}` : null,
+        expirySummary,
+        '',
+        'If renewal is automated, confirm it ran. If it is not, renew it now.',
+        '',
+        `Site:        ${alert.projectUrl}`,
+        `Status page: ${status}`,
+        '',
+        urgent || expired
+          ? 'This is urgent — browsers block sites with expired certificates.'
+          : 'You have time, but less than two weeks.',
+      ].filter((l): l is string => l !== null)),
+    }
+  }
+
+  if (alert.kind === 'domain_expiring') {
+    const days = num(alert.payload, 'daysUntilExpiry')
+    const expiresAt = str(alert.payload, 'expiresAt')
+    const registrar = str(alert.payload, 'registrar')
+    const urgent = bool(alert.payload, 'urgent')
+    const expired = days !== null && days <= 0
+
+    const expirySummary = expiresAt
+      ? `Expiry date: ${new Date(expiresAt).toDateString()}`
+      : null
+
+    return {
+      subject: expired
+        ? `${host} — domain registration has expired`
+        : urgent
+          ? `${host} — domain expires in ${days} days`
+          : `${host} — domain expires in ${days} days`,
+      text: lines([
+        expired
+          ? `The domain registration for ${host} has expired. The site may stop resolving for visitors.`
+          : `The domain registration for ${host} expires in ${days} day${days === 1 ? '' : 's'}.`,
+        '',
+        registrar ? `Registrar:   ${registrar}` : null,
+        expirySummary,
+        '',
+        'Log in to your registrar and renew before it lapses. A lapsed domain',
+        'can be claimed by someone else and is difficult and expensive to recover.',
+        '',
+        `Site:        ${alert.projectUrl}`,
+        `Status page: ${status}`,
+        '',
+        urgent || expired
+          ? 'This is urgent — act today.'
+          : 'You have time, but renewal takes a few minutes and forgetting it does not.',
+      ].filter((l): l is string => l !== null)),
     }
   }
 
@@ -140,4 +219,3 @@ export function render(alert: AlertSubject): Rendered {
 function lines(parts: readonly string[]): string {
   return parts.join('\n')
 }
-

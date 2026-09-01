@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@scanlyfix/checks": ["../checks/src/index.ts"],
+      "@scanlyfix/db": ["../db/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

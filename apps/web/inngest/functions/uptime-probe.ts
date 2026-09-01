@@ -13,7 +13,7 @@
  */
 
 import { safeFetch } from '@scanlyfix/checks'
-import { consecutiveFailures, recordAlertOnce, recordMonitorRun } from '@scanlyfix/db'
+import { consecutiveFailures, createIncident, recordAlertOnce, recordMonitorRun, resolveIncident } from '@scanlyfix/db'
 import { deliverAlert } from '@/lib/alert-email.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import type { MonitorDueEvent } from './types.ts'
@@ -58,19 +58,37 @@ export const uptimeProbe = inngest.createFunction(
     const result = await step.run('record-and-alert', async () => {
       await recordMonitorRun(monitorId, outcome)
 
-      if (outcome.ok) return { ok: true, alerted: false, streak: 0, alertId: null as string | null }
+      // Site is back up — resolve any open incident, no alert needed.
+      if (outcome.ok) {
+        await resolveIncident(monitorId)
+        return { ok: true, alerted: false, streak: 0, alertId: null as string | null }
+      }
 
       const streak = await consecutiveFailures(monitorId)
+
+      // Single failure is noise — record it but do not alert or open an incident.
       if (streak < FAILURES_BEFORE_ALERT) {
         return { ok: false, alerted: false, streak, alertId: null as string | null }
       }
 
+      // Two consecutive failures — alert once and open an incident.
       const alert = await recordAlertOnce({
         projectId,
         kind: 'downtime',
         channel: 'email',
         payload: { url, streak, statusCode: outcome.statusCode, detail: outcome.detail },
       })
+
+      // Only create an incident when a fresh alert was recorded.
+      // recordAlertOnce returns null if one already exists for today,
+      // which means the incident is already open too — do not duplicate it.
+      if (alert) {
+        await createIncident(monitorId, {
+          statusCode: outcome.statusCode,
+          detail: outcome.detail,
+        })
+      }
+
       return { ok: false, alerted: alert !== null, streak, alertId: alert?.id ?? null }
     })
 

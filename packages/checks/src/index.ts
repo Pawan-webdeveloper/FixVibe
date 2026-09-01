@@ -26,6 +26,10 @@ export { safeFetch, SafeFetchError, type FetchedPage } from './context/safe-fetc
 // exactly these two primitives, and running a whole scan for either would be
 // wasteful and would claim more than the job actually measured.
 export { getTlsInfo } from './context/tls.ts'
+/* monitor error — checkSsl and checkDomain were not re-exported from the package index,
+ * causing 'has no exported member' errors in monitoring-probe.ts and monitoring route */
+export { checkSsl, type SslCheckResult } from './ssl-checker.ts'
+export { checkDomain, type DomainCheckResult } from './domain-checker.ts'
 export { allChecks, runChecks, type RunResult } from './registry.ts'
 export { computeScores, SEVERITY_PENALTIES } from './scoring.ts'
 export { ENGINE_VERSION } from './version.ts'

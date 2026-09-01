@@ -25,7 +25,7 @@ export function MonitorRow({
   description: string
   enabled: boolean
   intervalLabel: string
-  lastStatus: string | null
+  lastStatus: string | null /* uptime error — 'up' | 'down' | null to match DB status values */
   onToggle: (type: MonitorType, enabled: boolean) => Promise<void>
 }) {
   const [on, setOn] = useState(enabled)
@@ -47,8 +47,8 @@ export function MonitorRow({
         <p className="font-medium">
           {title}
           {on && lastStatus && (
-            <span className={`ml-2 text-xs ${lastStatus === 'ok' ? 'text-good' : 'text-critical'}`}>
-              {lastStatus === 'ok' ? 'passing' : 'failing'}
+            <span className={`ml-2 text-xs ${lastStatus === 'up' ? 'text-good' : 'text-critical'}`}>
+              {lastStatus === 'up' ? 'passing' : 'failing'}
             </span>
           )}
         </p>

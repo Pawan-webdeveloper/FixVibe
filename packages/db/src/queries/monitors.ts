@@ -9,9 +9,9 @@
  * how the exception becomes the rule.
  */
 
-import { and, asc, desc, eq, isNull, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm' /* uptime error — was missing gte, caused ReferenceError at runtime in getUptime() */
 import { db } from '../client.ts'
-import { monitorEvents, monitors, projects, scans, type Monitor, type MonitorEvent } from '../schema.ts'
+import { incidents, monitorEvents, monitors, projects, scans, type Incident, type Monitor, type MonitorEvent } from '../schema.ts' /* monitor error — added missing Incident type import */
 import { getProject } from './projects.ts'
 import type { Viewer } from './viewer.ts'
 
@@ -121,7 +121,7 @@ export async function recordMonitorRun(monitorId: string, outcome: MonitorOutcom
     })
     await tx
       .update(monitors)
-      .set({ lastRunAt: new Date(), lastStatus: outcome.ok ? 'ok' : 'failed' })
+      .set({ lastRunAt: new Date(), lastStatus: outcome.ok ? 'up' : 'down' }) /* uptime error — use 'up'/'down' to match monitorTypeEnum semantics and UI checks */
       .where(eq(monitors.id, monitorId))
   })
 }
@@ -176,3 +176,203 @@ export async function recentScansForScheduler(projectId: string, limit = 2) {
     limit,
   })
 }
+
+/**
+ * Opens a new incident for a monitor.
+ *
+ * Called only when recordAlertOnce returns a fresh alert — so if the alert
+ * deduplicates, the incident does too. One alert, one incident, always in sync.
+ */
+export async function createIncident(
+  monitorId: string,
+  meta: { statusCode?: number | null; detail?: string | null },
+): Promise<void> {
+  await db.insert(incidents).values({
+    monitorId,
+    startedAt: new Date(),
+    statusCode: meta.statusCode ?? null,
+    detail: meta.detail ?? null,
+  })
+}
+
+/**
+ * Resolves the most recent open incident for a monitor.
+ *
+ * Called as soon as a probe comes back ok — recovery is immediate, no streak
+ * needed. If no open incident exists this is a no-op, so it is safe to call
+ * on every successful check.
+ */
+export async function resolveIncident(monitorId: string): Promise<void> {
+  const open = await db.query.incidents.findFirst({
+    where: and(
+      eq(incidents.monitorId, monitorId),
+      isNull(incidents.resolvedAt),
+    ),
+    orderBy: desc(incidents.startedAt),
+  })
+
+  if (!open) return
+
+  const durationMs = Date.now() - open.startedAt.getTime()
+
+  await db
+    .update(incidents)
+    .set({ resolvedAt: new Date(), durationMs })
+    .where(eq(incidents.id, open.id))
+}
+
+
+
+
+/* -------------------------------------------------------------------------- */
+/* Phase 5 — Dashboard queries                                                 */
+/* -------------------------------------------------------------------------- */
+
+ 
+/**
+ * All monitors across every project owned by the viewer.
+ * Used on the main dashboard to show a single unified list.
+ */
+export async function listMonitorsForUser(
+  viewer: Viewer,
+): Promise<Array<Monitor & { projectUrl: string; projectName: string }>> {
+  /* monitor error — Viewer is a union type; userId only exists on kind: 'user'.
+   * Must check kind before accessing userId to satisfy TypeScript. */
+  if (viewer.kind !== 'user') return []
+ 
+  return db
+    .select({
+      id: monitors.id,
+      type: monitors.type,
+      projectId: monitors.projectId,
+      enabled: monitors.enabled,
+      intervalS: monitors.intervalS,
+      lastRunAt: monitors.lastRunAt,
+      lastStatus: monitors.lastStatus,
+      createdAt: monitors.createdAt,
+      projectUrl: projects.url,
+      projectName: projects.name,
+    })
+    .from(monitors)
+    .innerJoin(projects, eq(projects.id, monitors.projectId))
+    .where(eq(projects.ownerId, viewer.userId))
+    .orderBy(desc(monitors.createdAt)) as Promise<Array<Monitor & { projectUrl: string; projectName: string }>>
+}
+
+
+
+
+/**
+ * Uptime percentage for a monitor over a given period.
+ *
+ * Returns 100% when no events exist — a monitor that has never run is not
+ * down, it just has not been checked yet.
+ */
+export async function getUptime(
+  monitorId: string,
+  viewer: Viewer,
+  period: '24h' | '7d' | '30d',
+): Promise<{ total: number; up: number; down: number; uptimePercent: number }> {
+  const monitor = await db.query.monitors.findFirst({
+    where: eq(monitors.id, monitorId),
+    columns: { projectId: true },
+  })
+  if (!monitor || !(await getProject(monitor.projectId, viewer))) {
+    return { total: 0, up: 0, down: 0, uptimePercent: 100 }
+  }
+ 
+  const intervalMap = { '24h': '24 hours', '7d': '7 days', '30d': '30 days' } as const
+ 
+  const [result] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      up: sql<number>`count(*) filter (where ${monitorEvents.ok})::int`,
+    })
+    .from(monitorEvents)
+    .where(
+      and(
+        eq(monitorEvents.monitorId, monitorId),
+        gte(monitorEvents.ts, sql`now() - interval '${sql.raw(intervalMap[period])}'`),
+      ),
+    )
+ 
+  const total = result?.total ?? 0
+  const up = result?.up ?? 0
+  const down = total - up
+  const uptimePercent = total === 0 ? 100 : Math.round((up / total) * 10_000) / 100
+ 
+  return { total, up, down, uptimePercent }
+}
+ 
+/**
+ * Incident history for a monitor, newest first.
+ * Auth-gated: viewer must own the monitor's project.
+ */
+export async function listIncidents(
+  monitorId: string,
+  viewer: Viewer,
+  limit = 50,
+): Promise<Incident[]> {
+  const monitor = await db.query.monitors.findFirst({
+    where: eq(monitors.id, monitorId),
+    columns: { projectId: true },
+  })
+  if (!monitor || !(await getProject(monitor.projectId, viewer))) return []
+ 
+  return db.query.incidents.findMany({
+    where: eq(incidents.monitorId, monitorId),
+    orderBy: desc(incidents.startedAt),
+    limit,
+  })
+}
+
+
+
+/**
+ * Returns SSL + domain expiry data for a project's domain monitor.
+ * Used by the Monitoring dashboard to show expiry dates without
+ * re-running the check.
+ *
+ * Reads from the most recent monitor_event's `detail` field for the
+ * domain monitor — the probe writes a structured detail string there.
+ * For richer data (exact days), the API route calls the checker directly
+ * once per page load (cheap — it's cached by the OS resolver).
+ */
+export async function getDomainMonitor(
+  projectId: string,
+  viewer: Viewer,
+): Promise<Monitor | null> {
+  if (!(await getProject(projectId, viewer))) return null
+  
+  /* monitor error — findFirst returns T | undefined, but return type is Monitor | null.
+   * Use explicit null check to satisfy TypeScript. */
+  const result = await db.query.monitors.findFirst({
+    where: and(
+      eq(monitors.projectId, projectId),
+      eq(monitors.type, 'domain'),
+    ),
+  })
+  return result ?? null
+}
+
+
+
+
+/**
+ * Ensures a domain monitor exists for a project.
+ * Called when a user enables the Monitoring feature.
+ *
+ * intervalS = 86400 (daily) — SSL and domain expiry do not change
+ * by the hour, and a daily check is plenty of warning at 14/30 days.
+ */
+export async function ensureDomainMonitor(
+  projectId: string,
+  viewer: Viewer,
+): Promise<Monitor | null> {
+  return setMonitor(projectId, viewer, {
+    type: 'domain',
+    enabled: true,
+    intervalS: 86_400, // once per day
+  })
+}
+ 

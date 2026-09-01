@@ -1,3 +1,5 @@
+'use client' /* uptime error — was missing 'use client' directive, required for client-side rendering */
+
 /**
  * Ninety days of uptime as a strip of bars, oldest on the left.
  *

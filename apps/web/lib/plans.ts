@@ -75,7 +75,7 @@ export const PLANS: Readonly<Record<PlanId, Plan>> = {
     planIdEnv: null,
     scansPerMonth: 30,
     projects: 1,
-    monitors: 0,
+    monitors: 3,
     fullFindings: false,
     fixPrompts: false,
     history: false,

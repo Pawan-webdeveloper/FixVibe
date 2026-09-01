@@ -50,7 +50,7 @@ export default async function StatusPage({ params }: { params: Promise<{ slug: s
   if (!data?.uptime) notFound()
 
   const { project, uptime } = data
-  const up = uptime.lastStatus === 'ok'
+  const up = uptime.lastStatus === 'up' /* uptime error — match DB status value */
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">

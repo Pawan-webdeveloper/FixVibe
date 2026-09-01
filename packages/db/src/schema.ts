@@ -428,6 +428,54 @@ export const alerts = pgTable(
   (t) => [index('alerts_project_created_idx').on(t.projectId, desc(t.createdAt))],
 )
 
+
+
+
+
+// (for uptime monitors) feature schema
+
+// Incidents
+
+// Block-1
+export const incidents = pgTable(
+  'incidents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    monitorId: uuid('monitor_id')
+      .notNull()
+      .references(() => monitors.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    /** Duration in milliseconds — NULL while the incident is still ongoing. */
+    durationMs: integer('duration_ms'),
+    /** HTTP status code that first triggered this incident, if available. */
+    statusCode: integer('status_code'),
+    /** Human-readable detail / error message captured at incident start. */
+    detail: text('detail'),
+  },
+  (t) => [
+    // Primary query: list incidents for a monitor, newest first.
+    index('incidents_monitor_started_idx').on(t.monitorId, desc(t.startedAt)),
+    // Efficiently find the single open (unresolved) incident per monitor.
+    index('incidents_unresolved_idx').on(t.monitorId, t.resolvedAt),
+  ],
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* -------------------------------------------------------------------------- */
 /* Access & billing                                                           */
 /* -------------------------------------------------------------------------- */
@@ -693,6 +741,20 @@ export const monitorEventsRelations = relations(monitorEvents, ({ one }) => ({
   monitor: one(monitors, { fields: [monitorEvents.monitorId], references: [monitors.id] }),
 }))
 
+
+
+
+//  BLOCK 2
+ export const incidentsRelations = relations(incidents, ({ one }) => ({
+  monitor: one(monitors, {
+    fields: [incidents.monitorId],
+    references: [monitors.id],
+  }),
+}))
+
+
+
+
 export const alertsRelations = relations(alerts, ({ one }) => ({
   project: one(projects, { fields: [alerts.projectId], references: [projects.id] }),
 }))
@@ -772,3 +834,5 @@ export type NewRepoScan = typeof repoScans.$inferInsert
 /** Persisted repo finding row. Distinct from `@scanlyfix/repo-checks`'s in-memory `RepoFinding`. */
 export type RepoFindingRow = typeof repoFindings.$inferSelect
 export type NewRepoFindingRow = typeof repoFindings.$inferInsert
+export type Incident = typeof incidents.$inferSelect
+export type NewIncident = typeof incidents.$inferInsert
