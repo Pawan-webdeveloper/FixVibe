@@ -9,6 +9,7 @@
  */
 
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import {
   getDashboardSummary,
   listProjectSummaries,
@@ -83,6 +84,16 @@ function scoreTone(score: number): string {
 
 export default async function DashboardPage() {
   const user = await requireUser('/dashboard')
+
+  /*
+   * The one-question onboarding, enforced here and not only in /callback: a
+   * session can reach the dashboard without passing through the callback —
+   * a refresh, a bookmark, a client-side navigation — and priorities is null
+   * only until it is answered once, so this cannot loop. The return trip is
+   * the hidden `next` field on /welcome, which carries /dashboard back.
+   */
+  if (user.priorities === null) redirect('/welcome?next=%2Fdashboard')
+
   const viewer = await getViewer()
   const [summary, projects, recentScans] = await Promise.all([
     getDashboardSummary(viewer),
