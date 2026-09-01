@@ -9,7 +9,7 @@
 import Link from 'next/link'
 import {
   listInstallationsForViewer,
-  listReposForViewer,
+  listReposForInstallation,
   listRepoScansForRepo,
   type GithubRepo,
   type RepoScan,
@@ -42,10 +42,13 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function FeedPage() {
   const user = await requireUser('/feed')
   const viewer = await getViewer()
-  const [installations, repos] = await Promise.all([
-    listInstallationsForViewer(viewer),
-    listReposForViewer(viewer),
-  ])
+  const installations = await listInstallationsForViewer(viewer)
+
+  // Fetch repos per installation to avoid the broken cross-table join
+  const repoLists = await Promise.all(
+    installations.map((inst) => listReposForInstallation(inst.id)),
+  )
+  const repos = repoLists.flat()
 
   const hasInstallations = installations.length > 0
   const githubUrl = serverEnv.githubConfigured
