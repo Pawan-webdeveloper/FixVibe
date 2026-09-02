@@ -39,8 +39,19 @@ export const metadata: Metadata = {
     description:
       '63 read-only checks across security, SEO, AI answer engines, performance, accessibility and ' +
       'compliance. Every finding shows the evidence behind it.',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1202,
+        height: 628,
+        alt: 'ScanlyFix — everything wrong with your website, and the prompt that fixes it',
+      },
+    ],
   },
-  twitter: { card: 'summary_large_image' },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/og-image.png'],
+  },
 }
 
 export const viewport: Viewport = {
