@@ -12,7 +12,7 @@
  * signed-in user).
  */
 
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '../client.ts'
 import {
   githubInstallations,
@@ -180,4 +180,43 @@ export async function getRepoWithInstallationForViewer(
     .limit(1)
   const row = rows[0]
   return row ? { repo: row.repo, installationId: row.installationId } : null
+}
+
+/**
+ * Look up an installation by GitHub's numeric id (without a Viewer). The webhook
+ * is the canonical caller: GitHub never tells us which application user owns an
+ * installation, only the installation itself, and we resolve the application
+ * user through the row we recorded when the user clicked Install.
+ */
+export async function getInstallationByGithubId(
+  installationId: number,
+): Promise<GithubInstallation | null> {
+  const row = await db.query.githubInstallations.findFirst({
+    where: eq(githubInstallations.installationId, installationId),
+  })
+  return row ?? null
+}
+
+/**
+ * Remove an installation row by GitHub's numeric id. Cascades to its repos
+ * (and their scans/findings) via the FK on `github_installations`. Used by
+ * `installation.deleted` webhooks.
+ */
+export async function deleteInstallationByGithubId(installationId: number): Promise<void> {
+  await db.delete(githubInstallations).where(eq(githubInstallations.installationId, installationId))
+}
+
+/**
+ * Remove specific repos from an installation by GitHub's numeric repo id.
+ * Used by `installation_repositories.removed` webhooks, which carry the
+ * deleted repos and not the survivors.
+ */
+export async function deleteReposByGithubIds(
+  installationRowId: string,
+  repoIds: number[],
+): Promise<void> {
+  if (repoIds.length === 0) return
+  await db
+    .delete(githubRepos)
+    .where(and(eq(githubRepos.installationId, installationRowId), inArray(githubRepos.githubId, repoIds)))
 }
