@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono, Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 
 /**
@@ -38,8 +39,19 @@ export const metadata: Metadata = {
     description:
       '63 read-only checks across security, SEO, AI answer engines, performance, accessibility and ' +
       'compliance. Every finding shows the evidence behind it.',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1202,
+        height: 628,
+        alt: 'ScanlyFix — everything wrong with your website, and the prompt that fixes it',
+      },
+    ],
   },
-  twitter: { card: 'summary_large_image' },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/og-image.png'],
+  },
 }
 
 export const viewport: Viewport = {
@@ -60,6 +72,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${mono.variable} ${sans.variable}`}>
+      <head>
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-FWCPZRBYKE" />
+        <Script id="google-analytics">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-FWCPZRBYKE');
+          `}
+        </Script>
+      </head>
       <body className="min-h-dvh">{children}</body>
     </html>
   )

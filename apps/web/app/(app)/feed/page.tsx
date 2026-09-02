@@ -32,6 +32,13 @@ function scoreTone(score: number | null): string {
   return 'text-sev-high'
 }
 
+function buildInstallUrl(slug: string, appUrl: string): string {
+  const base = `https://github.com/apps/${slug}/installations/new`
+  if (!appUrl) return base
+  const callback = `${appUrl.replace(/\/+$/, '')}/api/github/callback`
+  return `${base}?redirect_url=${encodeURIComponent(callback)}`
+}
+
 const STATUS_LABEL: Record<string, string> = {
   queued: 'Queued',
   running: 'Running',
@@ -52,7 +59,7 @@ export default async function FeedPage() {
 
   const hasInstallations = installations.length > 0
   const githubUrl = serverEnv.githubConfigured
-    ? `https://github.com/apps/${serverEnv.githubAppSlug}/installations/new`
+    ? buildInstallUrl(serverEnv.githubAppSlug, process.env['NEXT_PUBLIC_APP_URL'] ?? '')
     : null
 
   // Fetch the latest scan for each repo (small N, acceptable latency)

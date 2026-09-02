@@ -146,8 +146,55 @@ export const serverEnv = {
   get githubAppSlug() {
     return process.env.GITHUB_APP_SLUG ?? ''
   },
+  /**
+   * Numeric id of the registered ScanlyFix GitHub App. Used to sign the JWT
+   * that exchanges for a short-lived installation access token.
+   */
+  get githubAppId() {
+    return process.env.GITHUB_APP_ID ?? ''
+  },
+  /**
+   * PEM private key for the GitHub App. Stored PEM-encoded with newlines as
+   * literal `\n` in the environment (a common convention); we unescape when
+   * handing it to the JWT signer.
+   */
+  get githubAppPrivateKey() {
+    return process.env.GITHUB_APP_PRIVATE_KEY ?? ''
+  },
+  /**
+   * Webhook secret used to verify `X-Hub-Signature-256` on
+   * `/api/webhooks/github`. Set on the GitHub App page; without it we cannot
+   * tell a real GitHub event from a forged one.
+   */
+  get githubWebhookSecret() {
+    return process.env.GITHUB_WEBHOOK_SECRET ?? ''
+  },
+  /**
+   * OAuth client secret for the GitHub App. Used when the App has its own
+   * user-flow callback (the redirect we receive after install). Empty when
+   * the App is configured webhook-only.
+   */
+  get githubClientSecret() {
+    return process.env.GITHUB_APP_CLIENT_SECRET ?? ''
+  },
+  /**
+   * The public origin the request reached us on — the absolute URL the
+   * GitHub App should bounce back to after install. Falls back to
+   * NEXT_PUBLIC_SITE_URL (the production origin) so a deploy doesn't need to
+   * inject an extra variable just for the redirect.
+   */
+  get siteOrigin() {
+    return process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  },
   get githubConfigured() {
-    return Boolean(process.env.GITHUB_APP_SLUG)
+    return Boolean(
+      process.env.GITHUB_APP_SLUG &&
+        process.env.GITHUB_APP_ID &&
+        process.env.GITHUB_APP_PRIVATE_KEY,
+    )
+  },
+  get githubWebhookConfigured() {
+    return Boolean(process.env.GITHUB_APP_SLUG && process.env.GITHUB_WEBHOOK_SECRET)
   },
 
   /**
