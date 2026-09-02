@@ -139,6 +139,18 @@ export const serverEnv = {
   },
 
   /**
+   * GitHub App slug for the installation redirect. The full URL is
+   * `https://github.com/apps/{slug}/installations/new`. When absent, the
+   * Connect GitHub button on the feed page hides itself.
+   */
+  get githubAppSlug() {
+    return process.env.GITHUB_APP_SLUG ?? ''
+  },
+  get githubConfigured() {
+    return Boolean(process.env.GITHUB_APP_SLUG)
+  },
+
+  /**
    * Alert email. Absent means monitoring records alerts that reach nobody, so
    * the transport logs loudly rather than failing quietly — see lib/email.ts.
    * Deliberately not part of assertServerEnv: a deployment with no mail

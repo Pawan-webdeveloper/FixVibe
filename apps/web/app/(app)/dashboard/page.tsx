@@ -1,26 +1,15 @@
 /**
  * The console overview: what is wrong across every site this account watches.
  *
- * The page is built around one honest constraint — every figure on it comes
- * from `getDashboardSummary`, which reads the LATEST completed scan per site.
- * Nothing here is a placeholder and nothing is derived from a number shown
- * somewhere else on the page, so the severity bar, the tiles and the pillar
- * breakdown cannot disagree with each other.
- *
- * Layout follows the shape a console wants rather than the shape a report
- * wants: the headline count and its severity split first, the sites and the
- * scan action beside it, then the worst individual findings, then the
- * breakdown by pillar. A reader who only looks at the top of this page should
- * still learn the one thing that matters.
- *
- * The pillar breakdown is where the engine's 63 checks become legible. They
- * are grouped six ways — security, SEO, AI answers, performance,
- * accessibility, compliance — because that is how the scoring model groups
- * them, and a dashboard that invented its own grouping would be reporting a
- * different product than the report page does.
+ * Redesigned to the ElevenLabs editorial design system: off-white canvas,
+ * warm near-black ink, pill CTAs, soft-drop cards, atmospheric gradient orbs,
+ * and Inter body at weight 400 with editorial letter-spacing. Display uses
+ * light weight (300) for the magazine voice. Section labels use the
+ * caption-uppercase token (12px / 600 / uppercase / 0.96px tracking).
  */
 
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import {
   getDashboardSummary,
   listProjectSummaries,
@@ -38,10 +27,8 @@ import { Icon } from '@/components/console/icons.tsx'
 
 export const metadata = { title: 'Dashboard' }
 
-/** How many checks a scan runs. Stated so the tile is not a magic number. */
 const CHECKS_PER_SCAN = 63
 
-/** Worst-first, matching SEVERITY_ORDER in the engine. */
 const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info']
 
 const SEVERITY_LABEL: Record<Severity, string> = {
@@ -52,7 +39,6 @@ const SEVERITY_LABEL: Record<Severity, string> = {
   info: 'info',
 }
 
-/** Tailwind cannot see a class built at runtime, so both halves are literal. */
 const SEVERITY_BG: Record<Severity, string> = {
   critical: 'bg-sev-critical',
   high: 'bg-sev-high',
@@ -69,7 +55,6 @@ const SEVERITY_TEXT: Record<Severity, string> = {
   info: 'text-sev-info',
 }
 
-/** The six pillars, in the order the report page leads with them. */
 const PILLARS: readonly { key: Category; label: string }[] = [
   { key: 'security', label: 'Security' },
   { key: 'seo', label: 'SEO' },
@@ -79,7 +64,6 @@ const PILLARS: readonly { key: Category; label: string }[] = [
   { key: 'compliance', label: 'Compliance' },
 ]
 
-/** UTC, because a report link is shared across time zones. */
 function stamp(date: Date): string {
   return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
@@ -92,7 +76,6 @@ function hostOf(url: string): string {
   }
 }
 
-/** Band colour for a 0–100 score, on the same 90/70 cut the report uses. */
 function scoreTone(score: number): string {
   if (score >= 90) return 'text-emerald-600 dark:text-emerald-400'
   if (score >= 70) return 'text-amber-600 dark:text-amber-400'
@@ -101,6 +84,16 @@ function scoreTone(score: number): string {
 
 export default async function DashboardPage() {
   const user = await requireUser('/dashboard')
+
+  /*
+   * The one-question onboarding, enforced here and not only in /callback: a
+   * session can reach the dashboard without passing through the callback —
+   * a refresh, a bookmark, a client-side navigation — and priorities is null
+   * only until it is answered once, so this cannot loop. The return trip is
+   * the hidden `next` field on /welcome, which carries /dashboard back.
+   */
+  if (user.priorities === null) redirect('/welcome?next=%2Fdashboard')
+
   const viewer = await getViewer()
   const [summary, projects, recentScans] = await Promise.all([
     getDashboardSummary(viewer),
@@ -118,10 +111,10 @@ export default async function DashboardPage() {
     <div className="console flex min-h-dvh flex-col bg-c-bg text-c-ink">
       <TopBar email={user.email} sites={projects.length} />
 
-      <div className="flex flex-col gap-8 px-5 py-6 sm:px-8 sm:py-8">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-12 px-6 py-10 sm:px-10 sm:py-14">
         <ScanPanel />
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <IssueSummary summary={summary} />
           <MonitoringPanel sites={projects.length} />
         </div>
@@ -151,37 +144,23 @@ export default async function DashboardPage() {
 
 function TopBar({ email, sites }: { email: string; sites: number }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-c-line bg-c-card px-5 sm:px-8">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-c-line/60 bg-c-bg/80 backdrop-blur-md px-6 sm:px-10">
       <div className="min-w-0 pl-12 lg:pl-0">
-        <p className="truncate text-[15px] font-semibold">All sites</p>
-        <p className="console-num truncate text-[12px] text-c-muted">
-          {sites === 0 ? 'nothing tracked yet' : `${sites} tracked`}
-        </p>
+        <p className="truncate text-[15px] font-medium text-c-ink">All sites</p>
       </div>
 
       <div className="flex-1" />
 
-      {/*
-        The search field is not wired to anything yet, so it is not rendered as
-        an input a person can type into and get nothing back from. It is the
-        link to the place search will live, which today is the site list below.
-      */}
       <Link
         href="#sites"
         aria-label="Find a site"
-        className="grid h-9 w-9 place-items-center rounded-lg text-c-muted transition-colors hover:bg-c-soft hover:text-c-ink"
+        className="grid h-9 w-9 place-items-center rounded-full text-c-muted transition-colors hover:bg-c-soft hover:text-c-ink"
       >
         <Icon name="search" />
       </Link>
-      {/*
-        No "Docs" link, unlike the design this borrows from: there is no docs
-        site to send anyone to yet, and a chrome button that 404s is worse than
-        one that is absent. Pricing is the one public page that explains what a
-        scan covers, so that is what sits here until docs exist.
-      */}
       <Link
         href="/pricing"
-        className="hidden h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-c-muted transition-colors hover:bg-c-soft hover:text-c-ink sm:flex"
+        className="hidden h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium text-c-muted transition-colors hover:bg-c-soft hover:text-c-ink sm:flex"
       >
         <Icon name="book" size={16} />
         Plans
@@ -189,13 +168,13 @@ function TopBar({ email, sites }: { email: string; sites: number }) {
       <Link
         href="/settings/billing"
         aria-label="Settings"
-        className="grid h-9 w-9 place-items-center rounded-lg text-c-muted transition-colors hover:bg-c-soft hover:text-c-ink"
+        className="grid h-9 w-9 place-items-center rounded-full text-c-muted transition-colors hover:bg-c-soft hover:text-c-ink"
       >
         <Icon name="settings" />
       </Link>
       <span
         title={email}
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-c-brand text-[13px] font-semibold text-c-brand-ink"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-c-ink text-[13px] font-medium text-c-brand-ink"
       >
         {email.slice(0, 1).toUpperCase()}
       </span>
@@ -221,45 +200,73 @@ function Card({
   return (
     <section className={className}>
       {(title || action) && (
-        <div className="mb-3 flex items-end justify-between gap-4">
-          {title && <h2 className="text-[17px] font-semibold tracking-tight">{title}</h2>}
+        <div className="mb-4 flex items-end justify-between gap-4">
+          {title && (
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-c-muted">
+              {title}
+            </h2>
+          )}
           {action}
         </div>
       )}
-      <div className="rounded-xl border border-c-line bg-c-card">{children}</div>
+      <div className="rounded-xl border border-c-line bg-c-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        {children}
+      </div>
     </section>
   )
 }
 
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-c-soft px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-c-muted">
+      {children}
+    </span>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Scan Panel — hero section with gradient orbs                                */
+/* -------------------------------------------------------------------------- */
+
 function ScanPanel() {
   return (
-    <Card title="Scan a site" action={<Pill>{CHECKS_PER_SCAN} checks per scan</Pill>}>
-      <div className="p-5">
-        {/* restore: this is where a signed-out visitor lands after signing in
-            from a scan, so it reclaims the URL they typed before. */}
-        <div className="max-w-2xl">
+    <section className="relative overflow-hidden rounded-2xl border border-c-line/60 bg-c-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-c-gradient-mint/30 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 top-8 h-56 w-56 rounded-full bg-c-gradient-peach/25 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-c-gradient-lavender/20 blur-3xl" />
+
+      <div className="relative px-8 pt-10 pb-8 sm:px-10 sm:pt-12 sm:pb-10">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-c-muted">
+          Scan a site
+        </p>
+        <h2 className="mt-3 text-[28px] font-light leading-tight tracking-[-0.02em] text-c-ink sm:text-[32px]">
+          Find what&apos;s wrong
+        </h2>
+        <p className="mt-2 max-w-lg text-[15px] leading-relaxed text-c-body">
+          {CHECKS_PER_SCAN} checks across security, SEO, AI answers, performance,
+          accessibility, and compliance.
+        </p>
+
+        <div className="mt-8 max-w-2xl">
           <ScanForm restore tone="console" />
         </div>
-        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1.5 text-[12.5px] text-c-muted">
+
+        <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] text-c-muted">
           {PILLARS.map((pillar) => (
             <li key={pillar.key} className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-c-brand/60" />
+              <span aria-hidden="true" className="h-1 w-1 rounded-full bg-c-ink/30" />
               {pillar.label}
             </li>
           ))}
         </ul>
       </div>
-    </Card>
+    </section>
   )
 }
 
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full border border-c-line bg-c-card px-2.5 py-1 text-[11.5px] font-medium text-c-muted">
-      {children}
-    </span>
-  )
-}
+/* -------------------------------------------------------------------------- */
+/* Issue Summary                                                              */
+/* -------------------------------------------------------------------------- */
 
 function IssueSummary({ summary }: { summary: DashboardSummary }) {
   const { open, openTotal } = summary
@@ -267,13 +274,8 @@ function IssueSummary({ summary }: { summary: DashboardSummary }) {
 
   return (
     <Card title="Issue summary">
-      <div className="p-5">
-        {/*
-          The stacked bar is widths in percent of the total, so it always fills
-          the track exactly. With no findings it renders one flat neutral bar
-          rather than an empty box — "nothing found" is a result, not a gap.
-        */}
-        <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-c-soft">
+      <div className="p-8">
+        <div className="flex h-3 w-full overflow-hidden rounded-full bg-c-soft">
           {openTotal === 0 ? (
             <span className="h-full w-full bg-c-line" />
           ) : (
@@ -287,9 +289,11 @@ function IssueSummary({ summary }: { summary: DashboardSummary }) {
           )}
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
-          <p className="flex items-baseline gap-2">
-            <span className="console-num text-4xl font-semibold">{openTotal}</span>
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+          <p className="flex items-baseline gap-3">
+            <span className="console-num text-[40px] font-light leading-none tracking-tight text-c-ink">
+              {openTotal}
+            </span>
             <span className="text-[14px] text-c-muted">
               open {openTotal === 1 ? 'finding' : 'findings'}
             </span>
@@ -299,9 +303,9 @@ function IssueSummary({ summary }: { summary: DashboardSummary }) {
               <li key={severity} className="flex items-center gap-2 text-[13px]">
                 <span
                   aria-hidden="true"
-                  className={`h-2.5 w-2.5 rounded-[3px] ${SEVERITY_BG[severity]}`}
+                  className={`h-2.5 w-2.5 rounded-full ${SEVERITY_BG[severity]}`}
                 />
-                <span className="console-num font-semibold">{open[severity]}</span>
+                <span className="console-num font-medium text-c-ink">{open[severity]}</span>
                 <span className="text-c-muted">{SEVERITY_LABEL[severity]}</span>
               </li>
             ))}
@@ -309,7 +313,7 @@ function IssueSummary({ summary }: { summary: DashboardSummary }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 border-t border-c-line sm:grid-cols-4">
+      <div className="grid grid-cols-2 border-t border-c-line/60 sm:grid-cols-4">
         <MiniStat icon="feed" label="Open" value={summary.openTotal} hint="awaiting a fix" />
         <MiniStat icon="shield" label="Fixed" value={summary.fixed} hint="confirmed gone" divider />
         <MiniStat icon="bell" label="Ignored" value={summary.ignored} hint="muted by you" divider />
@@ -339,34 +343,44 @@ function MiniStat({
   divider?: boolean
 }) {
   return (
-    <div className={`px-5 py-4 ${divider ? 'sm:border-l sm:border-c-line' : ''}`}>
-      <p className="flex items-center gap-2 text-[12.5px] font-medium text-c-muted">
-        <Icon name={icon} size={15} />
+    <div className={`px-8 py-5 ${divider ? 'sm:border-l sm:border-c-line/60' : ''}`}>
+      <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-c-muted">
+        <Icon name={icon} size={14} />
         {label}
       </p>
-      <p className="console-num mt-1.5 text-2xl font-semibold">{value}</p>
-      <p className="text-[12px] text-c-muted">{hint}</p>
+      <p className="console-num mt-2 text-[28px] font-light leading-none tracking-tight text-c-ink">
+        {value}
+      </p>
+      <p className="mt-1.5 text-[13px] text-c-muted">{hint}</p>
     </div>
   )
 }
 
+/* -------------------------------------------------------------------------- */
+/* Monitoring Panel                                                           */
+/* -------------------------------------------------------------------------- */
+
 function MonitoringPanel({ sites }: { sites: number }) {
   return (
     <Card title="Monitoring">
-      <div className="flex min-h-45 flex-col items-center justify-center gap-2 p-6 text-center">
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-c-soft text-c-muted">
+      <div className="relative flex min-h-[180px] flex-col items-center justify-center gap-3 p-8 text-center">
+        <div className="pointer-events-none absolute right-6 top-6 h-32 w-32 rounded-full bg-c-gradient-lavender/25 blur-2xl" />
+        <span className="relative grid h-12 w-12 place-items-center rounded-full bg-c-soft text-c-muted">
           <Icon name="uptime" size={22} />
         </span>
-        <p className="text-[13.5px] text-c-muted text-pretty">
+        <p className="relative text-[14px] text-c-muted text-pretty">
           {sites === 0
             ? 'Nobody is watching a site yet.'
             : 'Scheduled re-scans and uptime checks are set per site.'}
         </p>
         {sites === 0 ? (
-          <p className="text-[12.5px] text-c-muted">Add a site below to start watching it.</p>
+          <p className="relative text-[13px] text-c-muted">Add a site below to start watching it.</p>
         ) : (
-          <Link href="#sites" className="text-[13px] font-medium text-c-brand hover:underline">
-            Set up monitoring →
+          <Link
+            href="#sites"
+            className="relative rounded-full bg-c-ink px-5 py-2 text-[13px] font-medium text-c-brand-ink transition-opacity hover:opacity-90"
+          >
+            Set up monitoring
           </Link>
         )}
       </div>
@@ -374,43 +388,50 @@ function MonitoringPanel({ sites }: { sites: number }) {
   )
 }
 
+/* -------------------------------------------------------------------------- */
+/* Needs Attention                                                            */
+/* -------------------------------------------------------------------------- */
+
 function NeedsAttention({ findings, scanned }: { findings: DashboardFinding[]; scanned: number }) {
   return (
     <Card
       title="Needs attention"
       action={
         findings.length > 0 ? (
-          <Link href="#sites" className="text-[13px] font-medium text-c-brand hover:underline">
-            Open the sites →
+          <Link
+            href="#sites"
+            className="rounded-full bg-c-ink px-4 py-1.5 text-[12px] font-medium text-c-brand-ink transition-opacity hover:opacity-90"
+          >
+            View all
           </Link>
         ) : null
       }
     >
       {findings.length === 0 ? (
-        <p className="p-6 text-center text-[13.5px] text-c-muted text-pretty">
+        <p className="p-8 text-center text-[14px] text-c-muted text-pretty">
           {scanned === 0
             ? 'Nothing scanned yet — run a scan above and the worst findings land here.'
             : 'No critical or high findings are open. That is the good outcome.'}
         </p>
       ) : (
-        <ul className="grid gap-px bg-c-line sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
           {findings.map((finding) => (
-            <li key={finding.id} className="bg-c-card">
+            <li key={finding.id}>
               <Link
                 href={`/scan/${finding.scanId}`}
-                className="flex h-full flex-col gap-2 p-5 transition-colors hover:bg-c-soft"
+                className="flex h-full flex-col gap-2.5 rounded-xl border border-c-line/40 bg-c-bg p-5 transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
               >
-                <p className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide">
+                <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em]">
                   <span className={SEVERITY_TEXT[finding.severity]}>{finding.severity}</span>
-                  <span aria-hidden="true" className="text-c-line">
-                    ·
-                  </span>
+                  <span aria-hidden="true" className="text-c-line">·</span>
                   <span className="font-normal normal-case tracking-normal text-c-muted">
                     {finding.category === 'aeo' ? 'AI answers' : finding.category}
                   </span>
                 </p>
-                <p className="text-[14.5px] font-medium leading-snug text-pretty">{finding.title}</p>
-                <p className="mt-auto truncate text-[12.5px] text-c-muted">{finding.host}</p>
+                <p className="text-[15px] font-medium leading-snug text-pretty text-c-ink">
+                  {finding.title}
+                </p>
+                <p className="mt-auto truncate text-[13px] text-c-muted">{finding.host}</p>
               </Link>
             </li>
           ))}
@@ -419,6 +440,10 @@ function NeedsAttention({ findings, scanned }: { findings: DashboardFinding[]; s
     </Card>
   )
 }
+
+/* -------------------------------------------------------------------------- */
+/* Asset Summary                                                              */
+/* -------------------------------------------------------------------------- */
 
 function AssetSummary({
   sites,
@@ -433,7 +458,9 @@ function AssetSummary({
 }) {
   return (
     <section>
-      <h2 className="mb-3 text-[17px] font-semibold tracking-tight">Asset summary</h2>
+      <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-c-muted">
+        Asset summary
+      </h2>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <BigStat icon="globe" label="Domains" value={String(sites)} hint="tracked as projects" />
         <BigStat icon="search" label="Sites scanned" value={String(scanned)} hint="with a result" />
@@ -464,42 +491,45 @@ function BigStat({
   tone?: string
 }) {
   return (
-    <div className="rounded-xl border border-c-line bg-c-card p-5">
-      <p className="flex items-center gap-2 text-[12.5px] font-medium text-c-muted">
-        <Icon name={icon} size={15} />
+    <div className="rounded-xl border border-c-line/60 bg-c-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-c-muted">
+        <Icon name={icon} size={14} />
         {label}
       </p>
-      <p className={`console-num mt-2 text-3xl font-semibold ${tone ?? ''}`}>{value}</p>
-      <p className="mt-0.5 text-[12px] text-c-muted">{hint}</p>
+      <p className={`console-num mt-3 text-[32px] font-light leading-none tracking-tight ${tone ?? 'text-c-ink'}`}>
+        {value}
+      </p>
+      <p className="mt-1.5 text-[13px] text-c-muted">{hint}</p>
     </div>
   )
 }
 
-/**
- * The engine's own grouping, made visible.
- *
- * Bars are scaled against the LARGEST pillar rather than against the total, so
- * the shape of the distribution stays readable when one pillar dominates —
- * which it usually does, because security has the most checks.
- */
+/* -------------------------------------------------------------------------- */
+/* Issue Types                                                                */
+/* -------------------------------------------------------------------------- */
+
 function IssueTypes({ summary }: { summary: DashboardSummary }) {
   const peak = Math.max(1, ...PILLARS.map((p) => summary.byCategory[p.key]))
 
   return (
-    <Card title="Issue types" action={<Pill>open findings by pillar</Pill>}>
-      <ul className="flex flex-col gap-3.5 p-5">
+    <Card title="Issue types" action={<Badge>by pillar</Badge>}>
+      <ul className="flex flex-col gap-4 p-8">
         {PILLARS.map((pillar) => {
           const n = summary.byCategory[pillar.key]
           return (
             <li key={pillar.key} className="flex items-center gap-4">
-              <span className="w-28 shrink-0 text-[13.5px] font-medium sm:w-36">{pillar.label}</span>
+              <span className="w-28 shrink-0 text-[14px] font-medium text-c-body sm:w-36">
+                {pillar.label}
+              </span>
               <span className="h-2 flex-1 overflow-hidden rounded-full bg-c-soft">
                 <span
-                  className={`block h-full rounded-full ${n > 0 ? 'bg-c-brand' : 'bg-transparent'}`}
+                  className={`block h-full rounded-full transition-all duration-500 ${
+                    n > 0 ? 'bg-c-ink' : 'bg-transparent'
+                  }`}
                   style={{ width: `${(n / peak) * 100}%` }}
                 />
               </span>
-              <span className="console-num w-8 shrink-0 text-right text-[13.5px] font-semibold">
+              <span className="console-num w-8 shrink-0 text-right text-[14px] font-medium text-c-ink">
                 {n}
               </span>
             </li>
@@ -510,24 +540,30 @@ function IssueTypes({ summary }: { summary: DashboardSummary }) {
   )
 }
 
+/* -------------------------------------------------------------------------- */
+/* Sites                                                                      */
+/* -------------------------------------------------------------------------- */
+
 function Sites({ projects, orgId }: { projects: ProjectSummary[]; orgId: string }) {
   return (
     <section id="sites" className="scroll-mt-20">
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
-        <h2 className="text-[17px] font-semibold tracking-tight">Domains</h2>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-c-muted">
+          Domains
+        </h2>
         <NewProjectForm orgId={orgId} />
       </div>
 
       {projects.length === 0 ? (
-        <div className="rounded-xl border border-c-line bg-c-card p-8 text-center">
-          <p className="text-[15px] font-medium">No domains tracked yet</p>
-          <p className="mx-auto mt-1.5 max-w-md text-[13.5px] text-c-muted text-pretty">
+        <div className="rounded-xl border border-c-line/60 bg-c-card p-12 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <p className="text-[16px] font-medium text-c-ink">No domains tracked yet</p>
+          <p className="mx-auto mt-2 max-w-md text-[14px] leading-relaxed text-c-muted text-pretty">
             Add a site to keep its history and watch its score move, or scan any URL above and file
             that report into a domain afterwards.
           </p>
         </div>
       ) : (
-        <ul className="overflow-hidden rounded-xl border border-c-line bg-c-card">
+        <ul className="overflow-hidden rounded-xl border border-c-line/60 bg-c-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {projects.map((summary, index) => (
             <ProjectRow key={summary.project.id} summary={summary} first={index === 0} />
           ))}
@@ -543,30 +579,29 @@ function ProjectRow({ summary, first }: { summary: ProjectSummary; first: boolea
   const failed = latest?.status === 'failed'
 
   return (
-    <li className={first ? '' : 'border-t border-c-line'}>
+    <li className={first ? '' : 'border-t border-c-line/60'}>
       <Link
         href={`/projects/${project.id}`}
-        className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-c-soft"
+        className="flex items-center gap-4 px-6 py-5 transition-colors hover:bg-c-soft/50"
       >
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-c-soft text-c-muted">
-          <Icon name="globe" size={17} />
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-c-soft text-c-muted">
+          <Icon name="globe" size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14.5px] font-medium">{project.name}</span>
-          <span className="block truncate text-[12.5px] text-c-muted">{project.url}</span>
+          <span className="block truncate text-[15px] font-medium text-c-ink">{project.name}</span>
+          <span className="block truncate text-[13px] text-c-muted">{project.url}</span>
         </span>
         {score !== null ? (
           <span className="flex shrink-0 items-center gap-4">
-            {/* Hidden on the narrowest screens: the delta is the least useful
-                thing in this row, and keeping it there crushed the host name
-                it sits beside down to "mock-inte…". */}
             <span className="hidden sm:inline">
               <DeltaTag delta={delta} />
             </span>
-            <span className={`console-num text-2xl font-semibold ${scoreTone(score)}`}>{score}</span>
+            <span className={`console-num text-[24px] font-light tracking-tight ${scoreTone(score)}`}>
+              {score}
+            </span>
           </span>
         ) : (
-          <span className="shrink-0 text-[12.5px] text-c-muted">
+          <span className="shrink-0 text-[13px] text-c-muted">
             {failed ? 'last scan failed' : 'not scanned yet'}
           </span>
         )}
@@ -575,44 +610,49 @@ function ProjectRow({ summary, first }: { summary: ProjectSummary; first: boolea
   )
 }
 
-/** Which way the score moved since last time, or why there is no number. */
 function DeltaTag({ delta }: { delta: number | null }) {
   if (delta === null) return <span className="text-[12px] text-c-muted">coverage changed</span>
   if (delta === 0) return <span className="text-[12px] text-c-muted">no change</span>
   const up = delta > 0
   return (
     <span
-      className={`console-num text-[12.5px] font-semibold ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-sev-high'}`}
+      className={`console-num text-[12px] font-medium ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-sev-high'}`}
     >
-      {up ? `▲ +${delta}` : `▼ ${delta}`}
+      {up ? `+${delta}` : `${delta}`}
     </span>
   )
 }
 
+/* -------------------------------------------------------------------------- */
+/* Recent Scans                                                               */
+/* -------------------------------------------------------------------------- */
+
 function RecentScans({ scans }: { scans: Scan[] }) {
   return (
-    <Card title="Recent scans" action={<Pill>not filed under a domain</Pill>}>
+    <Card title="Recent scans" action={<Badge>not filed under a domain</Badge>}>
       <ul>
         {scans.map((scan, index) => {
           const score = scan.scores?.overall ?? null
           return (
-            <li key={scan.id} className={index === 0 ? '' : 'border-t border-c-line'}>
+            <li key={scan.id} className={index === 0 ? '' : 'border-t border-c-line/60'}>
               <Link
                 href={`/scan/${scan.id}`}
-                className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-c-soft"
+                className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-c-soft/50"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium">{hostOf(scan.url)}</span>
+                  <span className="block truncate text-[14px] font-medium text-c-ink">
+                    {hostOf(scan.url)}
+                  </span>
                   <span className="console-num block truncate text-[12px] text-c-muted">
                     {stamp(scan.createdAt)}
                   </span>
                 </span>
                 {score !== null ? (
-                  <span className={`console-num text-xl font-semibold ${scoreTone(score)}`}>
+                  <span className={`console-num text-[20px] font-light tracking-tight ${scoreTone(score)}`}>
                     {score}
                   </span>
                 ) : (
-                  <span className="text-[12.5px] text-c-muted">
+                  <span className="text-[13px] text-c-muted">
                     {scan.status === 'failed'
                       ? 'failed'
                       : scan.status === 'queued' || scan.status === 'running'
