@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono, Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 
 /**
@@ -60,6 +61,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${mono.variable} ${sans.variable}`}>
+      <head>
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-FWCPZRBYKE" />
+        <Script id="google-analytics">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-FWCPZRBYKE');
+          `}
+        </Script>
+      </head>
       <body className="min-h-dvh">{children}</body>
     </html>
   )
