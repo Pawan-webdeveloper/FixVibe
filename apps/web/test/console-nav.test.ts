@@ -18,7 +18,15 @@ import { NAV } from '../components/console/nav.ts'
 const items = NAV.flatMap((section) => section.items)
 
 /** Routes that exist under app/. A row may only point at one of these. */
-const REAL_ROUTES = new Set(['/dashboard', '/settings/billing', '/settings/api-keys', '/scan/start', '/monitors', '/monitoring'])
+const REAL_ROUTES = new Set([
+  '/dashboard',
+  '/feed',
+  '/settings/billing',
+  '/settings/api-keys',
+  '/scan/start',
+  '/monitors',
+  '/monitoring',
+])
 
 describe('console nav', () => {
   it('never gives an unbuilt row somewhere to go', () => {
