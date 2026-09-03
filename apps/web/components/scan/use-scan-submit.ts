@@ -55,19 +55,22 @@ import {
 
 /**
  * Where a signed-out visitor lands after signing in from a scan attempt: the
- * app, not the marketing page they started on. The URL they typed rides along
- * in sessionStorage and the dashboard's scan form reclaims it, so the scan they
- * came to run is one keypress away. Sending them back to the landing page — the
- * old behaviour — read as "I signed in and nothing happened".
+ * /scan/start confirmation, which shows the URL they typed and asks before
+ * starting. The URL rides along in sessionStorage, so the page can display it
+ * verbatim and the visitor starts the scan with one keypress — after seeing
+ * the one warning that matters: the report is locked to that address. The
+ * dashboard remains the fallback for a visitor with nothing pending.
  */
-const SIGN_IN_NEXT = '/dashboard'
+const SIGN_IN_NEXT = '/scan/start'
 
 export interface ScanSubmitOptions {
   /**
    * Whether this form should pick up a URL left behind by a sign-in trip.
    *
-   * The dashboard opts in — a scan-gated sign-in lands there now (SIGN_IN_NEXT),
-   * and its form is the one the visitor sees. The hero opts in too, as a
+   * A scan-gated sign-in lands on /scan/start (SIGN_IN_NEXT), which shows and
+   * confirms the URL. The dashboard opts in as the fallback — reached when the
+   * visitor leaves the confirmation via "Scan a different site", so the box is
+   * waiting for them filled rather than blank. The hero opts in too, as a
    * fallback; the final CTA does not. Every form stashes on the way out
    * regardless — `restore` only controls which one reads it back, and
    * takePendingUrl is read-once, so two opted-in forms on different routes
