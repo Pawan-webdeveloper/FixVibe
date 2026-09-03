@@ -13,10 +13,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const alertForDelivery = vi.fn()
 const markAlertSent = vi.fn()
+const getAlertChannels = vi.fn()
 const sendEmail = vi.fn()
+const sendSlack = vi.fn()
 
-vi.mock('@scanlyfix/db', () => ({ alertForDelivery, markAlertSent }))
+vi.mock('@scanlyfix/db', () => ({ alertForDelivery, markAlertSent, getAlertChannels }))
 vi.mock('../lib/email.ts', () => ({ sendEmail, emailConfigured: () => true }))
+vi.mock('../lib/slack.ts', () => ({ sendSlack, isValidSlackWebhookUrl: () => true }))
 
 const { deliverAlert } = await import('../lib/alert-email.ts')
 
@@ -34,7 +37,9 @@ const row = {
 beforeEach(() => {
   alertForDelivery.mockReset()
   markAlertSent.mockReset()
+  getAlertChannels.mockReset()
   sendEmail.mockReset()
+  sendSlack.mockReset()
 })
 
 afterEach(() => vi.restoreAllMocks())
@@ -93,5 +98,45 @@ describe('deliverAlert', () => {
 
     expect(await deliverAlert('gone')).toEqual({ sent: false, reason: 'alert no longer exists' })
     expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('also delivers to configured Slack channel when enabled', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        channel: 'slack',
+        enabled: true,
+        config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
+      },
+    ])
+    sendSlack.mockResolvedValue({ sent: true })
+
+    await deliverAlert('alert-1')
+
+    expect(sendSlack).toHaveBeenCalledWith(
+      'https://hooks.slack.com/services/T/B/X',
+      expect.objectContaining({
+        text: 'scanlyfix.test is not responding',
+      }),
+    )
+  })
+
+  it('does not let Slack failure prevent email delivery or marking sent', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        channel: 'slack',
+        enabled: true,
+        config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
+      },
+    ])
+    sendSlack.mockRejectedValue(new Error('Slack server down'))
+
+    const result = await deliverAlert('alert-1')
+
+    expect(result).toEqual({ sent: true, id: 'msg_1' })
+    expect(markAlertSent).toHaveBeenCalledWith('alert-1')
   })
 })
