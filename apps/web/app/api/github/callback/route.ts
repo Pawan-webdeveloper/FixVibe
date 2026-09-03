@@ -5,7 +5,7 @@ import { upsertInstallation, upsertRepo } from '@scanlyfix/db'
 
 export const runtime = 'nodejs'
 
-function fail(error: string, status: number, origin: string) {
+function fail(error: string, status: number, origin: string, next: string) {
   return NextResponse.redirect(new URL(`/feed?error=${encodeURIComponent(error)}`, origin))
 }
 
@@ -13,15 +13,16 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const installationIdRaw = url.searchParams.get('installation_id')
   const setupAction = url.searchParams.get('setup_action')
+  const next = url.searchParams.get('next') ?? '/feed'
 
-  if (!installationIdRaw) return fail('missing-installation', 400, url.origin)
+  if (!installationIdRaw) return fail('missing-installation', 400, url.origin, next)
   const installationId = Number(installationIdRaw)
-  if (!Number.isFinite(installationId)) return fail('invalid-installation', 400, url.origin)
+  if (!Number.isFinite(installationId)) return fail('invalid-installation', 400, url.origin, next)
 
   const viewer = await getViewer()
   if (viewer.kind !== 'user') {
     const login = new URL('/login', url.origin)
-    login.searchParams.set('next', '/feed')
+    login.searchParams.set('next', next)
     login.searchParams.set('error', 'github-connect-requires-signin')
     return NextResponse.redirect(login)
   }
@@ -53,6 +54,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(destination)
   } catch (error) {
     console.error('[github/callback] could not finish install', error)
-    return fail('github-install-failed', 500, url.origin)
+    return fail('github-install-failed', 500, url.origin, next)
   }
 }

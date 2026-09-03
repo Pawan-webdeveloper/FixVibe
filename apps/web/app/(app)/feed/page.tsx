@@ -35,7 +35,7 @@ function scoreTone(score: number | null): string {
 function buildInstallUrl(slug: string, appUrl: string): string {
   const base = `https://github.com/apps/${slug}/installations/new`
   if (!appUrl) return base
-  const callback = `${appUrl.replace(/\/+$/, '')}/api/github/callback`
+  const callback = `${appUrl.replace(/\/+$/, '')}/api/github/callback?next=${encodeURIComponent('/feed')}`
   return `${base}?redirect_url=${encodeURIComponent(callback)}`
 }
 
@@ -46,7 +46,21 @@ const STATUS_LABEL: Record<string, string> = {
   failed: 'Failed',
 }
 
-export default async function FeedPage() {
+const FEED_ERRORS: Record<string, string> = {
+  'missing-installation': 'GitHub did not provide an installation ID. Try connecting again.',
+  'invalid-installation': 'GitHub returned an invalid installation ID. Try connecting again.',
+  'github-connect-requires-signin': 'Your session expired during the GitHub setup. Sign in and try again.',
+  'github-install-failed': 'Could not finish setting up the GitHub App. Try again in a moment.',
+}
+
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error: errorParam } = await searchParams
+  const errorMessage = errorParam ? FEED_ERRORS[errorParam] ?? 'Something went wrong. Try again.' : null
+
   const user = await requireUser('/feed')
   const viewer = await getViewer()
   const installations = await listInstallationsForViewer(viewer)
@@ -74,6 +88,12 @@ export default async function FeedPage() {
       <TopBar />
 
       <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-12 px-6 py-10 sm:px-10 sm:py-14">
+        {/* Error banner — shown when the GitHub callback reports a problem */}
+        {errorMessage && (
+          <div className="rounded-xl border border-red-300/60 bg-red-50 px-5 py-4 text-[14px] leading-relaxed text-red-800">
+            {errorMessage}
+          </div>
+        )}
         {/* Connect GitHub CTA — shown when no installations exist */}
         {!hasInstallations && githubUrl && (
           <section className="relative overflow-hidden rounded-2xl border border-c-line/60 bg-c-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
