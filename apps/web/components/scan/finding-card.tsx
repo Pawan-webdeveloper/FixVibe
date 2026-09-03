@@ -13,6 +13,7 @@
 
 import type { Category, Severity } from '@scanlyfix/checks'
 import { CopyButton } from './copy-button.tsx'
+import { FixButton } from './fix-button.tsx'
 
 export interface FindingView {
   checkId: string
@@ -90,10 +91,18 @@ function Evidence({ evidence }: { evidence: Record<string, unknown> }) {
 export function FindingCard({
   finding,
   lockedNote = 'The detail and the fix for this finding are withheld.',
+  scanId,
 }: {
   finding: FindingView
   /** Why this one is closed. The card cannot know; the page can. */
   lockedNote?: string
+  /**
+   * The scan this finding belongs to. Present means the Fix button is live:
+   * pressing it has the model write the work order for this exact finding.
+   * Without it — a context with no scan to charge the fix to — the card keeps
+   * the engine's static prompt instead.
+   */
+  scanId?: string
 }) {
   const sev = SEVERITY[finding.severity]
 
@@ -162,10 +171,14 @@ export function FindingCard({
           </p>
         )}
 
-        {finding.fixPrompt && (
-          <div className="mt-3">
-            <CopyButton text={finding.fixPrompt} />
-          </div>
+        {scanId ? (
+          <FixButton scanId={scanId} checkId={finding.checkId} />
+        ) : (
+          finding.fixPrompt && (
+            <div className="mt-3">
+              <CopyButton text={finding.fixPrompt} />
+            </div>
+          )
         )}
       </div>
     </details>

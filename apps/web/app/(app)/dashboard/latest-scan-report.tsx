@@ -172,6 +172,7 @@ async function Done({ scan, viewer }: { scan: ScanWithFindings; viewer: Viewer }
             <FindingsList
               findings={report.findings as FindingView[]}
               priorities={entitlements.priorities}
+              scanId={scan.id}
               lockedNote="The detail and the fix for this finding are part of Pro."
             />
           </div>
