@@ -12,7 +12,7 @@
  */
 
 import { getTlsInfo } from '@scanlyfix/checks'
-import { recordAlertOnce, recordMonitorRun } from '@scanlyfix/db'
+import { recordAlertOnce } from '@scanlyfix/db'
 import { deliverAlert } from '@/lib/alert-email.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import type { MonitorDueEvent } from './types.ts'
@@ -59,7 +59,9 @@ export const domainHealth = inngest.createFunction(
     })
 
     const result = await step.run('record-and-alert', async () => {
-      await recordMonitorRun(monitorId, { ok: reading.ok, detail: reading.detail })
+      // WHY no recordMonitorRun: monitoring-probe.ts already records the run
+      // for this monitor. Calling it here would overwrite lastStatus.
+      // domain-health.ts only handles granular certificate expiry alerting.
 
       const daysLeft = reading.daysLeft
       if (daysLeft === null) {
