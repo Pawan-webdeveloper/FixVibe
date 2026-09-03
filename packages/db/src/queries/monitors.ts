@@ -11,9 +11,31 @@
 
 import { and, asc, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm' /* uptime error — was missing gte, caused ReferenceError at runtime in getUptime() */
 import { db } from '../client.ts'
-import { incidents, monitorEvents, monitors, projects, scans, type Incident, type Monitor, type MonitorEvent } from '../schema.ts' /* monitor error — added missing Incident type import */
+import {
+  incidents,
+  monitorEvents,
+  monitors,
+  projects,
+  scans,
+  dnsSnapshots,
+  snoozedMonitors,
+  type Incident,
+  type Monitor,
+  type MonitorEvent,
+  type SnoozedMonitor,
+} from '../schema.ts' /* monitor error — added missing Incident type import */
 import { getProject } from './projects.ts'
 import type { Viewer } from './viewer.ts'
+// ─── DNS Snapshot Queries ─────────────────────────────────────────────────────
+
+import type { DnsRecord } from '../dns-checker.ts'
+import { DnsRecordsSchema } from '../dns-checker.ts'
+
+import type { MonitorEventDiff, MonitorLogEntry } from '../types/monitor-diff.ts'
+import { MonitorEventDiffSchema } from '../types/monitor-diff.ts'
+
+
+
 
 export type MonitorType = Monitor['type']
 
@@ -249,6 +271,7 @@ export async function listMonitorsForUser(
       intervalS: monitors.intervalS,
       lastRunAt: monitors.lastRunAt,
       lastStatus: monitors.lastStatus,
+      alertConfig: monitors.alertConfig,
       createdAt: monitors.createdAt,
       projectUrl: projects.url,
       projectName: projects.name,
@@ -358,7 +381,7 @@ export async function getDomainMonitor(
 
 
 
-/**
+/*
  * Ensures a domain monitor exists for a project.
  * Called when a user enables the Monitoring feature.
  *
@@ -374,5 +397,411 @@ export async function ensureDomainMonitor(
     enabled: true,
     intervalS: 86_400, // once per day
   })
+}
+ 
+
+/*
+ * ACTION: Add getPublicStatus() at the bottom of the file.
+ *
+ * SYSTEM QUERY — no Viewer. The status page is public by design:
+ * a slug is not a secret and the data it returns is already visible
+ * to anyone who can watch the site's HTTP responses. What it must
+ * NOT return is anything private — no email, no userId, no internal ids
+ * beyond what the page actually needs.
+ */
+ 
+export interface PublicIncident {
+  startedAt: Date
+  resolvedAt: Date | null
+  durationMs: number | null
+  statusCode: number | null
+  detail: string | null
+}
+ 
+export interface PublicStatusData {
+  projectName: string
+  projectUrl: string
+  /** Current status from the uptime monitor's lastStatus. */
+  currentStatus: 'ok' | 'failed' | 'unknown'
+  /** ISO string of last check. */
+  lastCheckedAt: Date | null
+  /** Uptime % over last 90 days. */
+  uptimePercent: number
+  /** Daily buckets for the 90-day strip — true = all checks ok that day. */
+  dailyBuckets: Array<{ date: string; ok: boolean; total: number }>
+  /** Last 10 incidents, newest first. */
+  recentIncidents: PublicIncident[]
+}
+ 
+
+
+
+
+/**
+ * Returns everything the public status page needs in one query set.
+ * Keyed by project slug — slugs are public (they appear in URLs the
+ * owner shares), so no auth check is needed or appropriate here.
+ *
+ * Returns null when the slug does not exist, which the page renders
+ * as a 404 rather than an empty state — a missing slug is not a
+ * project with no data, it is a URL that means nothing.
+ */
+export async function getPublicStatus(slug: string): Promise<PublicStatusData | null> {
+  // 1. Resolve slug → project + uptime monitor
+  const project = await db.query.projects.findFirst({
+    where: eq(projects.slug, slug),
+    columns: { id: true, name: true, url: true },
+  })
+  if (!project) return null
+ 
+  const monitor = await db.query.monitors.findFirst({
+    where: and(
+      eq(monitors.projectId, project.id),
+      eq(monitors.type, 'uptime'),
+    ),
+    columns: { id: true, lastStatus: true, lastRunAt: true },
+  })
+ 
+  // Project exists but uptime monitor not set up yet — return a stub.
+  if (!monitor) {
+    return {
+      projectName: project.name,
+      projectUrl: project.url,
+      currentStatus: 'unknown',
+      lastCheckedAt: null,
+      uptimePercent: 100,
+      dailyBuckets: [],
+      recentIncidents: [],
+    }
+  }
+ 
+  const monitorId = monitor.id
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) // 90 days ago
+ 
+  // 2. Uptime % over 90 days
+  const [uptimeRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      up: sql<number>`count(*) filter (where ${monitorEvents.ok})::int`,
+    })
+    .from(monitorEvents)
+    .where(
+      and(
+        eq(monitorEvents.monitorId, monitorId),
+        gte(monitorEvents.ts, cutoff),
+      ),
+    )
+ 
+  const total = uptimeRow?.total ?? 0
+  const up = uptimeRow?.up ?? 0
+  const uptimePercent = total === 0 ? 100 : Math.round((up / total) * 10_000) / 100
+ 
+  // 3. Daily buckets for the 90-day strip
+  // Group events by UTC date, compute ok = all checks passed that day.
+  const rawEvents = await db
+    .select({
+      date: sql<string>`date_trunc('day', ${monitorEvents.ts} at time zone 'utc')::date::text`,
+      total: sql<number>`count(*)::int`,
+      up: sql<number>`count(*) filter (where ${monitorEvents.ok})::int`,
+    })
+    .from(monitorEvents)
+    .where(
+      and(
+        eq(monitorEvents.monitorId, monitorId),
+        gte(monitorEvents.ts, cutoff),
+      ),
+    )
+    .groupBy(sql`date_trunc('day', ${monitorEvents.ts} at time zone 'utc')::date`)
+    .orderBy(sql`date_trunc('day', ${monitorEvents.ts} at time zone 'utc')::date`)
+ 
+  const dailyBuckets = rawEvents.map((row) => ({
+    date: row.date,
+    ok: row.up === row.total,
+    total: row.total,
+  }))
+ 
+  // 4. Recent incidents (last 10)
+  const recentIncidents = await db.query.incidents.findMany({
+    where: eq(incidents.monitorId, monitorId),
+    orderBy: desc(incidents.startedAt),
+    limit: 10,
+    columns: {
+      startedAt: true,
+      resolvedAt: true,
+      durationMs: true,
+      statusCode: true,
+      detail: true,
+    },
+  })
+ 
+  return {
+    projectName: project.name,
+    projectUrl: project.url,
+    currentStatus: monitor.lastStatus === 'up' ? 'ok' : monitor.lastStatus === 'down' ? 'failed' : 'unknown',
+    lastCheckedAt: monitor.lastRunAt,
+    uptimePercent,
+    dailyBuckets,
+    recentIncidents,
+  }
+}
+ 
+
+/**
+ * Latest DNS snapshot fetch karta hai ek monitor ke liye.
+ * Returns null agar pehli baar check ho raha hai (no baseline yet).
+ */
+export async function getLatestDnsSnapshot(
+  monitorId: string,
+): Promise<DnsRecord[] | null> {
+  const row = await db.query.dnsSnapshots.findFirst({
+    where: eq(dnsSnapshots.monitorId, monitorId),
+    orderBy: [desc(dnsSnapshots.createdAt)],
+    columns: { records: true },
+  })
+
+  if (!row) return null
+
+  // WHY runtime parse: jsonb se aaya data untyped hota hai — validate karo
+  const parsed = DnsRecordsSchema.safeParse(row.records)
+  return parsed.success ? parsed.data : null
+}
+
+/**
+ * Naya DNS snapshot insert karta hai.
+ * Old snapshots delete nahi hote — audit trail ke liye useful hai.
+ */
+export async function recordDnsSnapshot(
+  monitorId: string,
+  records: DnsRecord[],
+): Promise<void> {
+  await db.insert(dnsSnapshots).values({
+    monitorId,
+    records,
+  })
+}
+
+
+
+// ─── recentEventsWithDiff ──────────────────────────────────────────────────────
+/**
+ * Latest monitor events fetch karta hai, har event ke saath
+ * previous event se computed diff attach karta hai.
+ *
+ * WHY on-the-fly compute (DB column pe nahi):
+ *  - Probe code touch nahi karna padta
+ *  - Always accurate — stored diff stale ho sakta hai
+ *  - limit+1 trick se sirf ek DB call
+ *
+ * Security:
+ *  - Viewer authorization: monitor ka project viewer ka hona chahiye
+ *  - limit cap: unbounded queries block
+ */
+export async function recentEventsWithDiff(
+  monitorId: string,
+  viewer: Viewer,                    // tumhara existing Viewer type
+  limit = 50,
+): Promise<MonitorLogEntry[]> {
+
+  // ── Input sanitization ──────────────────────────────────────────────────────
+  const safeLimit = Math.min(Math.max(1, limit), 200)
+  // WHY cap at 200: koi bhi 10k rows pull na kar sake accidentally
+
+  // ── Authorization ───────────────────────────────────────────────────────────
+  // WHY pehle auth check: DB se unnecessary data pull karne se pehle
+  const monitor = await db.query.monitors.findFirst({
+    where: eq(monitors.id, monitorId),
+    columns: { projectId: true },
+  })
+
+  if (!monitor) return []
+
+  const project = await getProject(monitor.projectId, viewer)
+  if (!project) return []
+  // WHY getProject use: tumhara existing auth pattern — consistency
+
+  // ── Fetch limit+1 rows ──────────────────────────────────────────────────────
+  // WHY +1: last event ka diff compute karne ke liye uske pehle
+  // wala event chahiye — extra row fetch karo, slice karo baad mein
+  const rows = await db.query.monitorEvents.findMany({
+    where: eq(monitorEvents.monitorId, monitorId),
+    orderBy: [desc(monitorEvents.ts)],
+    limit: safeLimit + 1,
+    columns: {
+      id: true,
+      monitorId: true,
+      ok: true,
+      statusCode: true,
+      latencyMs: true,
+      detail: true,
+      ts: true,
+    },
+  })
+
+  // ── Compute diffs ───────────────────────────────────────────────────────────
+  // rows[0] = most recent, rows[1] = one before that (desc order)
+  // so rows[i+1] = previous event in time
+
+  const withDiffs: MonitorLogEntry[] = rows
+    .slice(0, safeLimit)           // extra (+1) row remove karo
+    .map((event, i) => {
+      const prev = rows[i + 1]    // older event (one step back in time)
+
+      let diff: MonitorEventDiff | null = null
+
+      if (prev) {
+        const rawDiff: MonitorEventDiff = {}
+
+        // Sirf woh fields include karo jo actually change hue
+        // WHY: unnecessary noise avoid karo — agar latency thoda change hua
+        //      toh bhi diff show hoga, but statusCode same raha toh woh diff nahi
+        if (prev.statusCode !== event.statusCode) {
+          rawDiff.statusCode = { from: prev.statusCode, to: event.statusCode }
+        }
+
+        if (prev.ok !== event.ok || prev.latencyMs !== event.latencyMs) {
+          rawDiff.latencyMs = { from: prev.latencyMs, to: event.latencyMs }
+        }
+
+        if (prev.detail !== event.detail) {
+          rawDiff.detail = { from: prev.detail, to: event.detail }
+        }
+
+        // WHY safeParse: empty rawDiff ({}) ko null treat karo —
+        // agar kuch bhi nahi change hua toh diff = null, not {}
+        const parsed = MonitorEventDiffSchema.safeParse(rawDiff)
+        const isEmpty = Object.keys(rawDiff).length === 0
+        diff = parsed.success && !isEmpty ? parsed.data : null
+      }
+
+      return {
+        id: event.id,
+        monitorId: event.monitorId,
+        ok: event.ok,
+        statusCode: event.statusCode,
+        latencyMs: event.latencyMs,
+        detail: event.detail,
+        ts: event.ts.toISOString(),   // WHY serialize: JSON.stringify safe
+        diff,
+      }
+    })
+
+  return withDiffs
+}
+
+
+
+
+
+
+
+/* -------------------------------------------------------------------------- */
+/* Snooze queries                                                              */
+/* -------------------------------------------------------------------------- */
+ 
+/**
+ * SYSTEM QUERY — no Viewer.
+ * Called from the probe before alerting — fast indexed lookup.
+ *
+ * Returns true when an active (non-expired) snooze exists for this monitor.
+ * A snooze with expiresAt = null is active until manually cleared.
+ */
+export async function isMonitorSnoozed(monitorId: string): Promise<boolean> {
+  const snooze = await db.query.snoozedMonitors.findFirst({
+    where: and(
+      eq(snoozedMonitors.monitorId, monitorId),
+      or(
+        isNull(snoozedMonitors.expiresAt),
+        gte(snoozedMonitors.expiresAt, new Date()),
+      ),
+    ),
+    columns: { id: true },
+  })
+  return snooze !== undefined
+}
+ 
+/**
+ * Returns the active snooze for a monitor, or null if not snoozed.
+ * Auth-gated — viewer must own the monitor's project.
+ */
+export async function getActiveSnooze(
+  monitorId: string,
+  viewer: Viewer,
+): Promise<SnoozedMonitor | null> {
+  const monitor = await db.query.monitors.findFirst({
+    where: eq(monitors.id, monitorId),
+    columns: { projectId: true },
+  })
+  if (!monitor || !(await getProject(monitor.projectId, viewer))) return null
+ 
+  const snooze = await db.query.snoozedMonitors.findFirst({
+    where: and(
+      eq(snoozedMonitors.monitorId, monitorId),
+      or(
+        isNull(snoozedMonitors.expiresAt),
+        gte(snoozedMonitors.expiresAt, new Date()),
+      ),
+    ),
+  })
+ 
+  return snooze ?? null
+}
+ 
+/**
+ * Snoozes a monitor for a given duration or indefinitely.
+ *
+ * Upserts — if a snooze already exists it is replaced. This lets a user
+ * extend a snooze without having to unsnooze first.
+ *
+ * Auth-gated — viewer must own the monitor's project.
+ */
+export async function snoozeMonitor(
+  monitorId: string,
+  viewer: Viewer,
+  options: { expiresAt?: Date | null; reason?: string | null },
+): Promise<SnoozedMonitor | null> {
+  if (viewer.kind !== 'user') return null
+ 
+  const monitor = await db.query.monitors.findFirst({
+    where: eq(monitors.id, monitorId),
+    columns: { projectId: true },
+  })
+  if (!monitor || !(await getProject(monitor.projectId, viewer))) return null
+ 
+  // Delete existing snooze first — uniqueIndex enforces one per monitor,
+  // and onConflictDoUpdate on a unique index is cleaner than update.
+  await db
+    .delete(snoozedMonitors)
+    .where(eq(snoozedMonitors.monitorId, monitorId))
+ 
+  const [row] = await db
+    .insert(snoozedMonitors)
+    .values({
+      monitorId,
+      createdBy: viewer.userId,
+      expiresAt: options.expiresAt ?? null,
+      reason: options.reason ?? null,
+    })
+    .returning()
+ 
+  return row ?? null
+}
+ 
+/**
+ * Removes the snooze for a monitor immediately.
+ * Auth-gated — viewer must own the monitor's project.
+ */
+export async function unsnoozeMonitor(
+  monitorId: string,
+  viewer: Viewer,
+): Promise<void> {
+  const monitor = await db.query.monitors.findFirst({
+    where: eq(monitors.id, monitorId),
+    columns: { projectId: true },
+  })
+  if (!monitor || !(await getProject(monitor.projectId, viewer))) return
+ 
+  await db
+    .delete(snoozedMonitors)
+    .where(eq(snoozedMonitors.monitorId, monitorId))
 }
  

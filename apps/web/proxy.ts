@@ -69,7 +69,13 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
   // Touch the session. getUser() refreshes the access token when it is close
   // to expiry and writes the new value back through the adapter above. Do
   // not run any other auth code between createServerClient and getUser().
-  await supabase.auth.getUser()
+  try {
+    await supabase.auth.getUser()
+  } catch {
+    // Transient network errors or Supabase cold-boot timeouts should not crash
+    // the proxy. The request continues; downstream auth guards verify the session.
+  }
+
   // event is unused today; reserved for future abort signalling.
   void event
 

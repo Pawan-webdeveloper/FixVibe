@@ -19,6 +19,7 @@
 
 import 'server-only'
 import { serverEnv } from './env.ts'
+import type { SlackMessage } from './slack.ts'
 
 export interface AlertSubject {
   kind: string
@@ -186,6 +187,68 @@ export function render(alert: AlertSubject): Rendered {
     }
   }
 
+  // ─── ADD: DNS Drift Alert ─────────────────────────────────────────────────────
+if (alert.kind === 'dns_drift') {
+  // WHY type assertion with fallback: payload jsonb se aata hai — safely handle karo
+  const added =
+    (alert.payload?.added as Array<{ type: string; value: string }> | undefined) ?? []
+  const removed =
+    (alert.payload?.removed as Array<{ type: string; value: string }> | undefined) ?? []
+  const hostname = (alert.payload?.hostname as string | undefined) ?? host
+
+  const addedLines = added.map((r) => `  + ${r.type.padEnd(5)} ${r.value}`)
+  const removedLines = removed.map((r) => `  - ${r.type.padEnd(5)} ${r.value}`)
+
+  return {
+    subject: `⚠️ DNS records changed — ${hostname}`,
+    text: [
+      `DNS records for ${hostname} have changed.`,
+      '',
+      ...(removed.length > 0 ? ['Records removed:', ...removedLines, ''] : []),
+      ...(added.length > 0 ? ['Records added:', ...addedLines, ''] : []),
+      `Monitor: ${alert.projectUrl}`,
+      `Status:  ${status}`,
+      '',
+      'If this change was expected (CDN switch, migration), no action needed.',
+      'If unexpected — check your DNS provider immediately.',
+    ].join('\n'),
+  }
+}
+
+
+// Existing if/switch chain mein ADD karo:
+if (alert.kind === 'web_vitals') {
+  const violations =
+    (alert.payload?.violations as Array<{
+      metric: string
+      value: number
+      unit: string
+      severity: 'warn' | 'critical'
+    }> | undefined) ?? []
+
+  const hasCritical = alert.payload?.hasCritical as boolean | undefined
+
+  const lines = violations.map(
+    (v) =>
+      `  ${v.severity === 'critical' ? '🔴' : '🟡'} ${v.metric}: ${v.value}${v.unit}`,
+  )
+
+  return {
+    subject: `${hasCritical ? '🔴' : '🟡'} Web Vitals alert — ${alert.payload?.url}`,
+    text: [
+      `Core Web Vitals thresholds crossed for:`,
+      `${alert.payload?.url}`,
+      '',
+      ...lines,
+      '',
+      `Monitor: ${alert.projectUrl}`,
+      '',
+      'Slow vitals directly impact user experience and SEO rankings.',
+      'Check your hosting, images, and third-party scripts.',
+    ].join('\n'),
+  }
+}
+
   if (alert.kind === 'score-drop') {
     const before = num(alert.payload, 'before')
     const after = num(alert.payload, 'after')
@@ -218,4 +281,37 @@ export function render(alert: AlertSubject): Rendered {
 
 function lines(parts: readonly string[]): string {
   return parts.join('\n')
+}
+
+// ─── Slack Renderer ────────────────────────────────────────────────────────────
+/**
+ * Converts an alert into a Slack Block Kit message.
+ *
+ * WHY separate from render():
+ *  - Slack Block Kit has strict type constraints (section, divider, header, context)
+ *  - Text length limits differ (3000 chars max per block)
+ *  - Fallback `text` field is required for desktop/mobile notifications
+ *
+ * Same robustness as render(): unknown kinds produce a usable message,
+ * not silence.
+ */
+export function renderSlack(alert: AlertSubject): SlackMessage {
+  const { subject, text } = render(alert)
+
+  // Slack text field has a 3000 char limit — truncate if needed
+  const truncatedText = text.length > 3000 ? text.slice(0, 2997) + '...' : text
+
+  return {
+    text: subject,
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: subject },
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: truncatedText },
+      },
+    ],
+  }
 }

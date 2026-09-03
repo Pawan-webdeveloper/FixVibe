@@ -18,6 +18,7 @@ import { runScanQueued } from './functions/run-scan.ts'
 import { generateReport } from './functions/generate-report.ts'
 import { runRepoScanQueued } from './functions/run-repo-scan.ts'
 import { monitoringProbe } from './functions/monitoring-probe.ts'
+import { webVitalsProbe } from './functions/web-vitals-probe.ts'
 
 export const functions = [
   sweepMonitors,
@@ -28,4 +29,5 @@ export const functions = [
   runRepoScanQueued,
   generateReport,
   monitoringProbe,
+  webVitalsProbe,
 ]
