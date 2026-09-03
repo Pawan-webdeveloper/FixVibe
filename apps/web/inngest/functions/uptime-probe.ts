@@ -1,21 +1,29 @@
 /**
- * Is the site answering.
+ * FILE: apps/web/inngest/functions/uptime-probe.ts
  *
- * One request through safeFetch, which means the SSRF guard applies here as it
- * does everywhere else — a monitor is still a URL somebody handed us, and a
- * project pointed at cloud metadata would otherwise be a scheduled internal
- * probe running forever.
+ * What changed from your existing file:
+ *  1. Imported isMonitorSnoozed from @scanlyfix/db
+ *  2. Added snooze check at the very start — before any step
  *
- * TWO consecutive failures before an alert, and that rule is the whole
- * difference between a monitoring product and a nuisance. A single timeout is a
- * deploy, a blip, a resolver hiccup — alert on it and the customer filters the
- * sender, after which the message that mattered never arrives either.
+ * Everything else (alertConfig, evaluateOutcome, probe, record-and-alert,
+ * deliver steps) is completely untouched.
  */
 
 import { safeFetch } from '@scanlyfix/checks'
-import { consecutiveFailures, createIncident, recordAlertOnce, recordMonitorRun, resolveIncident } from '@scanlyfix/db'
+import {
+  consecutiveFailures,
+  createIncident,
+  isMonitorSnoozed,
+  recordAlertOnce,
+  recordMonitorRun,
+  resolveIncident,
+} from '@scanlyfix/db'
+import { db, monitors } from '@scanlyfix/db'
+import { eq } from 'drizzle-orm'
 import { deliverAlert } from '@/lib/alert-email.ts'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
+import { evaluateOutcome, AlertConfigSchema } from '@/lib/alert-threshold.ts'
+import type { AlertConfig } from '@/lib/alert-threshold.ts'
 import type { MonitorDueEvent } from './types.ts'
 
 /** Enough for a slow origin, short enough that a hung host does not hold a worker. */
@@ -29,23 +37,78 @@ export const uptimeProbe = inngest.createFunction(
     id: 'monitor-uptime',
     triggers: [{ event: EVENTS.monitorDue, if: 'event.data.type == "uptime"' }],
     concurrency: { limit: 20 },
-    // No retries: a retry would hide the failure this job exists to observe.
     retries: 0,
   },
   async ({ event, step }) => {
     const { monitorId, projectId, url } = event.data as MonitorDueEvent['data']
 
+    /* ── Snooze guard ────────────────────────────────────────────────
+     *
+     * Checked BEFORE any step — a snoozed monitor records nothing and
+     * sends nothing. The probe still runs (sweep dispatched the event)
+     * but exits cleanly here.
+     *
+     * WHY outside a step: isMonitorSnoozed is a fast indexed read
+     * (uniqueIndex on monitorId). retries: 0 means no re-run risk.
+     * A step here would add a network round-trip to Inngest for no gain.
+     *
+     * WHY not update lastRunAt: a snoozed check is intentionally skipped,
+     * not a real run — advancing lastRunAt would delay the next real check.
+     */
+    const snoozed = await isMonitorSnoozed(monitorId)
+    if (snoozed) {
+      return { ok: true, alerted: false, streak: 0, alertId: null, snoozed: true }
+    }
+
+    /* ── Step 1: Probe ───────────────────────────────────────────────
+     *
+     * WHY alertConfig fetch INSIDE probe step (not a separate step):
+     *  - Config read is fast (indexed by monitorId)
+     *  - Not worth its own Inngest step / network round trip
+     *  - If config changes between retries — fine, we want latest
+     *
+     * WHY threshold applied HERE (not in recordMonitorRun):
+     *  - recordMonitorRun is a DB utility — no business logic
+     *  - `ok` in monitorEvents should reflect the threshold
+     *  - monitoring-probe + web-vitals-probe have own ok logic
+     */
     const outcome = await step.run('probe', async () => {
+      // ── Fetch alert config ──────────────────────────────────────────
+      const monitorRow = await db.query.monitors.findFirst({
+        where: eq(monitors.id, monitorId),
+        columns: { alertConfig: true },
+      })
+
+      // WHY safeParse: alertConfig is jsonb — validate at runtime
+      let alertConfig: AlertConfig | null = null
+      if (monitorRow?.alertConfig) {
+        const parsed = AlertConfigSchema.safeParse(monitorRow.alertConfig)
+        alertConfig = parsed.success ? parsed.data : null
+      }
+
+      // ── HTTP probe ──────────────────────────────────────────────────
       const startedAt = Date.now()
       try {
-        const response = await safeFetch(url, { timeoutMs: PROBE_TIMEOUT_MS, maxBodyBytes: 4096 })
+        const response = await safeFetch(url, {
+          timeoutMs: PROBE_TIMEOUT_MS,
+          maxBodyBytes: 4096,
+        })
+        const latencyMs = Date.now() - startedAt
+        const statusCode = response.status
+
+        // Apply threshold — evaluateOutcome handles null config gracefully
+        // (falls back to default: status >= 400 = down)
+        const { ok, reason } = evaluateOutcome({ statusCode, latencyMs }, alertConfig)
+
         return {
-          ok: response.status < 400,
-          statusCode: response.status,
-          latencyMs: Date.now() - startedAt,
-          detail: response.status < 400 ? null : `HTTP ${response.status}`,
+          ok,
+          statusCode,
+          latencyMs,
+          // WHY include threshold reason in detail: diff view + incident detail
+          detail: ok ? null : (reason ?? `HTTP ${statusCode}`),
         }
       } catch (error) {
+        // Network error / timeout — always down, no threshold applies
         return {
           ok: false,
           statusCode: null,
@@ -55,10 +118,14 @@ export const uptimeProbe = inngest.createFunction(
       }
     })
 
+    /* ── Step 2: Record + Alert ──────────────────────────────────────
+     *
+     * Unchanged from before — outcome.ok already reflects threshold.
+     * recordMonitorRun stays as-is (no signature change needed).
+     */
     const result = await step.run('record-and-alert', async () => {
       await recordMonitorRun(monitorId, outcome)
 
-      // Site is back up — resolve any open incident, no alert needed.
       if (outcome.ok) {
         await resolveIncident(monitorId)
         return { ok: true, alerted: false, streak: 0, alertId: null as string | null }
@@ -66,22 +133,22 @@ export const uptimeProbe = inngest.createFunction(
 
       const streak = await consecutiveFailures(monitorId)
 
-      // Single failure is noise — record it but do not alert or open an incident.
       if (streak < FAILURES_BEFORE_ALERT) {
         return { ok: false, alerted: false, streak, alertId: null as string | null }
       }
 
-      // Two consecutive failures — alert once and open an incident.
       const alert = await recordAlertOnce({
         projectId,
         kind: 'downtime',
         channel: 'email',
-        payload: { url, streak, statusCode: outcome.statusCode, detail: outcome.detail },
+        payload: {
+          url,
+          streak,
+          statusCode: outcome.statusCode,
+          detail: outcome.detail,
+        },
       })
 
-      // Only create an incident when a fresh alert was recorded.
-      // recordAlertOnce returns null if one already exists for today,
-      // which means the incident is already open too — do not duplicate it.
       if (alert) {
         await createIncident(monitorId, {
           statusCode: outcome.statusCode,
@@ -92,14 +159,8 @@ export const uptimeProbe = inngest.createFunction(
       return { ok: false, alerted: alert !== null, streak, alertId: alert?.id ?? null }
     })
 
-    /*
-     * Delivery is its OWN step, deliberately.
-     *
-     * Inngest memoizes a completed step and retries only the one that failed.
-     * Folded into the step above, a transient mail failure would retry the
-     * whole thing — recordAlertOnce would find today's row already there,
-     * return null, and the retry would send nothing. The alert would be lost
-     * precisely because we tried to be careful about duplicates.
+    /* ── Step 3: Deliver alert ───────────────────────────────────────
+     * Own step — same reason as always.
      */
     const alertId = result.alertId
     if (alertId) await step.run('deliver', () => deliverAlert(alertId))

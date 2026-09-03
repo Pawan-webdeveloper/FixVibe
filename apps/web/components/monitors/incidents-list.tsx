@@ -23,8 +23,11 @@ function formatDuration(ms: number): string {
   return `${sec}s`
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString([], {
+function formatDate(iso: string | Date | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString([], {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -84,7 +87,7 @@ export function IncidentsList({ incidents }: IncidentsListProps) {
               ) : null}
             </div>
           </div>
-        )
+        ) 
       })}
     </div>
   )

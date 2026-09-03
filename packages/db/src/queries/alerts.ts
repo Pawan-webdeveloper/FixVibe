@@ -76,6 +76,7 @@ export async function recordAlertOnce(input: {
 export interface AlertForDelivery {
   id: string
   kind: string
+  projectId: string
   payload: Record<string, unknown> | null
   sentAt: Date | null
   projectName: string
@@ -89,6 +90,7 @@ export async function alertForDelivery(alertId: string): Promise<AlertForDeliver
     .select({
       id: alerts.id,
       kind: alerts.kind,
+      projectId: alerts.projectId,
       payload: alerts.payload,
       sentAt: alerts.sentAt,
       projectName: projects.name,

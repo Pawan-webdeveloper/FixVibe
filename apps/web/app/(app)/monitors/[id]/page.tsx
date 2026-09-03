@@ -46,6 +46,7 @@ export default async function MonitorDetailPage({ params }: Props) {
           <MonitorDetail
             monitor={{
               id: monitor.id,
+              type: monitor.type,
               projectName: monitor.projectName,
               projectUrl: monitor.projectUrl,
               lastStatus: monitor.lastStatus as 'up' | 'down' | null, /* uptime error — match DB status values */

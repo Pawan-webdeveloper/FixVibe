@@ -21,6 +21,8 @@ function isPeriod(value: string): value is Period {
   return VALID_PERIODS.includes(value as Period)
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -31,6 +33,10 @@ export async function GET(
   }
 
   const { id } = await params
+  if (!UUID.test(id)) {
+    return NextResponse.json({ error: 'Invalid monitor ID' }, { status: 400 })
+  }
+
   const { searchParams } = new URL(request.url)
   const raw = searchParams.get('period') ?? '24h'
 
@@ -41,6 +47,11 @@ export async function GET(
     )
   }
 
-  const uptime = await getUptime(id, viewer, raw)
-  return NextResponse.json(uptime)
+  try {
+    const uptime = await getUptime(id, viewer, raw)
+    return NextResponse.json(uptime)
+  } catch (error) {
+    console.error(`[api/monitors/${id}/uptime] failed to fetch uptime:`, error)
+    return NextResponse.json({ error: 'Failed to fetch uptime' }, { status: 500 })
+  }
 }

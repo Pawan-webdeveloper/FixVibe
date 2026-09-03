@@ -40,3 +40,7 @@ export {
   type FixPromptContext,
   type StackHint,
 } from './fix-prompt.ts'
+
+// ADD these lines:
+export { checkWebVitals } from './performance/web-vitals.ts'
+export type { WebVitalsResult } from './performance/web-vitals.ts'

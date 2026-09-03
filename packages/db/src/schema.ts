@@ -15,7 +15,7 @@
 
 import type { Category, ScanScores, Severity } from '@scanlyfix/checks'
 import type { RepoCategory, RepoScanScores } from '@scanlyfix/repo-checks'
-import { desc, relations } from 'drizzle-orm'
+import { desc, relations, sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
@@ -25,11 +25,14 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+
+import type { MonitorEventDiff } from './types/monitor-diff.ts'
 
 /* -------------------------------------------------------------------------- */
 /* Enums                                                                      */
@@ -67,11 +70,11 @@ export const scanProfileEnum = pgEnum('scan_profile', ['fast', 'deep'])
 /** User-controlled triage state; drives the "3 fixed, 1 new" re-scan diff. */
 export const findingStatusEnum = pgEnum('finding_status', ['open', 'fixed', 'ignored'])
 
-/** The three cron kinds that share the `monitors` table. */
-export const monitorTypeEnum = pgEnum('monitor_type', ['uptime', 'rescan', 'domain'])
+/** The four cron kinds that share the `monitors` table. */
+export const monitorTypeEnum = pgEnum('monitor_type', ['uptime', 'rescan', 'domain', 'web_vitals'])
 
 export const memberRoleEnum = pgEnum('member_role', ['owner', 'admin', 'member'])
-export const alertChannelEnum = pgEnum('alert_channel', ['email', 'webhook'])
+export const alertChannelEnum = pgEnum('alert_channel', ['email', 'slack'])
 export const reportFormatEnum = pgEnum('report_format', ['pdf', 'md'])
 
 /**
@@ -87,6 +90,7 @@ export const repoCategoryEnum = pgEnum('repo_category', REPO_CATEGORY_VALUES)
 export const repoScanStatusEnum = pgEnum('repo_scan_status', ['queued', 'running', 'done', 'failed'])
 export const repoScanProfileEnum = pgEnum('repo_scan_profile', ['shallow', 'deep'])
 export const repoFindingStatusEnum = pgEnum('repo_finding_status', ['open', 'fixed', 'ignored'])
+
 
 /* -------------------------------------------------------------------------- */
 /* jsonb payload shapes                                                       */
@@ -380,6 +384,15 @@ export const monitors = pgTable(
     lastRunAt: timestamp('last_run_at', { withTimezone: true }),
     lastStatus: text('last_status'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // monitors pgTable ke andar, existing columns ke baad ADD karo:
+alertConfig: jsonb('alert_config')
+  .$type<{
+    failStatusCodes?: number[]
+    maxLatencyMs?: number | null
+  }>()
+  .default(sql`NULL`),
+// WHY nullable default: existing monitors ka config null = default behavior
+// Backward compatible — zero data migration needed
   },
   (t) => [
     // One monitor per kind per project: duplicates would silently double the
@@ -403,9 +416,39 @@ export const monitorEvents = pgTable(
     statusCode: integer('status_code'),
     latencyMs: integer('latency_ms'),
     detail: text('detail'),
+    // monitorEvents pgTable ke andar, existing columns ke baad:
+diff: jsonb('diff')
+  .$type<MonitorEventDiff>()
+  .default(sql`NULL`),
+// WHY sql NULL default: Drizzle mein jsonb ke liye undefined != null —
+// explicit SQL NULL se DB level pe column properly nullable rehta hai
   },
   (t) => [index('monitor_events_monitor_ts_idx').on(t.monitorId, desc(t.ts))],
 )
+
+
+// ─── 2. New table add karo (monitorEvents ke baad) ────────────────
+export const webVitalsSnapshots = pgTable(
+  'web_vitals_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    monitorId: uuid('monitor_id')
+      .notNull()
+      .references(() => monitors.id, { onDelete: 'cascade' }),
+    lcp: integer('lcp_ms'),
+    fid: integer('fid_ms'),
+    cls: real('cls'),        // WHY real: CLS = 0.0 to 1.0, float chahiye
+    fcp: integer('fcp_ms'),
+    ttfb: integer('ttfb_ms'),
+    si: integer('si_ms'),
+    ts: timestamp('ts', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('web_vitals_monitor_ts_idx').on(t.monitorId, desc(t.ts)),
+  ],
+)
+
+
 
 /**
  * Delivery log, not configuration — one row per alert dispatched. A null
@@ -427,16 +470,29 @@ export const alerts = pgTable(
   },
   (t) => [index('alerts_project_created_idx').on(t.projectId, desc(t.createdAt))],
 )
+/**
+ * Alert channel configuration — one row per (project, channel).
+ *
+ * Stores the delivery target for each alert channel: Slack webhook URL,
+ * email address, etc. The `config` jsonb holds channel-specific fields.
+ * Webhook URLs are secrets — the API masks them in responses.
+ */
+export const alertChannels = pgTable('alert_channels', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  channel: alertChannelEnum('channel').notNull(),
+  /** Channel-specific config: { webhookUrl } for Slack, { email } for email. Stored as JSONB. */
+  config: jsonb('config').$type<Record<string, unknown>>().notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
-
-
-
-
-// (for uptime monitors) feature schema
-
-// Incidents
-
-// Block-1
+/**
+ * Incidents tracked for uptime monitors.
+ * Created when a monitor experiences consecutive failures; resolved when probe recovers.
+ */
 export const incidents = pgTable(
   'incidents',
   {
@@ -465,14 +521,54 @@ export const incidents = pgTable(
 
 
 
-
-
-
-
-
-
-
-
+/**
+ * FILE: packages/db/src/schema.ts
+ * ACTION: Two additions.
+ *
+ * ─── ADDITION 1 ──────────────────────────────────────────────────────────────
+ * Add snoozedMonitors table after the incidents table.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+ 
+/* -------------------------------------------------------------------------- */
+/* Snooze rules                                                                */
+/* -------------------------------------------------------------------------- */
+ 
+/**
+ * Temporarily silences alerts for a monitor.
+ *
+ * One active snooze per monitor — the unique index on monitorId enforces
+ * this. Replacing a snooze is delete + insert, not update, so the audit
+ * trail stays clean.
+ *
+ * expiresAt = null means snoozed indefinitely until manually cleared.
+ * The probe checks this before alerting — no event is raised while a
+ * valid snooze row exists.
+ */
+export const snoozedMonitors = pgTable(
+  'snoozed_monitors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    monitorId: uuid('monitor_id')
+      .notNull()
+      .references(() => monitors.id, { onDelete: 'cascade' }),
+    /** When the snooze expires. null = snoozed indefinitely. */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    /** Why it's snoozed — shown in the UI. */
+    reason: text('reason'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // One active snooze per monitor at a time.
+    uniqueIndex('snoozed_monitors_monitor_idx').on(t.monitorId),
+  ],
+)
+ 
 
 
 
@@ -688,6 +784,39 @@ export const repoFindings = pgTable(
   ],
 )
 
+
+
+// ─── ADD: dns_snapshots table ─────────────────────────────────────────────────
+// WHY: Har DNS check ka snapshot store karte hain taaki next check mein
+//      compare kar sakein aur drift detect ho sake.
+
+export const dnsSnapshots = pgTable(
+  'dns_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    monitorId: uuid('monitor_id')
+      .notNull()
+      .references(() => monitors.id, { onDelete: 'cascade' }),
+      // WHY cascade: monitor delete ho toh uske saare DNS snapshots bhi clean ho jayein
+
+    records: jsonb('records')
+      .$type<Array<{ type: 'A' | 'CNAME' | 'NS'; value: string }>>()
+      .notNull(),
+      // WHY jsonb: DNS records variable-length hote hain, structured columns fit nahi honge
+
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // WHY this index: latest snapshot fetch hoga monitorId + time se — ye query fast karega
+    index('dns_snapshots_monitor_created_idx').on(t.monitorId, desc(t.createdAt)),
+  ],
+)
+
+
+
 /* -------------------------------------------------------------------------- */
 /* Relations — required for the `db.query.*` API. `.references()` alone only   */
 /* emits the SQL constraint; it does not teach Drizzle how to join.           */
@@ -719,6 +848,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   scans: many(scans),
   monitors: many(monitors),
   alerts: many(alerts),
+  alertChannels: many(alertChannels),
 }))
 
 export const scansRelations = relations(scans, ({ one, many }) => ({
@@ -735,6 +865,7 @@ export const findingsRelations = relations(findings, ({ one }) => ({
 export const monitorsRelations = relations(monitors, ({ one, many }) => ({
   project: one(projects, { fields: [monitors.projectId], references: [projects.id] }),
   events: many(monitorEvents),
+  incidents: many(incidents),
 }))
 
 export const monitorEventsRelations = relations(monitorEvents, ({ one }) => ({
@@ -742,21 +873,44 @@ export const monitorEventsRelations = relations(monitorEvents, ({ one }) => ({
 }))
 
 
+/**
+ * ─── ADDITION 2 ──────────────────────────────────────────────────────────────
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+ 
+export const snoozedMonitorsRelations = relations(snoozedMonitors, ({ one }) => ({
+  monitor: one(monitors, {
+    fields: [snoozedMonitors.monitorId],
+    references: [monitors.id],
+  }),
+  createdBy: one(users, {
+    fields: [snoozedMonitors.createdBy],
+    references: [users.id],
+  }),
+}))
 
 
-//  BLOCK 2
- export const incidentsRelations = relations(incidents, ({ one }) => ({
+
+export const incidentsRelations = relations(incidents, ({ one }) => ({
   monitor: one(monitors, {
     fields: [incidents.monitorId],
     references: [monitors.id],
   }),
 }))
 
-
-
+export const dnsSnapshotsRelations = relations(dnsSnapshots, ({ one }) => ({
+  monitor: one(monitors, {
+    fields: [dnsSnapshots.monitorId],
+    references: [monitors.id],
+  }),
+}))
 
 export const alertsRelations = relations(alerts, ({ one }) => ({
   project: one(projects, { fields: [alerts.projectId], references: [projects.id] }),
+}))
+
+export const alertChannelsRelations = relations(alertChannels, ({ one }) => ({
+  project: one(projects, { fields: [alertChannels.projectId], references: [projects.id] }),
 }))
 
 export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
@@ -791,6 +945,14 @@ export const repoFindingsRelations = relations(repoFindings, ({ one }) => ({
   scan: one(repoScans, { fields: [repoFindings.repoScanId], references: [repoScans.id] }),
 }))
 
+// ─── 3. Relation add karo ─────────────────────────────────────────
+export const webVitalsSnapshotsRelations = relations(webVitalsSnapshots, ({ one }) => ({
+  monitor: one(monitors, {
+    fields: [webVitalsSnapshots.monitorId],
+    references: [monitors.id],
+  }),
+}))
+
 /* -------------------------------------------------------------------------- */
 /* Inferred row types — import these instead of hand-writing DTOs.            */
 /* -------------------------------------------------------------------------- */
@@ -817,6 +979,8 @@ export type MonitorEvent = typeof monitorEvents.$inferSelect
 export type NewMonitorEvent = typeof monitorEvents.$inferInsert
 export type Alert = typeof alerts.$inferSelect
 export type NewAlert = typeof alerts.$inferInsert
+export type AlertChannelRow = typeof alertChannels.$inferSelect
+export type NewAlertChannelRow = typeof alertChannels.$inferInsert
 export type ApiKey = typeof apiKeys.$inferSelect
 export type NewApiKey = typeof apiKeys.$inferInsert
 export type Subscription = typeof subscriptions.$inferSelect
@@ -836,3 +1000,10 @@ export type RepoFindingRow = typeof repoFindings.$inferSelect
 export type NewRepoFindingRow = typeof repoFindings.$inferInsert
 export type Incident = typeof incidents.$inferSelect
 export type NewIncident = typeof incidents.$inferInsert
+export type DnsSnapshot = typeof dnsSnapshots.$inferSelect
+export type NewDnsSnapshot = typeof dnsSnapshots.$inferInsert
+export type WebVitalsSnapshot = typeof webVitalsSnapshots.$inferSelect
+export type NewWebVitalsSnapshot = typeof webVitalsSnapshots.$inferInsert
+export type SnoozedMonitor = typeof snoozedMonitors.$inferSelect
+export type NewSnoozedMonitor = typeof snoozedMonitors.$inferInsert
+ 
