@@ -80,6 +80,18 @@ export interface ScanSubmitOptions {
   /** Focused after a restore, so the visitor can just press Enter. */
   inputRef?: RefObject<HTMLInputElement | null>
   /**
+   * Where the visitor is when the scan has been accepted. The scan itself runs
+   * in the background either way — the queue and the scanner workers own it —
+   * so this only decides which surface shows the loader and then the report.
+   *
+   * 'refresh'  the form is already on the dashboard; re-render it in place and
+   *            the latest-report section picks up the queued scan.
+   * 'dashboard' (default) navigate to the dashboard, so a scan started from the
+   *            landing page or the confirmation page also shows its progress
+   *            and result there rather than on a separate report route.
+   */
+  afterStart?: 'refresh' | 'dashboard'
+  /**
    * The Supabase auth state, supplied by the calling component via
    * `useSession()` from the relevant Supabase provider. Inlined rather
    * than imported here so this hook works in both the (app) layout's
@@ -103,7 +115,12 @@ export interface ScanSubmit {
 }
 
 export function useScanSubmit(options: ScanSubmitOptions): ScanSubmit {
-  const { restore = false, inputRef, authState } = options
+  const {
+    restore = false,
+    inputRef,
+    afterStart = 'dashboard',
+    authState,
+  } = options
   const router = useRouter()
   const { isAuthenticated, isLoading: isSessionLoading } = authState
   const [value, setValueState] = useState('')
@@ -238,9 +255,22 @@ export function useScanSubmit(options: ScanSubmitOptions): ScanSubmit {
       }
 
       const { scanId } = (await response.json()) as { scanId: string }
-      router.push(`/scan/${scanId}`)
-      // Deliberately left pending: the route change is in flight, and
-      // re-enabling the button would invite a second scan on the way out.
+      /*
+       * The scan runs in the background from here — the queue and the scanner
+       * workers own it. Both landings show progress and then the report on the
+       * dashboard: refresh re-renders the dashboard the form is already on (its
+       * latest-report section picks up the queued scan), push carries a scan
+       * started elsewhere to the same view. Pending is reset on the refresh
+       * path because the visitor is not leaving: a button stuck on "Scanning…"
+       * while the loader below is the thing doing the waiting would read as a
+       * second scan.
+       */
+      if (afterStart === 'refresh') {
+        setPending(false)
+        router.refresh()
+      } else {
+        router.push('/dashboard')
+      }
       return true
     } catch {
       setError('Could not reach the scanner. Check your connection and try again.')

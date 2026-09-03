@@ -8,7 +8,8 @@
  * way out). The page shows the address back, asks with one button, and carries
  * the one warning that matters before work starts: the report is locked to
  * this address — once the scan begins it cannot be pointed somewhere else.
- * Confirming runs the scan and follows the redirect to /scan/<id>.
+ * Confirming starts the scan, which then runs in the background; the visitor
+ * is taken to the dashboard, where the loader and then the report appear.
  *
  * The read is a peek, not a take, on purpose: a refresh of this page must not
  * silently drop the address. The stash is consumed only when the scan is
@@ -101,7 +102,10 @@ export function StartScanClient() {
       }
 
       const { scanId } = (await response.json()) as { scanId: string }
-      router.replace(`/scan/${scanId}`)
+      // The scan runs in the background; the dashboard is where its progress
+      // and then the report are shown, so the visitor lands there.
+      void scanId
+      router.replace('/dashboard')
       // Deliberately left pending: the route change is in flight, and
       // re-enabling the button would invite a second scan on the way out.
     } catch {

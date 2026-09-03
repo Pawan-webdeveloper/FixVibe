@@ -3,9 +3,11 @@
  *
  * The URL the visitor typed is in sessionStorage (stashed by useScanSubmit on
  * the way to /login). This page shows the address back, warns that the report
- * is locked to it, and starts the scan only once the visitor confirms — then
- * follows the redirect to /scan/<id>, which bounces an unprioritised reader to
- * /welcome?next=/scan/<id> for the one priority question.
+ * is locked to it, and starts the scan only once the visitor confirms — the
+ * scan then runs in the background, and the visitor lands on the dashboard,
+ * which shows the loader and then the report. A scan that is not prioritised
+ * bounces to /welcome?next=/dashboard for the one priority question on the
+ * way.
  *
  * The full happy path is therefore: home page → type URL → press Scan →
  * sign in → /scan/start (confirm the address) → /scan/<id> running →

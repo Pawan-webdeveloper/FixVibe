@@ -46,7 +46,18 @@ const TONES = {
 export function ScanForm({
   restore = false,
   tone = 'terminal',
-}: { restore?: boolean; tone?: keyof typeof TONES } = {}) {
+  stayAfterStart = false,
+}: {
+  restore?: boolean
+  tone?: keyof typeof TONES
+  /**
+   * True on the dashboard: when the scan is accepted, re-render the page in
+   * place so its latest-report section shows the loader and then the result.
+   * False (default) navigates to the dashboard, so a scan started on the
+   * landing page or the confirmation page shows its progress there too.
+   */
+  stayAfterStart?: boolean
+} = {}) {
   const skin = TONES[tone]
   const inputId = useId()
   const errorId = useId()
@@ -55,6 +66,7 @@ export function ScanForm({
   const { value, setValue, pending, error, submit } = useScanSubmit({
     restore,
     inputRef,
+    afterStart: stayAfterStart ? 'refresh' : 'dashboard',
     authState: { isAuthenticated: session.data?.session?.user != null, isLoading: session.isLoading },
   })
 

@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
   getDashboardSummary,
+  getScanForViewer,
   listProjectSummaries,
   listRecentScansForUser,
   type DashboardFinding,
@@ -22,6 +23,7 @@ import {
 import type { Category, Severity } from '@scanlyfix/checks'
 import { getViewer, requireUser } from '@/lib/authz.ts'
 import { ScanForm } from '@/components/scan/scan-form.tsx'
+import { LatestScanReport } from './latest-scan-report.tsx'
 import { NewProjectForm } from './new-project-form.tsx'
 import { Icon } from '@/components/console/icons.tsx'
 
@@ -101,6 +103,13 @@ export default async function DashboardPage() {
     listRecentScansForUser(viewer),
   ])
 
+  /*
+   * The newest ad-hoc scan, loaded with its findings, is what the live report
+   * section under the scan form renders — loader while it runs, report when it
+   * lands. Every new scan replaces it, which is what makes the section move.
+   */
+  const latestScan = recentScans[0] ? await getScanForViewer(recentScans[0].id, viewer) : null
+
   const scores = [
     ...projects.map((p) => p.latest?.scores?.overall),
     ...recentScans.map((s) => s.scores?.overall),
@@ -113,6 +122,8 @@ export default async function DashboardPage() {
 
       <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-12 px-6 py-10 sm:px-10 sm:py-14">
         <ScanPanel />
+
+        <LatestScanReport scan={latestScan} viewer={viewer} />
 
         <div className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <IssueSummary summary={summary} />
@@ -248,7 +259,7 @@ function ScanPanel() {
         </p>
 
         <div className="mt-8 max-w-2xl">
-          <ScanForm restore tone="console" />
+          <ScanForm restore stayAfterStart tone="console" />
         </div>
 
         <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] text-c-muted">
