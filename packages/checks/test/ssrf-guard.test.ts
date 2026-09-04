@@ -9,7 +9,13 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { assertSafeUrl, isPrivateAddress, SsrfError, unbracket } from '../src/context/ssrf-guard.ts'
+import {
+  assertSafeUrl,
+  assertSafeRedirectUrl,
+  isPrivateAddress,
+  SsrfError,
+  unbracket,
+} from '../src/context/ssrf-guard.ts'
 
 const BLOCKED_V4 = [
   ['0.0.0.1', '"this network"'],
@@ -121,4 +127,51 @@ describe('assertSafeUrl', () => {
     accepts('http://8.8.8.8/')
     accepts('https://[2606:4700:4700::1111]/')
   })
+})
+
+describe('assertSafeRedirectUrl', () => {
+  const makeUrl = (url: string) => new URL(url)
+
+  const blocks = (current: string, redirect: string, reason: string) => {
+    it(`blocks ${reason}: ${current} → ${redirect}`, () => {
+      expect(() => assertSafeRedirectUrl(makeUrl(current), makeUrl(redirect))).toThrow(SsrfError)
+    })
+  }
+
+  const allows = (current: string, redirect: string, reason: string) => {
+    it(`allows ${reason}: ${current} → ${redirect}`, () => {
+      expect(() => assertSafeRedirectUrl(makeUrl(current), makeUrl(redirect))).not.toThrow()
+    })
+  }
+
+  // Protocol downgrade: https → http
+  blocks('https://evil.com/', 'http://169.254.169.254/', 'https→http protocol downgrade to metadata')
+  blocks('https://evil.com/', 'http://127.0.0.1/', 'https→http protocol downgrade to loopback')
+  blocks('https://evil.com/', 'http://10.0.0.1/', 'https→http protocol downgrade to private')
+  blocks('https://evil.com/', 'http://192.168.1.1/', 'https→http protocol downgrade to private')
+  blocks('https://evil.com/', 'http://example.com/', 'https→http protocol downgrade to public host')
+
+  // Redirect to private IP literals
+  blocks('http://evil.com/', 'http://127.0.0.1/', 'redirect to loopback')
+  blocks('http://evil.com/', 'http://10.0.0.1/', 'redirect to RFC 1918')
+  blocks('http://evil.com/', 'http://172.16.0.1/', 'redirect to RFC 1918')
+  blocks('http://evil.com/', 'http://192.168.1.1/', 'redirect to RFC 1918')
+  blocks('http://evil.com/', 'http://169.254.169.254/', 'redirect to cloud metadata')
+  blocks('http://evil.com/', 'http://[::1]/', 'redirect to IPv6 loopback')
+  blocks('http://evil.com/', 'http://[fe80::1]/', 'redirect to IPv6 link-local')
+  blocks('http://evil.com/', 'http://[fc00::1]/', 'redirect to IPv6 unique local')
+
+  // Redirect to non-http(s) schemes
+  blocks('http://evil.com/', 'ftp://evil.com/', 'redirect to ftp')
+  blocks('http://evil.com/', 'file:///etc/passwd', 'redirect to file')
+  blocks('http://evil.com/', 'javascript:alert(1)', 'redirect to javascript')
+
+  // Redirect with embedded credentials
+  blocks('http://evil.com/', 'http://user:pass@evil.com/', 'redirect with credentials')
+
+  // Allowed redirects
+  allows('http://evil.com/', 'https://evil.com/', 'http→https upgrade')
+  allows('https://evil.com/', 'https://other.com/', 'https→https same protocol')
+  allows('http://evil.com/', 'http://other.com/', 'http→http same protocol')
+  allows('http://evil.com/', 'https://1.2.3.4/', 'http→https to public IP')
 })

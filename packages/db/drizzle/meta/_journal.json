@@ -71,6 +71,13 @@
       "when": 1788426881080,
       "tag": "0009_complex_mach_iv",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788525246299,
+      "tag": "0010_plain_the_leader",
+      "breakpoints": true
     }
   ]
 }

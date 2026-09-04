@@ -25,6 +25,7 @@ import { db, monitors, projects } from '@scanlyfix/db'
 import { eq, and } from 'drizzle-orm'
 import { inngest, EVENTS } from '@/lib/inngest.ts'
 import type { TriggeredBy } from '@/inngest/functions/types.ts'
+import { normalizeUrl, urlsMatch } from '@/lib/normalize-url.ts'
 
 export const runtime = 'nodejs'
 // WHY nodejs: timingSafeEqual is a Node.js crypto API — not available in Edge runtime
@@ -135,10 +136,21 @@ export async function POST(request: Request) {
 
   // ── 4. Project lookup ────────────────────────────────────────────────────────
   // WHY by URL (not slug/id): CI systems know the deploy URL, not internal IDs
-  const project = await db.query.projects.findFirst({
-    where: eq(projects.url, projectUrl),
-    columns: { id: true, name: true },
+  // WHY normalize + www. strip: CI systems may send www. or non-www. variants
+  const normalizedInputUrl = normalizeUrl(projectUrl)
+  if (!normalizedInputUrl) {
+    return NextResponse.json(
+      { error: 'Invalid URL format' },
+      { status: 400 },
+    )
+  }
+
+  // Fetch all projects and match using normalization
+  const allProjects = await db.query.projects.findMany({
+    columns: { id: true, name: true, url: true },
   })
+
+  const project = allProjects.find((p) => urlsMatch(projectUrl, p.url))
 
   if (!project) {
     // WHY 404 (not 400): URL is valid, but no project matches — not a client error

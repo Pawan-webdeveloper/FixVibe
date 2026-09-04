@@ -165,6 +165,42 @@ export async function completeScan(scanId: string, result: ScanResult): Promise<
       })
       .where(eq(scans.id, scanId))
   })
+
+  // Phase 7.1 onboarding: first scan completion enables the project's
+  // rescan monitor. Done OUTSIDE the scan transaction so a monitor
+  // failure does not roll back the scan, and the helper's idempotency
+  // (where clause requires `enabled = false`) makes retries safe.
+  //
+  // We read the scan's projectId first — anonymous scans never have a
+  // project, and the auto-enable is meaningless for them. The helper
+  // returns false when no rescan row exists, which is also the case for
+  // projects created before Phase 7.1 — both are no-ops.
+  await maybeEnableRescanAfterScan(scanId)
+}
+
+/**
+ * Look up the scan's projectId and, if there is one, attempt the
+ * auto-enable. Best-effort: failures here are logged and swallowed
+ * rather than thrown, because the scan has already succeeded and a
+ * missing rescan-enable is recoverable (a manual toggle fixes it).
+ */
+async function maybeEnableRescanAfterScan(scanId: string): Promise<void> {
+  try {
+    const [row] = await db
+      .select({ projectId: scans.projectId })
+      .from(scans)
+      .where(eq(scans.id, scanId))
+      .limit(1)
+    if (!row?.projectId) return
+
+    const { enableRescanMonitorIfPresent } = await import('./onboarding-defaults.ts')
+    await enableRescanMonitorIfPresent(row.projectId)
+  } catch (error) {
+    // Onboarding auto-enable is best-effort; the scan result is the
+    // durable artefact and a missing rescan-enable is recoverable
+    // via the manual toggle on /projects/[id]/monitors.
+    console.error('[completeScan] rescan auto-enable failed:', error)
+  }
 }
 
 /**

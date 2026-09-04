@@ -4,6 +4,15 @@
     "test": {
       "outputs": []
     },
+    "test:unit": {
+      "outputs": []
+    },
+    "test:integration": {
+      "outputs": []
+    },
+    "test:e2e": {
+      "outputs": []
+    },
     "typecheck": {
       "outputs": []
     },

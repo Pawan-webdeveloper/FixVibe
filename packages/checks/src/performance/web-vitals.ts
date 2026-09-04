@@ -1,13 +1,17 @@
 /**
  * web-vitals.ts
  *
- * Google PageSpeed Insights API se LCP, FID, CLS, FCP, TTFB, SI fetch karta hai.
+ * Google PageSpeed Insights API se LCP, INP, CLS, FCP, TTFB, SI fetch karta hai.
  *
  * Security:
  *  - URL validate karta hai pehle (SSRF prevention)
  *  - API key env se lata hai — hardcode nahi
- *  - 60s AbortSignal timeout (PSI slow hoti hai)
+ *  - 90s AbortSignal timeout (PSI slow hoti hai)
  *  - PSI response Zod se validate hota hai (no unsafe `as` cast)
+ *
+ * Quota handling:
+ *  - 429/403 → exponential backoff retry (max 2 retries)
+ *  - Phir graceful skip with detail "PSI quota exceeded, will retry next run"
  *
  * Free tier: 25,000 requests/month (key ke saath)
  */
@@ -57,6 +61,7 @@ const PSIResponseSchema = z
           .object({
             'largest-contentful-paint': PSIAuditSchema.optional(),
             'first-input-delay': PSIAuditSchema.optional(),
+            'interaction-to-paint': PSIAuditSchema.optional(),
             'cumulative-layout-shift': PSIAuditSchema.optional(),
             'first-contentful-paint': PSIAuditSchema.optional(),
             'server-response-time': PSIAuditSchema.optional(),
@@ -74,7 +79,8 @@ const PSIResponseSchema = z
 export const WebVitalsResultSchema = z.object({
   ok: z.boolean(),
   lcp: z.number().nullable(),    // Largest Contentful Paint (ms)
-  fid: z.number().nullable(),    // First Input Delay (ms)
+  fid: z.number().nullable(),    // First Input Delay (ms) — historical, always null going forward
+  inp: z.number().nullable(),    // Interaction to Next Paint (ms) — replacement for FID
   cls: z.number().nullable(),    // Cumulative Layout Shift (unitless 0-1)
   fcp: z.number().nullable(),    // First Contentful Paint (ms)
   ttfb: z.number().nullable(),   // Time to First Byte (ms)
@@ -85,11 +91,26 @@ export const WebVitalsResultSchema = z.object({
 export type WebVitalsResult = z.infer<typeof WebVitalsResultSchema>
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-// WHY 60s: PSI Lighthouse full page load simulate karta hai — slow hoti hai
-const PSI_TIMEOUT_MS = 60_000
+// WHY 90s: PSI Lighthouse full page load simulate karta hai — slow hoti hai
+// Previous 60s was too aggressive — many timeouts on complex pages
+const PSI_TIMEOUT_MS = 90_000
 
 const PSI_BASE_URL =
   'https://www.googleapis.com/pagespeedonline/v5/runPagespeed'
+
+// Retry config for 429/403 (quota errors)
+const MAX_RETRIES = 2
+const BASE_BACKOFF_MS = 2_000  // 2s, 4s, 8s (but max 2 retries → 2s + 4s = 6s total)
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isQuotaError(status: number): boolean {
+  return status === 429 || status === 403
+}
 
 // ─── Main Checker ──────────────────────────────────────────────────────────────
 export async function checkWebVitals(url: string): Promise<WebVitalsResult> {
@@ -97,6 +118,7 @@ export async function checkWebVitals(url: string): Promise<WebVitalsResult> {
     ok: false,
     lcp: null,
     fid: null,
+    inp: null,
     cls: null,
     fcp: null,
     ttfb: null,
@@ -119,57 +141,89 @@ export async function checkWebVitals(url: string): Promise<WebVitalsResult> {
   endpoint.searchParams.set('category', 'performance')
   if (apiKey) endpoint.searchParams.set('key', apiKey)
 
-  try {
-    const res = await fetch(endpoint.toString(), {
-      signal: AbortSignal.timeout(PSI_TIMEOUT_MS),
-      headers: {
-        // WHY Accept header: explicit JSON request
-        Accept: 'application/json',
-      },
-    })
+  // 3. Retry loop for quota errors (429/403)
+  let lastError: string | null = null
 
-    // 3. Non-2xx handle karo
-    if (!res.ok) {
-      // WHY not throw: caller ko structured error chahiye, exception nahi
-      const body = await res.json().catch(() => ({})) as Record<string, unknown>
-      const message =
-        (body?.error as { message?: string } | undefined)?.message ??
-        `PSI API returned ${res.status}`
-      return FAILED(message)
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    // Exponential backoff: wait before retry (skip on first attempt)
+    if (attempt > 0) {
+      const backoffMs = BASE_BACKOFF_MS * Math.pow(2, attempt - 1)
+      console.log(
+        `[psi] Retry ${attempt}/${MAX_RETRIES} for ${url} after ${backoffMs}ms backoff`,
+      )
+      await sleep(backoffMs)
     }
 
-    const raw = await res.json()
+    try {
+      const res = await fetch(endpoint.toString(), {
+        signal: AbortSignal.timeout(PSI_TIMEOUT_MS),
+        headers: {
+          Accept: 'application/json',
+        },
+      })
 
-    // 4. Runtime validate — PSI response structure unpredictable hai
-    const parsed = PSIResponseSchema.safeParse(raw)
-    if (!parsed.success) {
-      return FAILED('PSI response shape unexpected: ' + parsed.error.message)
+      // 4. Non-2xx handle karo
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as Record<string, unknown>
+        const message =
+          (body?.error as { message?: string } | undefined)?.message ??
+          `PSI API returned ${res.status}`
+
+        // Quota error → retry
+        if (isQuotaError(res.status)) {
+          lastError = message
+          console.warn(`[psi] Quota error ${res.status} for ${url}: ${message}`)
+          continue  // Retry
+        }
+
+        // Non-quota error → fail immediately
+        return FAILED(message)
+      }
+
+      const raw = await res.json()
+
+      // 5. Runtime validate — PSI response structure unpredictable hai
+      const parsed = PSIResponseSchema.safeParse(raw)
+      if (!parsed.success) {
+        return FAILED('PSI response shape unexpected: ' + parsed.error.message)
+      }
+
+      const audits = parsed.data.lighthouseResult?.audits ?? {}
+
+      // 6. Extract values — null agar audit missing ho
+      //    INP = 'interaction-to-paint' audit (Google March 2024 replacement for FID)
+      //    FID = 'first-input-delay' audit (kept for backward compat, always null going forward)
+      const lcp = audits['largest-contentful-paint']?.numericValue ?? null
+      const inp = audits['interaction-to-paint']?.numericValue ?? null
+      const cls = audits['cumulative-layout-shift']?.numericValue ?? null
+      const fcp = audits['first-contentful-paint']?.numericValue ?? null
+      const ttfb = audits['server-response-time']?.numericValue ?? null
+      const si = audits['speed-index']?.numericValue ?? null
+
+      return {
+        ok: true,
+        lcp: lcp !== null ? Math.round(lcp) : null,
+        fid: null,  // FID retired — always null in new snapshots
+        inp: inp !== null ? Math.round(inp) : null,
+        cls: cls !== null ? parseFloat(cls.toFixed(4)) : null, // CLS 4 decimal places
+        fcp: fcp !== null ? Math.round(fcp) : null,
+        ttfb: ttfb !== null ? Math.round(ttfb) : null,
+        si: si !== null ? Math.round(si) : null,
+        detail: null,
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'TimeoutError') {
+        return FAILED(`PSI request timed out after ${PSI_TIMEOUT_MS / 1000}s`)
+      }
+      // Network errors → don't retry (transient, backoff won't help)
+      return FAILED(err instanceof Error ? err.message : 'PSI request failed')
     }
-
-    const audits = parsed.data.lighthouseResult?.audits ?? {}
-
-    // 5. Extract values — null agar audit missing ho
-    const lcp = audits['largest-contentful-paint']?.numericValue ?? null
-    const fid = audits['first-input-delay']?.numericValue ?? null
-    const cls = audits['cumulative-layout-shift']?.numericValue ?? null
-    const fcp = audits['first-contentful-paint']?.numericValue ?? null
-    const ttfb = audits['server-response-time']?.numericValue ?? null
-    const si = audits['speed-index']?.numericValue ?? null
-
-    return {
-      ok: true,
-      lcp: lcp !== null ? Math.round(lcp) : null,
-      fid: fid !== null ? Math.round(fid) : null,
-      cls: cls !== null ? parseFloat(cls.toFixed(4)) : null, // CLS 4 decimal places
-      fcp: fcp !== null ? Math.round(fcp) : null,
-      ttfb: ttfb !== null ? Math.round(ttfb) : null,
-      si: si !== null ? Math.round(si) : null,
-      detail: null,
-    }
-  } catch (err) {
-    if (err instanceof Error && err.name === 'TimeoutError') {
-      return FAILED(`PSI request timed out after ${PSI_TIMEOUT_MS / 1000}s`)
-    }
-    return FAILED(err instanceof Error ? err.message : 'PSI request failed')
   }
+
+  // All retries exhausted — graceful skip
+  return FAILED(
+    `PSI quota exceeded, will retry next run${
+      lastError ? `: ${lastError}` : ''
+    }`,
+  )
 }

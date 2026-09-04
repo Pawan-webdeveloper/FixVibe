@@ -3,7 +3,7 @@
  *
  * Tests the FULL evaluateVitals() and formatVitalValue() logic from
  * web-vitals-thresholds.ts covering:
- *   1. All 6 metrics: LCP, FID, CLS, FCP, TTFB, SI
+ *   1. All 6 metrics: LCP, INP, CLS, FCP, TTFB, SI
  *   2. All 3 states per metric: good (no violation), warn, critical
  *   3. Exact boundary values (at warn, just below, just above)
  *   4. hasCritical / hasWarn flags
@@ -60,21 +60,21 @@ describe('evaluateVitals — LCP thresholds (warn: 2500ms, critical: 4000ms)', (
   })
 })
 
-describe('evaluateVitals — FID thresholds (warn: 100ms, critical: 300ms)', () => {
-  it('good: FID = 99ms → no violation', () =>
-    expect(evaluateVitals({ fid: 99 }).violations).toHaveLength(0))
+describe('evaluateVitals — INP thresholds (warn: 200ms, critical: 500ms)', () => {
+  it('good: INP = 199ms → no violation', () =>
+    expect(evaluateVitals({ inp: 199 }).violations).toHaveLength(0))
 
-  it('boundary: FID = 100ms → warn', () => {
-    const r = evaluateVitals({ fid: 100 })
+  it('boundary: INP = 200ms → warn', () => {
+    const r = evaluateVitals({ inp: 200 })
     expect(r.violations[0]!.severity).toBe('warn')
-    expect(r.violations[0]!.key).toBe('fid')
+    expect(r.violations[0]!.key).toBe('inp')
   })
 
-  it('FID = 299ms → warn', () =>
-    expect(evaluateVitals({ fid: 299 }).violations[0]!.severity).toBe('warn'))
+  it('INP = 499ms → warn', () =>
+    expect(evaluateVitals({ inp: 499 }).violations[0]!.severity).toBe('warn'))
 
-  it('boundary: FID = 300ms → critical', () => {
-    const r = evaluateVitals({ fid: 300 })
+  it('boundary: INP = 500ms → critical', () => {
+    const r = evaluateVitals({ inp: 500 })
     expect(r.violations[0]!.severity).toBe('critical')
     expect(r.hasCritical).toBe(true)
   })
@@ -136,14 +136,14 @@ describe('evaluateVitals — SI thresholds (warn: 3400ms, critical: 5800ms)', ()
 
 describe('evaluateVitals — multi-metric and sorting', () => {
   it('all good → no violations, hasCritical=false, hasWarn=false', () => {
-    const r = evaluateVitals({ lcp: 1000, fid: 50, cls: 0.05, fcp: 1000, ttfb: 500, si: 2000 })
+    const r = evaluateVitals({ lcp: 1000, inp: 100, cls: 0.05, fcp: 1000, ttfb: 500, si: 2000 })
     expect(r.violations).toHaveLength(0)
     expect(r.hasCritical).toBe(false)
     expect(r.hasWarn).toBe(false)
   })
 
   it('all critical → hasCritical=true, violations sorted critical first', () => {
-    const r = evaluateVitals({ lcp: 5000, fid: 400, cls: 0.3, fcp: 4000, ttfb: 2000, si: 6000 })
+    const r = evaluateVitals({ lcp: 5000, inp: 600, cls: 0.3, fcp: 4000, ttfb: 2000, si: 6000 })
     expect(r.hasCritical).toBe(true)
     for (const v of r.violations) {
       expect(v.severity).toBe('critical')
@@ -151,12 +151,12 @@ describe('evaluateVitals — multi-metric and sorting', () => {
   })
 
   it('mix of warn and critical — critical sorted first', () => {
-    const r = evaluateVitals({ lcp: 5000, fid: 150 })  // lcp=critical, fid=warn
+    const r = evaluateVitals({ lcp: 5000, inp: 300 })  // lcp=critical, inp=warn
     expect(r.violations).toHaveLength(2)
     expect(r.violations[0]!.severity).toBe('critical')
     expect(r.violations[0]!.key).toBe('lcp')
     expect(r.violations[1]!.severity).toBe('warn')
-    expect(r.violations[1]!.key).toBe('fid')
+    expect(r.violations[1]!.key).toBe('inp')
   })
 
   it('violation has all required fields', () => {
@@ -176,7 +176,7 @@ describe('evaluateVitals — multi-metric and sorting', () => {
 
 describe('evaluateVitals — null and missing metrics', () => {
   it('all null metrics → no violations (never false-alert on missing data)', () => {
-    const r = evaluateVitals({ lcp: null, fid: null, cls: null, fcp: null, ttfb: null, si: null })
+    const r = evaluateVitals({ lcp: null, inp: null, cls: null, fcp: null, ttfb: null, si: null })
     expect(r.violations).toHaveLength(0)
   })
 
@@ -193,9 +193,9 @@ describe('evaluateVitals — null and missing metrics', () => {
   })
 
   it('null for one metric, valid for another', () => {
-    const r = evaluateVitals({ lcp: null, fid: 400 })  // fid=critical
+    const r = evaluateVitals({ lcp: null, inp: 600 })  // inp=critical
     expect(r.violations).toHaveLength(1)
-    expect(r.violations[0]!.key).toBe('fid')
+    expect(r.violations[0]!.key).toBe('inp')
   })
 })
 
@@ -216,8 +216,8 @@ describe('formatVitalValue', () => {
   it('LCP uses ms unit', () =>
     expect(formatVitalValue('lcp', 2500)).toBe('2500ms'))
 
-  it('FID uses ms unit', () =>
-    expect(formatVitalValue('fid', 150)).toBe('150ms'))
+  it('INP uses ms unit', () =>
+    expect(formatVitalValue('inp', 150)).toBe('150ms'))
 
   it('CLS uses 3 decimal places (no unit)', () => {
     expect(formatVitalValue('cls', 0.1)).toBe('0.100')
@@ -241,7 +241,7 @@ describe('THRESHOLDS export', () => {
   it('exports thresholds for all 6 keys', () => {
     const keys = Object.keys(THRESHOLDS)
     expect(keys).toContain('lcp')
-    expect(keys).toContain('fid')
+    expect(keys).toContain('inp')
     expect(keys).toContain('cls')
     expect(keys).toContain('fcp')
     expect(keys).toContain('ttfb')
@@ -251,6 +251,11 @@ describe('THRESHOLDS export', () => {
   it('Google official LCP threshold values', () => {
     expect(THRESHOLDS.lcp.warn).toBe(2500)
     expect(THRESHOLDS.lcp.critical).toBe(4000)
+  })
+
+  it('Google official INP threshold values', () => {
+    expect(THRESHOLDS.inp.warn).toBe(200)
+    expect(THRESHOLDS.inp.critical).toBe(500)
   })
 
   it('Google official CLS threshold values', () => {

@@ -62,5 +62,7 @@ pnpm test                               # vitest tests
 
 - [Deployment](./DEPLOY.md)
 - [Supabase Setup](./SUPABASE_SETUP.md)
+- [Status page](./docs/status-page.md) — public `/status/[slug]`, branding, robots policy
+- [Monitoring audit](./docs/monitoring-audit.md)
 - [Progress](./progress.md)
 - [Requirements](./requirement.md)

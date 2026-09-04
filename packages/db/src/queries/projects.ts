@@ -10,7 +10,18 @@
 import { and, count, desc, eq, isNull } from 'drizzle-orm'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { db } from '../client.ts'
-import { monitorEvents, monitors, projects, scans, type Project, type Scan } from '../schema.ts'
+import {
+  monitors,
+  projects,
+  scans,
+  type Project,
+  type Scan,
+} from '../schema.ts'
+import {
+  DEFAULT_MONITOR_ENABLED,
+  DEFAULT_MONITOR_INTERVALS,
+  DEFAULT_MONITOR_TYPES,
+} from './onboarding-defaults.ts'
 import type { Viewer } from './viewer.ts'
 
 export interface NewProjectInput {
@@ -88,6 +99,87 @@ export async function createProject(
 }
 
 /**
+ * Create a project AND its four default monitors in one transaction.
+ *
+ * Onboarding (Phase 7.1): the activation research showed that asking a
+ * new user to enable four monitors after signup drops activation to
+ * ~10%. Creating the project with three monitors enabled out of the box
+ * (uptime / domain / web_vitals) and a fourth (rescan) staged for
+ * enable-on-first-scan is the difference between "I have an empty
+ * dashboard" and "I have a working status page" by the time the
+ * dashboard renders.
+ *
+ * Why a transaction:
+ *   - A project without its monitors is a worse state than no project at
+ *     all (the new user lands on an empty `/monitors` page and abandons).
+ *   - The plan-ceiling check must run against the same transaction so
+ *     we cannot race past it on a concurrent signup.
+ *   - A failed monitor insert must not leave an orphan `projects` row
+ *     behind; the rollback is the safety net.
+ *
+ * Same plan-ceiling contract as `createProject`: the limit is passed in
+ * because this package must not learn about pricing.
+ */
+export async function createProjectWithMonitors(
+  viewer: Viewer,
+  input: NewProjectInput,
+  maxProjects: number,
+): Promise<CreateProjectResult> {
+  if (viewer.kind !== 'user') return { ok: false, reason: 'unauthenticated' }
+
+  // Lazy import — circular-free and keeps the onboarding surface tight.
+  const { ensureDefaultMonitors } = await import('./onboarding-defaults.ts')
+
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ n: count() })
+      .from(projects)
+      .where(eq(projects.ownerId, viewer.userId))
+
+    if ((existing?.n ?? 0) >= maxProjects) {
+      return { ok: false as const, reason: 'limit-reached' as const }
+    }
+
+    const [project] = await tx
+      .insert(projects)
+      .values({
+        ownerId: viewer.userId,
+        orgId: input.orgId,
+        name: input.name,
+        url: input.url,
+        slug: slugFor(input.url),
+        verificationToken: newVerificationToken(),
+      })
+      .returning()
+
+    if (!project) return { ok: false as const, reason: 'failed' as const }
+
+    // Bootstrap the four default monitors inside the same transaction.
+    // We re-implement the upsert here (rather than calling
+    // `ensureDefaultMonitors` which uses the package-level `db`) so
+    // every write participates in the same tx — a failure rolls back
+    // the project row too.
+    for (const type of DEFAULT_MONITOR_TYPES) {
+      await tx
+        .insert(monitors)
+        .values({
+          projectId: project.id,
+          type,
+          enabled: DEFAULT_MONITOR_ENABLED[type],
+          intervalS: DEFAULT_MONITOR_INTERVALS[type],
+        })
+        .onConflictDoUpdate({
+          target: [monitors.projectId, monitors.type],
+          // Idempotent on conflict — leave any existing row alone.
+          set: {},
+        })
+    }
+
+    return { ok: true as const, project }
+  })
+}
+
+/**
  * A project's scans, newest first.
  *
  * Findings are not joined: the history view shows scores and dates, and pulling
@@ -143,6 +235,24 @@ export async function claimScan(
       })
       .returning({ id: projects.id })
     if (!project) return null
+
+    // Onboarding (Phase 7.1): a claimed scan becomes a project, and a
+    // project ships with its four default monitors. Same transaction —
+    // a failed monitor insert rolls the project row back.
+    for (const type of DEFAULT_MONITOR_TYPES) {
+      await tx
+        .insert(monitors)
+        .values({
+          projectId: project.id,
+          type,
+          enabled: DEFAULT_MONITOR_ENABLED[type],
+          intervalS: DEFAULT_MONITOR_INTERVALS[type],
+        })
+        .onConflictDoUpdate({
+          target: [monitors.projectId, monitors.type],
+          set: {},
+        })
+    }
 
     const claimed = await tx
       .update(scans)
@@ -237,6 +347,11 @@ function comparableDelta(latest: Scan | null, previous: Scan | null): number | n
  *
  * Returns only the fields a public page may show. Selecting the row and
  * trimming it at the caller would work until somebody forgot to trim.
+ *
+ * NOTE: This returns the bare project row. The full public status payload
+ * (per-monitor components, overall status, uptime %, incidents, maintenance)
+ * lives in `getPublicStatus` in queries/monitors.ts — call that, not this,
+ * when rendering a status page.
  */
 export async function getPublicProjectBySlug(slug: string) {
   const project = await db.query.projects.findFirst({
@@ -244,23 +359,6 @@ export async function getPublicProjectBySlug(slug: string) {
     columns: { id: true, name: true, url: true, slug: true },
   })
   return project ?? null
-}
-
-/** PUBLIC — the events behind a status page. Same reasoning as above. */
-export async function publicUptimeEvents(projectId: string, limit = 90) {
-  const monitor = await db.query.monitors.findFirst({
-    where: and(eq(monitors.projectId, projectId), eq(monitors.type, 'uptime')),
-    columns: { id: true, enabled: true, lastStatus: true },
-  })
-  if (!monitor?.enabled) return null
-
-  const events = await db.query.monitorEvents.findMany({
-    where: eq(monitorEvents.monitorId, monitor.id),
-    orderBy: desc(monitorEvents.ts),
-    limit,
-    columns: { ts: true, ok: true, latencyMs: true },
-  })
-  return { lastStatus: monitor.lastStatus, events }
 }
 
 /**

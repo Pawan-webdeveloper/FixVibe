@@ -98,6 +98,18 @@ export default async function ProjectPage({
           </p>
         </div>
 
+        {/* Phase 6.4: settings entry-point — only surface once the
+            project has monitors enabled, since branding only matters
+            on the public status page. */}
+        <div className="ml-auto flex shrink-0 gap-3">
+          <Link
+            href={`/projects/${project.id}/settings`}
+            className="link text-xs"
+          >
+            Status page settings
+          </Link>
+        </div>
+
         {/*
           Two submits, one action, same as the onboarding form. The depth is a
           button rather than a select because there are exactly two of them and
