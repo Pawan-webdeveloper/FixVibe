@@ -12,8 +12,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '../app/api/monitors/deploy-hook/route.ts'
 
-const { findFirstProject, findManyMonitors, sendInngest } = vi.hoisted(() => ({
-  findFirstProject: vi.fn(),
+const { findManyProjects, findManyMonitors, sendInngest } = vi.hoisted(() => ({
+  findManyProjects: vi.fn(),
   findManyMonitors: vi.fn(),
   sendInngest: vi.fn(),
 }))
@@ -21,7 +21,7 @@ const { findFirstProject, findManyMonitors, sendInngest } = vi.hoisted(() => ({
 vi.mock('@scanlyfix/db', () => ({
   db: {
     query: {
-      projects: { findFirst: findFirstProject },
+      projects: { findMany: findManyProjects },
       monitors: { findMany: findManyMonitors },
     },
   },
@@ -38,7 +38,7 @@ const SECRET = 'test-deploy-secret-12345'
 
 beforeEach(() => {
   vi.stubEnv('DEPLOY_HOOK_SECRET', SECRET)
-  findFirstProject.mockReset()
+  findManyProjects.mockReset()
   findManyMonitors.mockReset()
   sendInngest.mockReset()
 })
@@ -134,7 +134,7 @@ describe('POST /api/monitors/deploy-hook', () => {
 
   describe('Project lookup & execution', () => {
     it('returns 404 when no project matches the given URL', async () => {
-      findFirstProject.mockResolvedValue(null)
+      findManyProjects.mockResolvedValue([])
 
       const req = makeRequest(
         `https://app.test/api/monitors/deploy-hook?token=${SECRET}`,
@@ -147,7 +147,7 @@ describe('POST /api/monitors/deploy-hook', () => {
     })
 
     it('returns 200 with triggered:0 when project has no enabled monitors', async () => {
-      findFirstProject.mockResolvedValue({ id: 'proj-1', name: 'My Project' })
+      findManyProjects.mockResolvedValue([{ id: 'proj-1', name: 'My Project', url: 'https://mysite.example.com' }])
       findManyMonitors.mockResolvedValue([])
 
       const req = makeRequest(
@@ -162,7 +162,7 @@ describe('POST /api/monitors/deploy-hook', () => {
     })
 
     it('triggers Inngest events with triggeredBy: deploy-hook for enabled monitors', async () => {
-      findFirstProject.mockResolvedValue({ id: 'proj-1', name: 'My Project' })
+      findManyProjects.mockResolvedValue([{ id: 'proj-1', name: 'My Project', url: 'https://mysite.example.com' }])
       findManyMonitors.mockResolvedValue([
         { id: 'mon-1', type: 'uptime' },
         { id: 'mon-2', type: 'domain' },
@@ -206,7 +206,7 @@ describe('POST /api/monitors/deploy-hook', () => {
     })
 
     it('accepts project_url as an alternate field name', async () => {
-      findFirstProject.mockResolvedValue({ id: 'proj-1', name: 'My Project' })
+      findManyProjects.mockResolvedValue([{ id: 'proj-1', name: 'My Project', url: 'https://mysite.example.com' }])
       findManyMonitors.mockResolvedValue([{ id: 'mon-1', type: 'uptime' }])
       sendInngest.mockResolvedValue({ ids: ['evt-1'] })
 

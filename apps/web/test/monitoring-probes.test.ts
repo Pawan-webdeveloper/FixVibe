@@ -291,7 +291,7 @@ describe('web-vitals-probe workflow logic', () => {
     const vitals = {
       ok: true,
       lcp: 1200,
-      fid: 40,
+      inp: 100,
       cls: 0.02,
       fcp: 900,
       ttfb: 300,
@@ -309,7 +309,7 @@ describe('web-vitals-probe workflow logic', () => {
     const vitals = {
       ok: true,
       lcp: 4800, // Critical (> 4000)
-      fid: 50,
+      inp: 100,
       cls: 0.05,
       fcp: 1000,
       ttfb: 400,

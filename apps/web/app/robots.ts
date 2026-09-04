@@ -12,7 +12,8 @@
  *   - /contact — support contact
  *   - /privacy — privacy policy (required by payment processors)
  *   - /terms — terms of service (required by payment processors)
- *   - /status/<slug> — public status pages, crawlable by design
+ *   - /status/<slug> — public status pages, crawlable by design (Phase 6.4:
+ *     per-page robots meta tag is owner-controlled — see docs/status-page.md)
  *
  * Two kinds of page are deliberately excluded:
  *
@@ -24,6 +25,14 @@
  *     thousands of them puts other companies' security and SEO problems into
  *     public results under our domain. That is a liability to them and, to us,
  *     a mass of near-duplicate thin pages that drags the domain down.
+ *
+ * Note on the per-page noindex (Phase 6.4): an owner can opt their status
+ * page out of indexing via `projects.robots_indexable`. The page emits a
+ * <meta name="robots" content="noindex, nofollow"> tag, which we honour
+ * here by NOT excluding the path globally — the owner's choice is
+ * expressed via the meta tag, not via robots.txt. A per-project robots.txt
+ * rule is a future improvement; today the global Allow is the right
+ * default because indexability is the product's default.
  */
 
 import type { MetadataRoute } from 'next'

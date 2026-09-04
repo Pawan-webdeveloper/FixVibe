@@ -266,6 +266,8 @@ describe('/api/monitors/:id/config', () => {
       expect(data.alertConfig).toEqual({
         failStatusCodes: [500, 503],
         maxLatencyMs: 2000,
+        httpMethod: 'GET',
+        followRedirects: true,
       })
     })
   })

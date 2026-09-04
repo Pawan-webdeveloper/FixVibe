@@ -21,12 +21,12 @@ import { z } from 'zod'
  */
 export async function recordWebVitalsSnapshot(
   monitorId: string,
-  vitals: Pick<WebVitalsResult, 'lcp' | 'fid' | 'cls' | 'fcp' | 'ttfb' | 'si'>,
+  vitals: Pick<WebVitalsResult, 'lcp' | 'inp' | 'cls' | 'fcp' | 'ttfb' | 'si'>,
 ): Promise<void> {
   await db.insert(webVitalsSnapshots).values({
     monitorId,
     lcp: vitals.lcp,
-    fid: vitals.fid,
+    inp: vitals.inp,
     cls: vitals.cls !== null ? parseFloat(vitals.cls.toFixed(4)) : null,
     fcp: vitals.fcp,
     ttfb: vitals.ttfb,
@@ -40,6 +40,7 @@ export const WebVitalsSnapshotSchema = z.object({
   monitorId: z.string().uuid(),
   lcp: z.number().nullable(),
   fid: z.number().nullable(),
+  inp: z.number().nullable(),
   cls: z.number().nullable(),
   fcp: z.number().nullable(),
   ttfb: z.number().nullable(),

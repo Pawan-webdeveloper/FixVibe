@@ -18,9 +18,18 @@ import { eq, and } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Viewer } from './viewer.ts'
 
+// ─── Channel Type Union ────────────────────────────────────────────────────────
+// Single source of truth for channel values — matches the pgEnum in schema.ts
+// and is used by the discriminated public type below.
+export const CHANNEL_VALUES = ['slack', 'email', 'webhook', 'discord'] as const
+export type AlertChannelName = (typeof CHANNEL_VALUES)[number]
+
 // ─── Config Schemas ────────────────────────────────────────────────────────────
 // WHY per-channel Zod schemas (not generic Record<string,unknown>):
 // Each channel has specific required fields — validate at insert, not at use time
+//
+// SSRF validation is intentionally minimal here — assertSafeUrl is the source of
+// truth at send time, and this schema is only catching malformed input.
 
 export const SlackChannelConfigSchema = z.object({
   webhookUrl: z
@@ -33,12 +42,55 @@ export const SlackChannelConfigSchema = z.object({
 
 export type SlackChannelConfig = z.infer<typeof SlackChannelConfigSchema>
 
+export const DiscordChannelConfigSchema = z.object({
+  // Discord uses two host families (discord.com + legacy discordapp.com) and
+  // a fixed path. Pin it here so a tampered DB row still gets caught at the
+  // boundary.
+  webhookUrl: z
+    .string()
+    .url()
+    .refine(
+      (url) =>
+        /^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[\w-]+/.test(
+          url,
+        ),
+      { message: 'Must be a valid Discord incoming webhook URL' },
+    ),
+})
+
+export type DiscordChannelConfig = z.infer<typeof DiscordChannelConfigSchema>
+
+export const WebhookChannelConfigSchema = z.object({
+  // HTTPS only — SSRF validation runs again at send time via safeFetch
+  url: z
+    .string()
+    .url()
+    .refine((u) => u.startsWith('https://'), {
+      message: 'Webhook URL must use https',
+    })
+    .refine((u) => {
+      // WHATWG URL parses user:pass@host — we do not allow it.
+      try {
+        const parsed = new URL(u)
+        return parsed.username === '' && parsed.password === ''
+      } catch {
+        return false
+      }
+    }, { message: 'Webhook URL must not contain embedded credentials' }),
+  // Optional shared secret — when present, sender computes HMAC-SHA256 and
+  // sets X-Webhook-Secret header. Bounded length to prevent abuse.
+  secret: z.string().min(8).max(256).optional(),
+})
+
+export type WebhookChannelConfig = z.infer<typeof WebhookChannelConfigSchema>
+
 // ─── Output Types ──────────────────────────────────────────────────────────────
 
 // Internal — full config (used by deliverAlert only, never sent to client)
 export interface AlertChannelInternal {
   id: string
-  channel: string
+  projectId: string
+  channel: AlertChannelName
   config: Record<string, unknown>
   enabled: boolean
 }
@@ -47,7 +99,7 @@ export interface AlertChannelInternal {
 export interface AlertChannelPublic {
   id: string
   projectId: string
-  channel: 'slack' | 'email'
+  channel: AlertChannelName
   maskedConfig: Record<string, string>
   enabled: boolean
   createdAt: string
@@ -65,6 +117,33 @@ function maskConfig(
       webhookUrl: url
         ? `https://hooks.slack.com/services/***${url.slice(-6)}`
         : '',
+    }
+  }
+  if (channel === 'discord') {
+    const url = config.webhookUrl as string | undefined
+    // Same pattern as Slack: show only the trailing token fragment.
+    return {
+      webhookUrl: url ? `https://discord.com/api/webhooks/***/${url.slice(-6)}` : '',
+    }
+  }
+  if (channel === 'webhook') {
+    const url = config.url as string | undefined
+    const hasSecret = typeof config.secret === 'string' && config.secret.length > 0
+    // WHY mask differently from slack: arbitrary URL, not a fixed prefix
+    // Show only the host so the user can confirm the target without exposing
+    // the full path/secret.
+    let host = ''
+    if (url) {
+      try {
+        host = new URL(url).host
+      } catch {
+        host = '***'
+      }
+    }
+    return {
+      url: url ? `https://${host}/***` : '',
+      // WHY never indicate whether secret is set: avoid leaking config state
+      secret: hasSecret ? '***' : '',
     }
   }
   return {}
@@ -113,7 +192,8 @@ export async function getAlertChannels(
     // Internal use — return full config
     return rows.map((r): AlertChannelInternal => ({
       id: r.id,
-      channel: r.channel,
+      projectId: r.projectId,
+      channel: r.channel as AlertChannelName,
       config: r.config as Record<string, unknown>,
       enabled: r.enabled,
     }))
@@ -123,22 +203,59 @@ export async function getAlertChannels(
   return rows.map((r): AlertChannelPublic => ({
     id: r.id,
     projectId: r.projectId,
-    channel: r.channel as 'slack' | 'email',
+    channel: r.channel as AlertChannelName,
     maskedConfig: maskConfig(r.channel, r.config as Record<string, unknown>),
     enabled: r.enabled,
     createdAt: r.createdAt.toISOString(),
   }))
 }
 
+// ─── getAlertChannel (single, internal) ────────────────────────────────────────
+// One row by id, with ownership check baked in. Returns the full row (raw
+// config) because the only caller is the test-send route, which needs the
+// unmasked URL. Anywhere else a single channel is read for the API surface,
+// it should use getAlertChannels(projectId, viewer) and pick the row.
+//
+// WHY an optional `expectedProjectId`: a route scoped to /projects/:id can
+// pass its URL's project id and get a 404-equivalent when the named channel
+// belongs to a different project — even if the caller owns both. Without
+// this, a request body could fish for channel ids across the caller's own
+// projects. That is still within the caller's reach, but it lets us return
+// the right "not in this project" answer instead of "not in any project".
+export async function getAlertChannel(
+  channelId: string,
+  viewer: Viewer,
+  expectedProjectId?: string,
+): Promise<AlertChannelInternal | null> {
+  if (viewer.kind !== 'user') return null
+  const row = await db.query.alertChannels.findFirst({
+    where: eq(alertChannels.id, channelId),
+  })
+  if (!row) return null
+  if (expectedProjectId && row.projectId !== expectedProjectId) return null
+  // WHY check ownership via the project, not the channel: the channel row
+  // does not carry ownerId, and adding it would be denormalised. The project
+  // already has the canonical owner.
+  const owns = await assertProjectOwnership(row.projectId, viewer)
+  if (!owns) return null
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    channel: row.channel as AlertChannelName,
+    config: row.config as Record<string, unknown>,
+    enabled: row.enabled,
+  }
+}
+
 // ─── upsertAlertChannel ────────────────────────────────────────────────────────
 /**
  * WHY upsert (not insert):
- * Ek project mein ek hi Slack channel honi chahiye.
+ * Ek project mein ek hi channel per type honi chahiye.
  * Duplicate webhooks = duplicate alerts.
  */
 export async function upsertAlertChannel(
   projectId: string,
-  channel: 'slack' | 'email',
+  channel: AlertChannelName,
   config: Record<string, unknown>,
   viewer: Viewer,
 ): Promise<{ ok: boolean; reason?: string }> {
@@ -152,6 +269,26 @@ export async function upsertAlertChannel(
       return {
         ok: false,
         reason: parsed.error.issues[0]?.message ?? 'Invalid Slack config',
+      }
+    }
+  }
+
+  if (channel === 'discord') {
+    const parsed = DiscordChannelConfigSchema.safeParse(config)
+    if (!parsed.success) {
+      return {
+        ok: false,
+        reason: parsed.error.issues[0]?.message ?? 'Invalid Discord config',
+      }
+    }
+  }
+
+  if (channel === 'webhook') {
+    const parsed = WebhookChannelConfigSchema.safeParse(config)
+    if (!parsed.success) {
+      return {
+        ok: false,
+        reason: parsed.error.issues[0]?.message ?? 'Invalid webhook config',
       }
     }
   }

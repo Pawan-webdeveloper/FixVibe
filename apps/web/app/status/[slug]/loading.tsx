@@ -5,9 +5,15 @@ import { Skeleton, SkeletonPage, SkeletonRule } from '@/components/ui/skeleton.t
  * have no account and are already anxious. A page that looks broken while it
  * loads is the worst possible answer to "is it down?".
  *
- * The uptime bar is drawn as its real strip of segments rather than one block,
- * so the shape that carries the answer is on screen before the answer is.
+ * The uptime bar is drawn as its real strip of 90 segments rather than one
+ * block, so the shape that carries the answer is on screen before the answer
+ * is. Skeleton counts mirror the real page: one project header + one
+ * component card (the page renders one card per enabled monitor — today
+ * typically one).
  */
+const SKELETON_SEGMENTS = 90
+const SKELETON_COMPONENTS = 1
+
 export default function StatusLoading() {
   return (
     <SkeletonPage label="this status page" className="mx-auto max-w-2xl px-6 py-16">
@@ -18,10 +24,17 @@ export default function StatusLoading() {
       <Skeleton className="mt-8 h-6 w-32" />
 
       <div className="mt-6 flex items-end gap-[3px]">
-        {Array.from({ length: 40 }, (_, segment) => (
+        {Array.from({ length: SKELETON_SEGMENTS }, (_, segment) => (
           <Skeleton key={segment} className="h-10 flex-1" />
         ))}
       </div>
+
+      {Array.from({ length: Math.max(0, SKELETON_COMPONENTS - 1) }, (_, i) => (
+        <div key={i} className="mt-4">
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="mt-3 h-3 w-48" />
+        </div>
+      ))}
     </SkeletonPage>
   )
 }

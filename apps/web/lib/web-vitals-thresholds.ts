@@ -12,7 +12,7 @@ import { z } from 'zod'
 
 // ─── Schemas ───────────────────────────────────────────────────────────────────
 
-export const VitalKeySchema = z.enum(['lcp', 'fid', 'cls', 'fcp', 'ttfb', 'si'])
+export const VitalKeySchema = z.enum(['lcp', 'inp', 'cls', 'fcp', 'ttfb', 'si'])
 export type VitalKey = z.infer<typeof VitalKeySchema>
 
 export const SeveritySchema = z.enum(['warn', 'critical'])
@@ -31,7 +31,7 @@ export type Violation = z.infer<typeof ViolationSchema>
 
 export const VitalsInputSchema = z.object({
   lcp: z.number().nullable().optional(),
-  fid: z.number().nullable().optional(),
+  inp: z.number().nullable().optional(),
   cls: z.number().nullable().optional(),
   fcp: z.number().nullable().optional(),
   ttfb: z.number().nullable().optional(),
@@ -53,7 +53,7 @@ interface ThresholdDef {
 
 const THRESHOLDS: Record<VitalKey, ThresholdDef> = {
   lcp:  { metric: 'LCP',  warn: 2500,  critical: 4000,  unit: 'ms' },
-  fid:  { metric: 'FID',  warn: 100,   critical: 300,   unit: 'ms' },
+  inp:  { metric: 'INP',  warn: 200,   critical: 500,   unit: 'ms' },
   cls:  { metric: 'CLS',  warn: 0.1,   critical: 0.25,  unit: ''   },
   fcp:  { metric: 'FCP',  warn: 1800,  critical: 3000,  unit: 'ms' },
   ttfb: { metric: 'TTFB', warn: 800,   critical: 1800,  unit: 'ms' },

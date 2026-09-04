@@ -17,7 +17,7 @@
 
 import { gunzipSync, inflateSync, brotliDecompressSync } from 'node:zlib'
 import { Agent, request, type Dispatcher } from 'undici'
-import { assertSafeUrl, guardedLookup, SsrfError } from './ssrf-guard.ts'
+import { assertSafeUrl, assertSafeRedirectUrl, guardedLookup, SsrfError } from './ssrf-guard.ts'
 
 export class SafeFetchError extends Error {
   override name = 'SafeFetchError'
@@ -177,6 +177,9 @@ export async function safeFetch(target: URL | string, options: SafeFetchOptions 
       } catch {
         throw new SafeFetchError(`Redirect from ${current.href} has an invalid Location: ${location}`)
       }
+      // SSRF guard: validate redirect target before making the next request.
+      // Blocks protocol downgrade (https→http), private IPs, and bad schemes.
+      assertSafeRedirectUrl(current, next)
       current = next
       continue
     }

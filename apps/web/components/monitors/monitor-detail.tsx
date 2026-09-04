@@ -8,6 +8,7 @@ import { IncidentsList } from './incidents-list'
 import { DiffBadge } from '@/components/monitors/diff-badge'
 import { MonitorSettings } from '@/components/monitors/monitor-settings.tsx'
 import { SnoozeButton } from './snooze-button'
+import { RunCheckButton } from './run-check-button'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,13 +32,19 @@ interface Incident {
   durationMs: number | null
   statusCode: number | null
   detail: string | null
+  acknowledgedAt: string | null
+  acknowledgedBy: string | null
+  acknowledgerEmail: string | null
+  notes: string | null
 }
 
 interface UptimeData {
-  uptimePercent: number
+  uptimePercent: number | null
   total: number
   up: number
   down: number
+  avgLatencyMs: number | null
+  p95LatencyMs: number | null
 }
 
 interface MonitorData {
@@ -49,6 +56,14 @@ interface MonitorData {
   lastRunAt: string | null
   intervalS: number
   enabled: boolean
+}
+
+interface ResponseTimeDataPoint {
+  timestamp: string
+  avgLatencyMs: number | null
+  p95LatencyMs: number | null
+  maxLatencyMs: number | null
+  totalChecks: number
 }
 
 interface MonitorDetailProps {
@@ -71,9 +86,12 @@ export function MonitorDetail({ monitor }: MonitorDetailProps) {
   const [uptime, setUptime] = useState<UptimeData | null>(null)
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [period, setPeriod] = useState<'24h' | '7d' | '30d'>('7d')
+  const [responseTimeRange, setResponseTimeRange] = useState<'1h' | '24h' | '7d'>('24h')
+  const [responseTimeData, setResponseTimeData] = useState<ResponseTimeDataPoint[]>([])
   const [logsError, setLogsError] = useState<string | null>(null)
   const [uptimeError, setUptimeError] = useState<string | null>(null)
   const [incidentsError, setIncidentsError] = useState<string | null>(null)
+  const [responseTimeError, setResponseTimeError] = useState<string | null>(null)
 
   // ── Fetch: Logs ──────────────────────────────────────────────────────────────
   const loadLogs = useCallback(() => {
@@ -107,6 +125,22 @@ export function MonitorDetail({ monitor }: MonitorDetailProps) {
       )
   }, [monitor.id, period])
 
+  // ── Fetch: Response Times ────────────────────────────────────────────────────
+  const loadResponseTimes = useCallback(() => {
+    fetch(`/api/monitors/${monitor.id}/response-times?range=${responseTimeRange}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to load response times')
+        return r.json()
+      })
+      .then((d) => {
+        setResponseTimeData(d.data ?? [])
+        setResponseTimeError(null)
+      })
+      .catch((e: unknown) =>
+        setResponseTimeError(e instanceof Error ? e.message : 'Failed to load response times'),
+      )
+  }, [monitor.id, responseTimeRange])
+
   // ── Fetch: Incidents ─────────────────────────────────────────────────────────
   const loadIncidents = useCallback(() => {
     fetch(`/api/monitors/${monitor.id}/incidents`)
@@ -137,6 +171,10 @@ export function MonitorDetail({ monitor }: MonitorDetailProps) {
   }, [loadUptime])
 
   useEffect(() => {
+    loadResponseTimes()
+  }, [loadResponseTimes])
+
+  useEffect(() => {
     loadIncidents()
   }, [loadIncidents])
 
@@ -154,7 +192,7 @@ export function MonitorDetail({ monitor }: MonitorDetailProps) {
     <div className="space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <StatusDot status={monitor.lastStatus} size="md" />
           <div>
@@ -164,21 +202,38 @@ export function MonitorDetail({ monitor }: MonitorDetailProps) {
             <p className="text-sm text-gray-400">{monitor.projectUrl}</p>
           </div>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-medium ${
-            monitor.lastStatus === 'up'
-              ? 'bg-emerald-50 text-emerald-700'
+        <div className="flex items-center gap-3">
+          {/* Run-check (Phase 7.3). We hand it the newest log's id/ts
+              as a baseline so the polling inside the button knows
+              what counts as "a new row" without re-deriving it. */}
+          <RunCheckButton
+            monitorId={monitor.id}
+            baseline={
+              logs[0] !== undefined
+                ? { firstId: logs[0].id, firstTs: logs[0].ts }
+                : null
+            }
+            onChecked={() => {
+              loadLogs()
+              loadUptime()
+            }}
+          />
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-medium ${
+              monitor.lastStatus === 'up'
+                ? 'bg-emerald-50 text-emerald-700'
+                : monitor.lastStatus === 'down'
+                  ? 'bg-red-50 text-red-700'
+                  : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {monitor.lastStatus === 'up'
+              ? 'UP'
               : monitor.lastStatus === 'down'
-                ? 'bg-red-50 text-red-700'
-                : 'bg-gray-100 text-gray-500'
-          }`}
-        >
-          {monitor.lastStatus === 'up'
-            ? 'UP'
-            : monitor.lastStatus === 'down'
-              ? 'DOWN'
-              : 'PENDING'}
-        </span>
+                ? 'DOWN'
+                : 'PENDING'}
+          </span>
+        </div>
       </div>
 
       {/* ── Snooze — sirf uptime monitors pe ───────────────────────────────── */}
@@ -199,9 +254,15 @@ export function MonitorDetail({ monitor }: MonitorDetailProps) {
           </div>
         </div>
         <div className="rounded-lg border border-gray-100 bg-white px-4 py-3">
-          <p className="text-xs text-gray-400">Avg response</p>
+          <p className="text-xs text-gray-400">Response time</p>
           <p className="mt-1 text-sm font-medium text-gray-700">
-            {avgLatency !== null ? `${avgLatency}ms` : '—'}
+            {uptime?.avgLatencyMs != null && uptime?.p95LatencyMs != null ? (
+              <>Avg {uptime.avgLatencyMs}ms · p95 {uptime.p95LatencyMs}ms</>
+            ) : avgLatency !== null ? (
+              `${avgLatency}ms`
+            ) : (
+              '—'
+            )}
           </p>
         </div>
         <div className="rounded-lg border border-gray-100 bg-white px-4 py-3">
@@ -222,13 +283,32 @@ export function MonitorDetail({ monitor }: MonitorDetailProps) {
 
       {/* ── Response time chart ─────────────────────────────────────────────── */}
       <div className="rounded-lg border border-gray-100 bg-white p-4">
-        <h2 className="mb-3 text-sm font-medium text-gray-700">
-          Response time
-        </h2>
-        {logsError ? (
-          <p className="text-sm text-red-500">{logsError}</p>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-gray-700">Response time</h2>
+          <div className="flex gap-1">
+            {(['1h', '24h', '7d'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setResponseTimeRange(r)}
+                className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                  responseTimeRange === r
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+        {responseTimeError ? (
+          <p className="text-sm text-red-500">{responseTimeError}</p>
         ) : (
-          <ResponseTimeChart logs={logs} />
+          <ResponseTimeChart
+            data={responseTimeData}
+            range={responseTimeRange}
+            p95LatencyMs={uptime?.p95LatencyMs}
+          />
         )}
       </div>
 

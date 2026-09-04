@@ -17,7 +17,7 @@ describe('evaluateVitals', () => {
   it('returns no violations when all metrics are within thresholds', () => {
     const vitals: VitalsInput = {
       lcp: 1500,   // Good: < 2500ms
-      fid: 50,     // Good: < 100ms
+      inp: 100,    // Good: < 200ms
       cls: 0.05,   // Good: < 0.1
       fcp: 1000,   // Good: < 1800ms
       ttfb: 400,   // Good: < 800ms
@@ -50,7 +50,7 @@ describe('evaluateVitals', () => {
     const vitals: VitalsInput = {
       lcp: 4500,  // Critical
       cls: 0.3,   // Critical
-      fid: 150,   // Warn
+      inp: 300,   // Warn
     }
     const result = evaluateVitals(vitals)
     expect(result.violations).toHaveLength(3)
@@ -65,7 +65,7 @@ describe('evaluateVitals', () => {
   it('skips null/undefined metrics', () => {
     const vitals: VitalsInput = {
       lcp: null,
-      fid: undefined,
+      inp: undefined,
       cls: 0.3, // Critical
     }
     const result = evaluateVitals(vitals)
@@ -83,7 +83,7 @@ describe('evaluateVitals', () => {
   it('detects all critical thresholds', () => {
     const vitals: VitalsInput = {
       lcp: 4000,   // Critical
-      fid: 300,    // Critical
+      inp: 500,    // Critical
       cls: 0.25,   // Critical
       fcp: 3000,   // Critical
       ttfb: 1800,  // Critical
@@ -105,7 +105,7 @@ describe('formatVitalValue', () => {
   })
 
   it('formats FID with ms suffix', () => {
-    expect(formatVitalValue('fid', 100)).toBe('100ms')
+    expect(formatVitalValue('inp', 100)).toBe('100ms')
   })
 
   it('formats TTFB with ms suffix', () => {

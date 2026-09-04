@@ -15,7 +15,7 @@
 
 import type { Category, ScanScores, Severity } from '@scanlyfix/checks'
 import type { RepoCategory, RepoScanScores } from '@scanlyfix/repo-checks'
-import { desc, relations, sql } from 'drizzle-orm'
+import { desc, isNotNull, isNull, relations, sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
@@ -27,6 +27,7 @@ import {
   primaryKey,
   real,
   text,
+  time,
   timestamp,
   uniqueIndex,
   uuid,
@@ -74,7 +75,7 @@ export const findingStatusEnum = pgEnum('finding_status', ['open', 'fixed', 'ign
 export const monitorTypeEnum = pgEnum('monitor_type', ['uptime', 'rescan', 'domain', 'web_vitals'])
 
 export const memberRoleEnum = pgEnum('member_role', ['owner', 'admin', 'member'])
-export const alertChannelEnum = pgEnum('alert_channel', ['email', 'slack'])
+export const alertChannelEnum = pgEnum('alert_channel', ['email', 'slack', 'webhook', 'discord'])
 export const reportFormatEnum = pgEnum('report_format', ['pdf', 'md'])
 
 /**
@@ -249,6 +250,21 @@ export const projects = pgTable(
      * and a re-verification sweep has something to read.
      */
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    /**
+     * Status-page polish (Phase 6.4). All three are owner-controlled and
+     * nullable/false-by-default so a project created before this migration
+     * behaves exactly as it did until the owner opts in.
+     *
+     *   logo_url          — image URL rendered next to the project name on
+     *                       the public status page. https-only at the API.
+     *   brand_color       — hex (#RRGGBB). Validated at the app layer.
+     *   robots_indexable  — true by default; the page renders <meta
+     *                       name="robots" content="noindex,nofollow"> when
+     *                       the owner flips this off.
+     */
+    logoUrl: text('logo_url'),
+    brandColor: text('brand_color'),
+    robotsIndexable: boolean('robots_indexable').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('projects_owner_idx').on(t.ownerId), index('projects_org_idx').on(t.orgId)],
@@ -389,6 +405,23 @@ alertConfig: jsonb('alert_config')
   .$type<{
     failStatusCodes?: number[]
     maxLatencyMs?: number | null
+    reminderIntervalMin?: 15 | 30 | 60 | 120 | null
+    keywordCheck?: {
+      type: 'should_contain' | 'should_not_contain'
+      value: string
+      caseSensitive?: boolean
+    }
+    expectedStatusCodes?: number[]
+    httpMethod?: 'GET' | 'HEAD'
+    customHeaders?: Array<{ key: string; valueEncrypted: string }>
+    followRedirects?: boolean
+    /**
+     * Per-monitor channel routing — Phase 4. Same wire shape as the
+     * AlertConfigSchema in `@scanlyfix/web/lib/alert-threshold.ts`. The
+     * schema is the source of truth; this type mirrors it for the DB
+     * layer so writes can be type-checked.
+     */
+    notifyChannels?: string[]
   }>()
   .default(sql`NULL`),
 // WHY nullable default: existing monitors ka config null = default behavior
@@ -436,7 +469,8 @@ export const webVitalsSnapshots = pgTable(
       .notNull()
       .references(() => monitors.id, { onDelete: 'cascade' }),
     lcp: integer('lcp_ms'),
-    fid: integer('fid_ms'),
+    fid: integer('fid_ms'),   // WHY kept: historical data; new rows = null
+    inp: integer('inp_ms'),   // INP replaces FID — Google March 2024
     cls: real('cls'),        // WHY real: CLS = 0.0 to 1.0, float chahiye
     fcp: integer('fcp_ms'),
     ttfb: integer('ttfb_ms'),
@@ -448,6 +482,64 @@ export const webVitalsSnapshots = pgTable(
   ],
 )
 
+/**
+ * PSI API result cache.
+ * Keyed by normalized URL — avoids re-running Lighthouse for same page within 6h.
+ * WHY jsonb: WebVitalsResult shape may evolve; jsonb avoids ALTER TABLE on schema drift.
+ */
+export const psiCache = pgTable(
+  'psi_cache',
+  {
+    url: text('url').primaryKey(),       // Normalized URL (trailing slash stripped)
+    result: jsonb('result').notNull(),   // Full WebVitalsResult (ok, lcp, inp, cls, ...)
+    cachedAt: timestamp('cached_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+)
+
+/* ─── Rollup Tables ──────────────────────────────────────────────────────────── */
+
+/**
+ * Hourly rollup of monitor events.
+ * Aggregated by the rollup-worker Inngest function every hour.
+ * Powers the 24h uptime view with fast queries.
+ */
+export const monitorHourlyRollups = pgTable(
+  'monitor_hourly_rollups',
+  {
+    monitorId: uuid('monitor_id')
+      .notNull()
+      .references(() => monitors.id, { onDelete: 'cascade' }),
+    hour: timestamp('hour', { withTimezone: true }).notNull(),
+    totalChecks: integer('total_checks').notNull(),
+    upChecks: integer('up_checks').notNull(),
+    avgLatencyMs: integer('avg_latency_ms'),
+    p95LatencyMs: integer('p95_latency_ms'),
+    minLatencyMs: integer('min_latency_ms'),
+    maxLatencyMs: integer('max_latency_ms'),
+  },
+  (t) => [primaryKey({ columns: [t.monitorId, t.hour] })],
+)
+
+/**
+ * Daily rollup of monitor events.
+ * Aggregated by the rollup-worker Inngest function daily.
+ * Powers the 7d/30d uptime view and the 90-day status page strip.
+ */
+export const monitorDailyRollups = pgTable(
+  'monitor_daily_rollups',
+  {
+    monitorId: uuid('monitor_id')
+      .notNull()
+      .references(() => monitors.id, { onDelete: 'cascade' }),
+    day: timestamp('day', { withTimezone: true }).notNull(),
+    totalChecks: integer('total_checks').notNull(),
+    upChecks: integer('up_checks').notNull(),
+    avgLatencyMs: integer('avg_latency_ms'),
+    p95LatencyMs: integer('p95_latency_ms'),
+  },
+  (t) => [primaryKey({ columns: [t.monitorId, t.day] })],
+)
 
 
 /**
@@ -465,10 +557,24 @@ export const alerts = pgTable(
     kind: text('kind').notNull(),
     channel: alertChannelEnum('channel').notNull(),
     payload: jsonb('payload').$type<Record<string, unknown>>(),
+    /**
+     * Deduplication key for reminder alerts.
+     * Format: `{kind}-{monitorId}-{incidentId}-{slot}` for downtime reminders.
+     * NULL for non-reminder alerts (initial downtime, recovery, certificate alerts).
+     * Used by recordAlertOnce to prevent duplicate reminder emails.
+     */
+    dedupKey: text('dedup_key'),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('alerts_project_created_idx').on(t.projectId, desc(t.createdAt))],
+  (t) => [
+    index('alerts_project_created_idx').on(t.projectId, desc(t.createdAt)),
+    // Partial unique index for dedupKey — only enforce uniqueness when dedupKey is NOT NULL
+    // This allows multiple alerts with NULL dedupKey (non-reminder alerts)
+    uniqueIndex('alerts_dedup_key_unique_idx')
+      .on(t.dedupKey)
+      .where(isNotNull(t.dedupKey)),
+  ],
 )
 /**
  * Alert channel configuration — one row per (project, channel).
@@ -492,6 +598,16 @@ export const alertChannels = pgTable('alert_channels', {
 /**
  * Incidents tracked for uptime monitors.
  * Created when a monitor experiences consecutive failures; resolved when probe recovers.
+ *
+ * Acknowledge + notes (Phase 5):
+ *   - acknowledgedAt + acknowledgedBy together encode "I am on it". Both
+ *     nullable so the unacknowledged state is the default; setting one
+ *     without the other is a bug, callers set them as a pair.
+ *   - notes is free-form text the on-call adds while investigating. Bounded
+ *     at the API layer; nullable so ack-without-notes is cheap.
+ *   - acknowledgedBy uses ON DELETE SET NULL so a deleted user does not
+ *     wipe the incident's audit trail — the timestamp remains, the name
+ *     becomes "deleted user".
  */
 export const incidents = pgTable(
   'incidents',
@@ -510,12 +626,179 @@ export const incidents = pgTable(
     statusCode: integer('status_code'),
     /** Human-readable detail / error message captured at incident start. */
     detail: text('detail'),
+    /** When the on-call acknowledged this incident. NULL = still unhandled. */
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }),
+    /**
+     * The user who acknowledged. ON DELETE SET NULL so a user being removed
+     * does not orphan the incident — the timestamp stays, the row lives on.
+     */
+    acknowledgedBy: uuid('acknowledged_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    /** On-call notes. NULL until someone adds them. */
+    notes: text('notes'),
   },
   (t) => [
     // Primary query: list incidents for a monitor, newest first.
     index('incidents_monitor_started_idx').on(t.monitorId, desc(t.startedAt)),
     // Efficiently find the single open (unresolved) incident per monitor.
     index('incidents_unresolved_idx').on(t.monitorId, t.resolvedAt),
+  ],
+)
+
+/**
+ * Public-facing incident updates.
+ *
+ * An "update" is one post on the timeline shown to a customer during an
+ * incident — the Statuspage-style "investigating → identified → monitoring
+ * → resolved" sequence. The incident row carries the lifecycle facts
+ * (started/resolved/duration); this table carries the human messages.
+ *
+ * `status` is free text rather than an enum because the vocabulary grows
+ * (a future "postmortem" stage, or a per-component verb) and we don't want
+ * an ALTER TYPE on a live table for that. Validation lives at the API
+ * boundary (see `IncidentUpdateStatusSchema` in queries/incident-updates.ts).
+ *
+ * `createdBy` SET NULL on user delete, NOT CASCADE: a timeline post should
+ * still be visible years later when its author has left the account.
+ * `createdAt` defaults to `now()` and is set in DB so concurrent posts
+ * can't lie about order.
+ */
+export const incidentUpdates = pgTable(
+  'incident_updates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    incidentId: uuid('incident_id')
+      .notNull()
+      .references(() => incidents.id, { onDelete: 'cascade' }),
+    status: text('status').notNull(),
+    message: text('message').notNull(),
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // One composite serves the two access patterns: timeline (ASC) and
+    // "most recent" (DESC). Postgres reads it in either direction.
+    index('incident_updates_incident_created_idx').on(t.incidentId, t.createdAt),
+  ],
+)
+
+/**
+ * Public status-page email subscribers.
+ *
+ * One row per (project, lowercased email). The token is the single
+ * secret that drives both the double-opt-in confirm link AND the
+ * one-click unsubscribe link — so a leak of one token cannot be
+ * turned into a separate confirm or unsubscribe on another project,
+ * and there is exactly one thing to invalidate when somebody replies
+ * "stop emailing me".
+ *
+ * The row is created on subscribe with `confirmed = false`, then
+ * flipped to `confirmed = true` on the confirm-click. We never email
+ * anyone whose row is unconfirmed. `unsubscribed_at` is a soft-delete:
+ * keeping the row makes "do not email this person again" enforceable
+ * without races and gives a privacy request its audit trail.
+ */
+export const statusSubscribers = pgTable(
+  'status_subscribers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    /** Stored lowercased + trimmed. */
+    email: text('email').notNull(),
+    /** 32 random bytes hex-encoded; UNIQUE so the click handler resolves a
+     *  token back to exactly one subscriber without exposing ids. */
+    token: text('token').notNull(),
+    confirmed: boolean('confirmed').notNull().default(false),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    /** Soft-delete. Non-null = never email this row again. */
+    unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
+    /**
+     * Hashed visitor IP from lib/request.ts (salted SHA-256, never raw).
+     * Powers the 5/hour subscribe rate limit per address. Null when the
+     * row was created outside a request context (e.g. tests, future
+     * data import).
+     */
+    ipHash: text('ip_hash'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // One row per (project, email). Re-subscribing after an unsubscribe
+    // is intentionally blocked — the existing row's unsubscribed_at stays set.
+    uniqueIndex('status_subscribers_project_email_idx').on(t.projectId, t.email),
+    // Click handler hot path: confirm and unsubscribe both look up by token.
+    uniqueIndex('status_subscribers_token_idx').on(t.token),
+    // The fan-out path: confirmed-and-active subscribers for a project.
+    // Partial index keeps the scan small even after many unsubscribes pile up.
+    index('status_subscribers_project_active_idx')
+      .on(t.projectId)
+      .where(sql`${t.confirmed} = true AND ${t.unsubscribedAt} IS NULL`),
+    // Rate-limit hot path: how many subscribe attempts this visitor made
+    // in the last hour. Partial index over the recent window keeps it small.
+    index('status_subscribers_ip_hash_created_idx')
+      .on(t.ipHash, t.createdAt)
+      .where(sql`${t.ipHash} IS NOT NULL`),
+  ],
+)
+
+/**
+ * Recurring weekly maintenance windows.
+ *
+ * A row defines a slot (e.g. "Sundays 02:00–04:00 America/Los_Angeles")
+ * during which alerts for the monitor are suppressed. Probes still run,
+ * events still record — only the dispatch step short-circuits, exactly
+ * like the one-shot snooze.
+ *
+ * The window's `startTime` is stored as `time` (no date, no zone) and the
+ * row carries its own IANA `timezone`. The query layer projects the
+ * current moment into that zone before comparing — there is no SQL trick
+ * that survives DST transitions, and we want to be right around the year
+ * boundary.
+ *
+ * `monitorId` is nullable so a future "project-wide maintenance" feature
+ * has somewhere to land without a migration. The API and probe today
+ * only ever pass a non-null id.
+ */
+export const maintenanceWindows = pgTable(
+  'maintenance_windows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    monitorId: uuid('monitor_id').references(() => monitors.id, {
+      onDelete: 'cascade',
+    }),
+    /** 0 = Sunday, 6 = Saturday. null = every day. */
+    dayOfWeek: integer('day_of_week'),
+    /** Local start time in the row's `timezone`. */
+    startTime: time('start_time').notNull(),
+    /** Window length in minutes. */
+    durationMin: integer('duration_min').notNull(),
+    /** IANA timezone name, e.g. "America/Los_Angeles". Defaults to UTC. */
+    timezone: text('timezone').notNull().default('UTC'),
+    /** User-supplied reason. Shown on the status page while active. */
+    reason: text('reason'),
+    /** Soft off-switch. Disabled rows are ignored by the probe. */
+    enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Who set it up. SET NULL on user delete so the window survives. */
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (t) => [
+    // The hot path: "is THIS monitor in a window right now?" — partial
+    // index over enabled rows for a given monitor, the smallest scan
+    // the query can use.
+    index('maintenance_windows_monitor_enabled_idx').on(t.monitorId, t.enabled),
   ],
 )
 
@@ -849,6 +1132,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   monitors: many(monitors),
   alerts: many(alerts),
   alertChannels: many(alertChannels),
+  statusSubscribers: many(statusSubscribers),
 }))
 
 export const scansRelations = relations(scans, ({ one, many }) => ({
@@ -878,6 +1162,18 @@ export const monitorEventsRelations = relations(monitorEvents, ({ one }) => ({
  * ─────────────────────────────────────────────────────────────────────────────
  */
  
+export const incidentUpdatesRelations = relations(incidentUpdates, ({ one }) => ({
+  incident: one(incidents, {
+    fields: [incidentUpdates.incidentId],
+    references: [incidents.id],
+  }),
+  /** Author of the post. Null after user deletion (SET NULL). */
+  author: one(users, {
+    fields: [incidentUpdates.createdBy],
+    references: [users.id],
+  }),
+}))
+
 export const snoozedMonitorsRelations = relations(snoozedMonitors, ({ one }) => ({
   monitor: one(monitors, {
     fields: [snoozedMonitors.monitorId],
@@ -891,10 +1187,33 @@ export const snoozedMonitorsRelations = relations(snoozedMonitors, ({ one }) => 
 
 
 
-export const incidentsRelations = relations(incidents, ({ one }) => ({
+export const incidentsRelations = relations(incidents, ({ one, many }) => ({
   monitor: one(monitors, {
     fields: [incidents.monitorId],
     references: [monitors.id],
+  }),
+  updates: many(incidentUpdates),
+  /**
+   * The user who acknowledged this incident. May be null when the incident
+   * has not been acknowledged, OR when the user was deleted (the timestamp
+   * stays, the name becomes "deleted user").
+   */
+  acknowledger: one(users, {
+    fields: [incidents.acknowledgedBy],
+    references: [users.id],
+    relationName: 'incident_acknowledger',
+  }),
+}))
+
+export const maintenanceWindowsRelations = relations(maintenanceWindows, ({ one }) => ({
+  monitor: one(monitors, {
+    fields: [maintenanceWindows.monitorId],
+    references: [monitors.id],
+  }),
+  createdBy: one(users, {
+    fields: [maintenanceWindows.createdBy],
+    references: [users.id],
+    relationName: 'maintenance_window_creator',
   }),
 }))
 
@@ -1000,6 +1319,13 @@ export type RepoFindingRow = typeof repoFindings.$inferSelect
 export type NewRepoFindingRow = typeof repoFindings.$inferInsert
 export type Incident = typeof incidents.$inferSelect
 export type NewIncident = typeof incidents.$inferInsert
+export type IncidentUpdate = typeof incidentUpdates.$inferSelect
+export type NewIncidentUpdate = typeof incidentUpdates.$inferInsert
+export type StatusSubscriber = typeof statusSubscribers.$inferSelect
+export type NewStatusSubscriber = typeof statusSubscribers.$inferInsert
+export const MaintenanceWindow = typeof maintenanceWindows.$inferSelect
+export type MaintenanceWindow = typeof maintenanceWindows.$inferSelect
+export type NewMaintenanceWindow = typeof maintenanceWindows.$inferInsert
 export type DnsSnapshot = typeof dnsSnapshots.$inferSelect
 export type NewDnsSnapshot = typeof dnsSnapshots.$inferInsert
 export type WebVitalsSnapshot = typeof webVitalsSnapshots.$inferSelect
