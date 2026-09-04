@@ -55,19 +55,18 @@ export async function LatestScanReport({
 
   return (
     <section aria-label="Latest report">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-c-muted">
-          Latest report
-        </h2>
-        <Link
-          href={`/scan/${scan.id}`}
-          className="rounded-full bg-c-soft px-4 py-1.5 text-[12px] font-medium text-c-muted transition-colors hover:bg-c-line hover:text-c-ink"
-        >
-          Open full report
-        </Link>
-      </div>
+      <div className="overflow-hidden rounded-lg border border-c-line bg-c-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <header className="flex items-center justify-between gap-4 border-b border-c-line px-6 py-4">
+          <h2 className="text-sm font-medium text-c-ink">Latest report</h2>
+          <Link
+            href={`/scan/${scan.id}`}
+            className="rounded-md border border-c-line bg-c-card px-3 py-1.5 text-[12px] font-medium text-c-ink
+                       transition-colors hover:bg-c-soft"
+          >
+            Open full report
+          </Link>
+        </header>
 
-      <div className="rounded-xl border border-c-line bg-c-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         {view === 'loading' && <Loading host={host} scanId={scan.id} />}
         {view === 'failed' && <Failed host={host} error={scan.error} />}
         {view === 'done' && <Done scan={scan} viewer={viewer} />}
@@ -79,13 +78,13 @@ export async function LatestScanReport({
 /** The loader: the workers are running the scan, this page is just waiting. */
 function Loading({ host, scanId }: { host: string; scanId: string }) {
   return (
-    <div className="flex items-start gap-4 px-8 py-7">
+    <div className="flex items-start gap-4 px-6 py-6">
       <span
         aria-hidden="true"
         className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-c-line border-t-c-ink"
       />
       <div className="min-w-0">
-        <p className="text-[15px] font-medium text-c-ink">Scanning {host}…</p>
+        <p className="text-sm font-medium text-c-ink">Scanning {host}…</p>
         <p className="mt-1 text-[13px] leading-relaxed text-c-muted text-pretty">
           63 checks are running in the background across security, SEO, AI answers,
           performance, accessibility, and compliance. This section fills in by itself
@@ -100,12 +99,12 @@ function Loading({ host, scanId }: { host: string; scanId: string }) {
 /** A refused or unreachable target: the outcome, and the way out. */
 function Failed({ host, error }: { host: string; error: string | null }) {
   return (
-    <div className="px-8 py-7">
-      <p className="text-[15px] font-medium text-c-ink">
+    <div className="px-6 py-6">
+      <p className="text-sm font-medium text-c-ink">
         The scan of {host} could not be completed
       </p>
       {error && (
-        <p className="mt-2 break-words border border-c-line/60 bg-c-soft px-3 py-2 font-mono text-[13px] text-c-muted">
+        <p className="mt-2 break-words rounded-md border border-c-line bg-c-soft px-3 py-2 font-mono text-[13px] text-c-muted">
           {error}
         </p>
       )}
@@ -123,7 +122,7 @@ async function Done({ scan, viewer }: { scan: ScanWithFindings; viewer: Viewer }
   const report = redactFindings(scan.findings, entitlements)
 
   return (
-    <div className="p-8">
+    <div className="px-6 py-6">
       <div className="flex flex-col items-center gap-6 sm:flex-row">
         {scan.scores && (
           <>
@@ -135,7 +134,7 @@ async function Done({ scan, viewer }: { scan: ScanWithFindings; viewer: Viewer }
         )}
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-2 border-t border-c-line/60 pt-4 text-[13px] sm:grid-cols-4">
+      <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-2 border-t border-c-line pt-4 text-[13px] sm:grid-cols-4">
         <div>
           <dt className="text-c-muted">Site</dt>
           <dd className="truncate font-mono text-c-ink">{hostOf(scan.url)}</dd>
@@ -160,15 +159,15 @@ async function Done({ scan, viewer }: { scan: ScanWithFindings; viewer: Viewer }
          * client component: the browser supplies keyboard support and the
          * disclosure semantics, and the report ships no JavaScript for it.
          */
-        <details className="mt-6 rounded-xl border border-c-line/60">
+        <details className="mt-6 rounded-lg border border-c-line">
           <summary className="cursor-pointer px-5 py-4 transition-colors hover:bg-c-soft/60">
-            <span className="text-[14px] font-medium text-c-ink">Detailed report</span>
+            <span className="text-sm font-medium text-c-ink">Detailed report</span>
             <span className="mt-0.5 block text-[13px] text-c-muted">
               Every finding with the evidence observed, the fix, and the prompt for your
               AI editor.
             </span>
           </summary>
-          <div className="border-t border-c-line/60 px-5 py-6">
+          <div className="border-t border-c-line px-5 py-6">
             <FindingsList
               findings={report.findings as FindingView[]}
               priorities={entitlements.priorities}
@@ -178,7 +177,7 @@ async function Done({ scan, viewer }: { scan: ScanWithFindings; viewer: Viewer }
           </div>
         </details>
       ) : (
-        <p className="mt-6 border-t border-c-line/60 pt-4 text-[14px] text-c-muted">
+        <p className="mt-6 border-t border-c-line pt-4 text-sm text-c-muted">
           Every check passed — nothing to fix was observed on this scan.
         </p>
       )}
