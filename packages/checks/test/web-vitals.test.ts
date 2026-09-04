@@ -52,7 +52,8 @@ describe('checkWebVitals', () => {
         lighthouseResult: {
           audits: {
             'largest-contentful-paint': { numericValue: 2500 },
-            'first-input-delay': { numericValue: 100 },
+            'interaction-to-paint': { numericValue: 250 },
+            'first-input-delay': { numericValue: 100 },  // Legacy, ignored
             'cumulative-layout-shift': { numericValue: 0.1 },
             'first-contentful-paint': { numericValue: 1500 },
             'server-response-time': { numericValue: 400 },
@@ -65,7 +66,8 @@ describe('checkWebVitals', () => {
     const result = await checkWebVitals('https://example.com')
     expect(result.ok).toBe(true)
     expect(result.lcp).toBe(2500)
-    expect(result.fid).toBe(100)
+    expect(result.fid).toBeNull()  // FID retired
+    expect(result.inp).toBe(250)   // INP is the new primary
     expect(result.cls).toBe(0.1)
     expect(result.fcp).toBe(1500)
     expect(result.ttfb).toBe(400)
@@ -77,7 +79,8 @@ describe('checkWebVitals', () => {
   })
 
   it('handles PSI API errors gracefully', async () => {
-    mockFetch.mockResolvedValueOnce({
+    // 429 triggers retry — mock all 3 attempts as 429
+    mockFetch.mockResolvedValue({
       ok: false,
       status: 429,
       json: async () => ({
@@ -87,7 +90,8 @@ describe('checkWebVitals', () => {
 
     const result = await checkWebVitals('https://example.com')
     expect(result.ok).toBe(false)
-    expect(result.detail).toContain('Rate limit')
+    expect(result.detail).toContain('PSI quota exceeded')
+    expect(result.detail).toContain('will retry next run')
   })
 
   it('handles network errors', async () => {
@@ -121,7 +125,7 @@ describe('checkWebVitals', () => {
     const result = await checkWebVitals('https://example.com')
     expect(result.ok).toBe(true)
     expect(result.lcp).toBeNull()
-    expect(result.fid).toBeNull()
+    expect(result.inp).toBeNull()
     expect(result.cls).toBeNull()
   })
 })

@@ -9,11 +9,12 @@ interface MonitorItem {
   id: string
   type: string
   enabled: boolean
-  lastStatus: 'up' | 'down' | null /* uptime error — use 'up'/'down' to match DB status values */
+  lastStatus: 'up' | 'down' | 'stale' | null
   lastRunAt: string | null
   intervalS: number
   projectUrl: string
   projectName: string
+  isStale: boolean
 }
 
 function timeAgo(iso: string): string {
@@ -21,6 +22,26 @@ function timeAgo(iso: string): string {
   if (diff < 60) return `${diff}s ago`
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   return `${Math.floor(diff / 3600)}h ago`
+}
+
+function formatInterval(intervalS: number): string {
+  if (intervalS >= 86400) return 'daily'
+  if (intervalS < 60) return `every ${intervalS}s`
+  return `every ${Math.round(intervalS / 60)}m`
+}
+
+function getStaleTooltip(lastRunAt: string | null, intervalS: number): string {
+  if (!lastRunAt) return 'Never checked'
+  const lastRun = new Date(lastRunAt)
+  const diff = Date.now() - lastRun.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(minutes / 60)
+  const expectedInterval = formatInterval(intervalS)
+  
+  if (hours > 0) {
+    return `Last check ${hours}h ago (expected ${expectedInterval})`
+  }
+  return `Last check ${minutes}m ago (expected ${expectedInterval})`
 }
 
 function MonitorRow({ monitor }: { monitor: MonitorItem }) {
@@ -37,7 +58,7 @@ function MonitorRow({ monitor }: { monitor: MonitorItem }) {
 
   const typeBadge = () => {
     if (monitor.type === 'uptime') {
-      return uptime !== null ? <UptimeBadge percent={uptime} /> : null
+      return <UptimeBadge percent={uptime} />
     }
     if (monitor.type === 'domain') {
       return (
@@ -56,18 +77,15 @@ function MonitorRow({ monitor }: { monitor: MonitorItem }) {
     return null
   }
 
-  const intervalText = () => {
-    if (monitor.intervalS >= 86400) return 'daily'
-    if (monitor.intervalS < 60) return `every ${monitor.intervalS}s`
-    return `every ${Math.round(monitor.intervalS / 60)}m`
-  }
+  const displayStatus = monitor.isStale ? 'stale' : monitor.lastStatus
+  const tooltip = getStaleTooltip(monitor.lastRunAt, monitor.intervalS)
 
   return (
     <Link
       href={`/monitors/${monitor.id}`}
       className="flex items-center gap-4 rounded-lg border border-c-line bg-c-card px-4 py-3 transition-colors hover:border-c-line/80 hover:bg-c-soft"
     >
-      <StatusDot status={monitor.lastStatus} />
+      <StatusDot status={displayStatus} tooltip={tooltip} />
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-c-ink">{monitor.projectName}</p>
@@ -79,7 +97,7 @@ function MonitorRow({ monitor }: { monitor: MonitorItem }) {
         <span className="text-xs text-c-muted">
           {monitor.lastRunAt ? timeAgo(monitor.lastRunAt) : 'never'}
         </span>
-        <span className="text-xs text-c-muted/70">{intervalText()}</span>
+        <span className="text-xs text-c-muted/70">{formatInterval(monitor.intervalS)}</span>
       </div>
     </Link>
   )

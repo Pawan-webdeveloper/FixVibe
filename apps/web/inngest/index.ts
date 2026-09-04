@@ -6,28 +6,26 @@
  * question "is this job live?" has one place to answer it.
  */
 
-/* monitor error — removed duplicate uptimeProbe entry (was listed twice),
- * removed duplicate monitorSweep (sweep.ts already handles this),
- * added monitoringProbe for SSL/domain checks */
-
 import { sweepMonitors } from './functions/sweep.ts'
 import { uptimeProbe } from './functions/uptime-probe.ts'
 import { rescanProject } from './functions/scheduled-rescan.ts'
-import { domainHealth } from './functions/domain-health.ts'
+import { domainProbe } from './functions/domain-probe.ts'
 import { runScanQueued } from './functions/run-scan.ts'
 import { generateReport } from './functions/generate-report.ts'
 import { runRepoScanQueued } from './functions/run-repo-scan.ts'
-import { monitoringProbe } from './functions/monitoring-probe.ts'
 import { webVitalsProbe } from './functions/web-vitals-probe.ts'
+import { rollupWorker } from './functions/rollup-worker.ts'
+import { autoResolveStaleIncidents } from './functions/auto-resolve-stale-incidents.ts'
 
 export const functions = [
   sweepMonitors,
   uptimeProbe,
   rescanProject,
-  domainHealth,
+  domainProbe,
   runScanQueued,
   runRepoScanQueued,
   generateReport,
-  monitoringProbe,
   webVitalsProbe,
+  rollupWorker,
+  autoResolveStaleIncidents,
 ]

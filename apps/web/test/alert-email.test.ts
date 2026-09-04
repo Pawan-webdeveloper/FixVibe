@@ -16,10 +16,16 @@ const markAlertSent = vi.fn()
 const getAlertChannels = vi.fn()
 const sendEmail = vi.fn()
 const sendSlack = vi.fn()
+const sendDiscord = vi.fn()
+const renderDiscord = vi.fn()
+const sendWebhook = vi.fn()
+const buildWebhookPayload = vi.fn()
 
 vi.mock('@scanlyfix/db', () => ({ alertForDelivery, markAlertSent, getAlertChannels }))
 vi.mock('../lib/email.ts', () => ({ sendEmail, emailConfigured: () => true }))
 vi.mock('../lib/slack.ts', () => ({ sendSlack, isValidSlackWebhookUrl: () => true }))
+vi.mock('../lib/discord.ts', () => ({ sendDiscord, renderDiscord }))
+vi.mock('../lib/webhook.ts', () => ({ sendWebhook, buildWebhookPayload }))
 
 const { deliverAlert } = await import('../lib/alert-email.ts')
 
@@ -37,9 +43,17 @@ const row = {
 beforeEach(() => {
   alertForDelivery.mockReset()
   markAlertSent.mockReset()
+  // Default: no configured channels. The new deliverAlert reads the channel
+  // list unconditionally to build the routing decision; tests that exercise
+  // a channel override it.
   getAlertChannels.mockReset()
+  getAlertChannels.mockResolvedValue([])
   sendEmail.mockReset()
   sendSlack.mockReset()
+  sendDiscord.mockReset()
+  renderDiscord.mockReset()
+  sendWebhook.mockReset()
+  buildWebhookPayload.mockReset()
 })
 
 afterEach(() => vi.restoreAllMocks())
@@ -105,6 +119,7 @@ describe('deliverAlert', () => {
     sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
     getAlertChannels.mockResolvedValue([
       {
+        id: 'ch-slack',
         channel: 'slack',
         enabled: true,
         config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
@@ -127,6 +142,7 @@ describe('deliverAlert', () => {
     sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
     getAlertChannels.mockResolvedValue([
       {
+        id: 'ch-slack',
         channel: 'slack',
         enabled: true,
         config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
@@ -138,5 +154,361 @@ describe('deliverAlert', () => {
 
     expect(result).toEqual({ sent: true, id: 'msg_1' })
     expect(markAlertSent).toHaveBeenCalledWith('alert-1')
+  })
+
+  it('also delivers to configured Discord channel when enabled', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-discord',
+        channel: 'discord',
+        enabled: true,
+        config: { webhookUrl: 'https://discord.com/api/webhooks/1/abc' },
+      },
+    ])
+    renderDiscord.mockReturnValue({
+      content: '🔴 downtime on scanlyfix.test',
+      username: 'ScanlyFix',
+      embeds: [{ title: 't', description: 'd', color: 0xdc3545 }],
+    })
+    sendDiscord.mockResolvedValue({ sent: true })
+
+    await deliverAlert('alert-1')
+
+    expect(sendDiscord).toHaveBeenCalledWith(
+      'https://discord.com/api/webhooks/1/abc',
+      expect.objectContaining({
+        username: 'ScanlyFix',
+        embeds: expect.any(Array),
+      }),
+    )
+    expect(renderDiscord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'downtime',
+        projectName: 'ScanlyFix',
+        projectUrl: 'https://scanlyfix.test/',
+      }),
+    )
+  })
+
+  it('does not let Discord failure prevent email delivery or marking sent', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-discord',
+        channel: 'discord',
+        enabled: true,
+        config: { webhookUrl: 'https://discord.com/api/webhooks/1/abc' },
+      },
+    ])
+    renderDiscord.mockReturnValue({ content: 'x', embeds: [] })
+    sendDiscord.mockResolvedValue({ sent: false, reason: 'Discord returned 500' })
+
+    const result = await deliverAlert('alert-1')
+
+    expect(result).toEqual({ sent: true, id: 'msg_1' })
+    expect(markAlertSent).toHaveBeenCalledWith('alert-1')
+  })
+
+  it('skips Discord delivery when channel is disabled', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-discord',
+        channel: 'discord',
+        enabled: false,
+        config: { webhookUrl: 'https://discord.com/api/webhooks/1/abc' },
+      },
+    ])
+
+    await deliverAlert('alert-1')
+
+    expect(sendDiscord).not.toHaveBeenCalled()
+    expect(renderDiscord).not.toHaveBeenCalled()
+  })
+
+  it('delivers to all three secondary channels (Slack, Discord, webhook) in one go', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-slack',
+        channel: 'slack',
+        enabled: true,
+        config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
+      },
+      {
+        id: 'ch-discord',
+        channel: 'discord',
+        enabled: true,
+        config: { webhookUrl: 'https://discord.com/api/webhooks/1/abc' },
+      },
+      {
+        id: 'ch-webhook',
+        channel: 'webhook',
+        enabled: true,
+        config: { url: 'https://webhook.site/abc-123' },
+      },
+    ])
+    sendSlack.mockResolvedValue({ sent: true })
+    renderDiscord.mockReturnValue({ content: 'x', embeds: [] })
+    sendDiscord.mockResolvedValue({ sent: true })
+    buildWebhookPayload.mockReturnValue({
+      kind: 'downtime',
+      projectName: 'ScanlyFix',
+      monitorType: 'uptime',
+      url: 'https://scanlyfix.test/',
+      payload: {},
+      timestamp: '2026-01-01T00:00:00.000Z',
+      severity: 'critical',
+    })
+    sendWebhook.mockResolvedValue({ sent: true })
+
+    await deliverAlert('alert-1')
+
+    expect(sendSlack).toHaveBeenCalledTimes(1)
+    expect(sendDiscord).toHaveBeenCalledTimes(1)
+    expect(sendWebhook).toHaveBeenCalledTimes(1)
+  })
+
+  it('also delivers to configured webhook channel when enabled', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-webhook',
+        channel: 'webhook',
+        enabled: true,
+        config: { url: 'https://webhook.site/abc-123' },
+      },
+    ])
+    buildWebhookPayload.mockReturnValue({
+      kind: 'downtime',
+      projectName: 'ScanlyFix',
+      monitorType: 'uptime',
+      url: 'https://scanlyfix.test/',
+      payload: { streak: 3, statusCode: 503 },
+      timestamp: '2026-01-01T00:00:00.000Z',
+      severity: 'critical',
+    })
+    sendWebhook.mockResolvedValue({ sent: true })
+
+    await deliverAlert('alert-1')
+
+    expect(sendWebhook).toHaveBeenCalledWith(
+      { url: 'https://webhook.site/abc-123' },
+      expect.objectContaining({
+        kind: 'downtime',
+        projectName: 'ScanlyFix',
+        severity: 'critical',
+      }),
+    )
+    expect(buildWebhookPayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'downtime',
+        projectName: 'ScanlyFix',
+        url: 'https://scanlyfix.test/',
+      }),
+    )
+  })
+
+  it('does not let webhook failure prevent email delivery or marking sent', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-webhook',
+        channel: 'webhook',
+        enabled: true,
+        config: { url: 'https://webhook.site/abc-123' },
+      },
+    ])
+    buildWebhookPayload.mockReturnValue({
+      kind: 'downtime',
+      projectName: 'ScanlyFix',
+      monitorType: 'uptime',
+      url: 'https://scanlyfix.test/',
+      payload: { streak: 3, statusCode: 503 },
+      timestamp: '2026-01-01T00:00:00.000Z',
+      severity: 'critical',
+    })
+    sendWebhook.mockResolvedValue({ sent: false, reason: 'Webhook endpoint returned 500' })
+
+    const result = await deliverAlert('alert-1')
+
+    expect(result).toEqual({ sent: true, id: 'msg_1' })
+    expect(markAlertSent).toHaveBeenCalledWith('alert-1')
+  })
+
+  it('skips webhook delivery when channel is disabled', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-webhook',
+        channel: 'webhook',
+        enabled: false,
+        config: { url: 'https://webhook.site/abc-123' },
+      },
+    ])
+
+    await deliverAlert('alert-1')
+
+    expect(sendWebhook).not.toHaveBeenCalled()
+    expect(buildWebhookPayload).not.toHaveBeenCalled()
+  })
+
+  it('skips webhook delivery when config is invalid', async () => {
+    alertForDelivery.mockResolvedValue(row)
+    sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+    getAlertChannels.mockResolvedValue([
+      {
+        id: 'ch-webhook',
+        channel: 'webhook',
+        enabled: true,
+        config: { url: 'http://not-https.example.com/hook' },
+      },
+    ])
+
+    await deliverAlert('alert-1')
+
+    expect(sendWebhook).not.toHaveBeenCalled()
+  })
+
+  // ─── Per-monitor channel routing (Phase 4) ──────────────────────────────────
+  describe('per-monitor channel routing', () => {
+    it('sends email + all enabled channels when routing is omitted (default)', async () => {
+      alertForDelivery.mockResolvedValue(row)
+      sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+      getAlertChannels.mockResolvedValue([
+        {
+          id: 'ch-slack',
+          channel: 'slack',
+          enabled: true,
+          config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
+        },
+      ])
+      sendSlack.mockResolvedValue({ sent: true })
+
+      // No second argument — falls back to the default routing.
+      await deliverAlert('alert-1')
+
+      expect(sendEmail).toHaveBeenCalledTimes(1)
+      expect(sendSlack).toHaveBeenCalledTimes(1)
+    })
+
+    it('suppresses email when routing says sendEmail:false', async () => {
+      alertForDelivery.mockResolvedValue(row)
+      getAlertChannels.mockResolvedValue([
+        {
+          id: 'ch-slack',
+          channel: 'slack',
+          enabled: true,
+          config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
+        },
+      ])
+      sendSlack.mockResolvedValue({ sent: true })
+
+      await deliverAlert('alert-1', {
+        sendEmail: false,
+        secondaryChannelIds: ['ch-slack'],
+      })
+
+      // The acceptance criterion: monitor with only Slack selected does NOT
+      // get an email. Email send must not have been called at all.
+      expect(sendEmail).not.toHaveBeenCalled()
+      // The alert is still marked sent — the routing IS the delivery.
+      expect(markAlertSent).toHaveBeenCalledWith('alert-1')
+      // Slack still fires because it is in the allowlist.
+      expect(sendSlack).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns sent:true when email is suppressed (so caller sees success)', async () => {
+      alertForDelivery.mockResolvedValue(row)
+      getAlertChannels.mockResolvedValue([])
+
+      const result = await deliverAlert('alert-1', {
+        sendEmail: false,
+        secondaryChannelIds: [],
+      })
+
+      expect(result).toEqual({ sent: true, id: 'email-suppressed' })
+      expect(markAlertSent).toHaveBeenCalledWith('alert-1')
+    })
+
+    it('only fans out to channels in the allowlist', async () => {
+      alertForDelivery.mockResolvedValue(row)
+      sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+      getAlertChannels.mockResolvedValue([
+        {
+          id: 'ch-slack',
+          channel: 'slack',
+          enabled: true,
+          config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
+        },
+        {
+          id: 'ch-discord',
+          channel: 'discord',
+          enabled: true,
+          config: { webhookUrl: 'https://discord.com/api/webhooks/1/abc' },
+        },
+        {
+          id: 'ch-webhook',
+          channel: 'webhook',
+          enabled: true,
+          config: { url: 'https://webhook.site/abc-123' },
+        },
+      ])
+      sendSlack.mockResolvedValue({ sent: true })
+      renderDiscord.mockReturnValue({ content: 'x', embeds: [] })
+      sendDiscord.mockResolvedValue({ sent: true })
+      buildWebhookPayload.mockReturnValue({
+        kind: 'downtime',
+        projectName: 'ScanlyFix',
+        monitorType: 'uptime',
+        url: 'https://scanlyfix.test/',
+        payload: {},
+        timestamp: '2026-01-01T00:00:00.000Z',
+        severity: 'critical',
+      })
+      sendWebhook.mockResolvedValue({ sent: true })
+
+      // Only Slack is in the allowlist. Discord and webhook must NOT fire.
+      await deliverAlert('alert-1', {
+        sendEmail: false,
+        secondaryChannelIds: ['ch-slack'],
+      })
+
+      expect(sendSlack).toHaveBeenCalledTimes(1)
+      expect(sendDiscord).not.toHaveBeenCalled()
+      expect(sendWebhook).not.toHaveBeenCalled()
+    })
+
+    it('silently skips a stale channel id that no longer exists', async () => {
+      alertForDelivery.mockResolvedValue(row)
+      sendEmail.mockResolvedValue({ sent: true, id: 'msg_1' })
+      getAlertChannels.mockResolvedValue([
+        {
+          id: 'ch-slack',
+          channel: 'slack',
+          enabled: true,
+          config: { webhookUrl: 'https://hooks.slack.com/services/T/B/X' },
+        },
+      ])
+      sendSlack.mockResolvedValue({ sent: true })
+
+      // The user picked Slack AND a now-deleted channel. Slack should still
+      // fire; the deleted one is a no-op, not an error.
+      await deliverAlert('alert-1', {
+        sendEmail: false,
+        secondaryChannelIds: ['ch-slack', 'ch-deleted'],
+      })
+
+      expect(sendSlack).toHaveBeenCalledTimes(1)
+      expect(sendEmail).not.toHaveBeenCalled()
+    })
   })
 })

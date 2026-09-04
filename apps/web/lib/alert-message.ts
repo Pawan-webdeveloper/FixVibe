@@ -91,6 +91,56 @@ export function render(alert: AlertSubject): Rendered {
     }
   }
 
+  if (alert.kind === 'recovered') {
+    const downFor = str(alert.payload, 'downFor') ?? 'unknown duration'
+    const recoveredAt = str(alert.payload, 'recoveredAt')
+    const incidentId = str(alert.payload, 'incidentId')
+
+    const recoveredTime = recoveredAt
+      ? `at ${new Date(recoveredAt).toUTCString()}`
+      : 'just now'
+
+    return {
+      subject: `[RESOLVED] ${host} is back up (was down ${downFor})`,
+      text: lines([
+        `${host} is back up and responding normally.`,
+        '',
+        `Was down for: ${downFor}`,
+        `Recovered: ${recoveredTime}`,
+        '',
+        `Checked: ${alert.projectUrl}`,
+        `Status page: ${status}`,
+        '',
+        incidentId ? `Incident: ${status}?incident=${incidentId}` : null,
+      ].filter((l): l is string => l !== null)),
+    }
+  }
+
+  if (alert.kind === 'downtime-reminder') {
+    const streak = num(alert.payload, 'streak') ?? 0
+    const code = num(alert.payload, 'statusCode')
+    const detail = str(alert.payload, 'detail')
+    const downFor = str(alert.payload, 'downFor') ?? 'unknown duration'
+    const reminderNumber = num(alert.payload, 'reminderNumber') ?? 1
+    const observed = code !== null ? `HTTP ${code}` : (detail ?? 'no response')
+
+    return {
+      subject: `[STILL DOWN] ${host} — down for ${downFor} (reminder #${reminderNumber})`,
+      text: lines([
+        `${host} is still down after ${downFor}.`,
+        '',
+        `This is reminder #${reminderNumber}.`,
+        `Last observed: ${observed}`,
+        `Checked: ${alert.projectUrl}`,
+        '',
+        `Status page: ${status}`,
+        '',
+        'The site has not recovered since the initial downtime alert.',
+        'You will continue to receive reminders until the site comes back up.',
+      ]),
+    }
+  }
+
   if (alert.kind === 'tls_expiring') {
     const days = num(alert.payload, 'daysUntilExpiry')
     const expiresAt = str(alert.payload, 'expiresAt')
@@ -169,6 +219,12 @@ export function render(alert: AlertSubject): Rendered {
   if (alert.kind.startsWith('certificate-expiry')) {
     const daysLeft = num(alert.payload, 'daysLeft')
     const expired = daysLeft !== null && daysLeft < 0
+    const expiresAt = str(alert.payload, 'expiresAt')
+    const subject_ = str(alert.payload, 'subject')
+
+    const expirySummary = expiresAt
+      ? `Expiry date: ${new Date(expiresAt).toDateString()}`
+      : null
 
     return {
       subject: expired
@@ -179,11 +235,52 @@ export function render(alert: AlertSubject): Rendered {
           ? `The TLS certificate for ${host} has expired. Browsers are showing a warning instead of the site.`
           : `The TLS certificate for ${host} expires in ${daysLeft} days.`,
         '',
+        subject_ ? `Certificate issued for: ${subject_}` : null,
+        expirySummary,
+        '',
         'If renewal is automated, confirm it ran. If it is not, this is the reminder.',
         '',
         `Site: ${alert.projectUrl}`,
         `Status page: ${status}`,
-      ]),
+      ].filter((l): l is string => l !== null)),
+    }
+  }
+
+  if (alert.kind.startsWith('domain-expiry')) {
+    const daysLeft = num(alert.payload, 'daysLeft')
+    const expired = daysLeft !== null && daysLeft < 0
+    const expiresAt = str(alert.payload, 'expiresAt')
+    const registrar = str(alert.payload, 'registrar')
+    const urgent = bool(alert.payload, 'urgent')
+
+    const expirySummary = expiresAt
+      ? `Expiry date: ${new Date(expiresAt).toDateString()}`
+      : null
+
+    return {
+      subject: expired
+        ? `${host} — domain registration has expired`
+        : urgent
+          ? `${host} — domain expires in ${daysLeft} days`
+          : `${host} — domain expires in ${daysLeft} days`,
+      text: lines([
+        expired
+          ? `The domain registration for ${host} has expired. The site may stop resolving for visitors.`
+          : `The domain registration for ${host} expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
+        '',
+        registrar ? `Registrar:   ${registrar}` : null,
+        expirySummary,
+        '',
+        'Log in to your registrar and renew before it lapses. A lapsed domain',
+        'can be claimed by someone else and is difficult and expensive to recover.',
+        '',
+        `Site:        ${alert.projectUrl}`,
+        `Status page: ${status}`,
+        '',
+        urgent || expired
+          ? 'This is urgent — act today.'
+          : 'You have time, but renewal takes a few minutes and forgetting it does not.',
+      ].filter((l): l is string => l !== null)),
     }
   }
 

@@ -56,7 +56,7 @@ export interface Message {
  * send from a domain it has not verified and land in spam.
  */
 function from(): string {
-  return process.env['ALERT_FROM_EMAIL'] ?? 'ScanlyFix <onboarding@resend.dev>'
+  return process.env['ALERT_FROM_EMAIL'] ?? 'ScanlyFix <alerts@scanlyfix.com>'
 }
 
 export function emailConfigured(): boolean {

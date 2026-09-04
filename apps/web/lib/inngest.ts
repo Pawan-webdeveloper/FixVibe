@@ -11,15 +11,16 @@ import 'server-only'
 import { Inngest } from 'inngest'
 
 /**
- * Dev mode is inferred rather than left to an env var.
+ * Dev mode is inferred from NODE_ENV.
  *
- * Inngest assumes cloud by default and then refuses to serve without a signing
- * key — a fresh clone gets a 500 from /api/inngest and a message about a
- * variable nobody has yet. Deciding it from NODE_ENV means `pnpm dev` works out
- * of the box, and production still requires the key because isDev is false
- * there regardless of what is or is not configured.
+ * Inngest dev server connects locally in development without cloud signing keys.
+ * Production still enforces cloud signing keys when NODE_ENV === 'production'.
  */
-const isDev = process.env.NODE_ENV !== 'production' && !process.env.INNGEST_SIGNING_KEY
+const isDev = process.env.NODE_ENV !== 'production'
+
+if (isDev && process.env.INNGEST_SIGNING_KEY?.startsWith('signkey-prod-')) {
+  delete process.env.INNGEST_SIGNING_KEY
+}
 
 export const inngest = new Inngest({ id: 'scanlyfix', isDev })
 

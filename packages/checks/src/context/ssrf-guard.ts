@@ -188,7 +188,10 @@ export async function resolvePublicAddresses(hostname: string): Promise<LookupAd
   return addresses
 }
 
-/** Rejects URLs that could smuggle a request somewhere unexpected before any DNS happens. */
+/**
+ * Rejects URLs that could smuggle a request somewhere unexpected before any DNS happens.
+ * Called at the start of every redirect hop.
+ */
 export function assertSafeUrl(url: URL): void {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new SsrfError(`Only http(s) URLs can be scanned, got: ${url.protocol}//`)
@@ -204,6 +207,40 @@ export function assertSafeUrl(url: URL): void {
   const host = unbracket(url.hostname)
   if (isIP(host) && isPrivateAddress(host)) {
     throw new SsrfError(`Refusing to scan private or reserved address: ${host}`)
+  }
+}
+
+/**
+ * Validates a redirect target URL. Blocks:
+ *   - Protocol downgrade (https→http)
+ *   - Non-http(s) schemes
+ *   - Private/reserved IP literals
+ *   - Embedded credentials
+ *
+ * Must be called for every redirect hop before making the next request.
+ */
+export function assertSafeRedirectUrl(currentUrl: URL, redirectUrl: URL): void {
+  // Block non-http(s) schemes
+  if (redirectUrl.protocol !== 'http:' && redirectUrl.protocol !== 'https:') {
+    throw new SsrfError(`Redirect to non-http(s) URL blocked: ${redirectUrl.protocol}//...`)
+  }
+
+  // Block https→http protocol downgrade (SSRF via redirect)
+  if (currentUrl.protocol === 'https:' && redirectUrl.protocol === 'http:') {
+    throw new SsrfError(
+      `Redirect from HTTPS to HTTP blocked (protocol downgrade): ${currentUrl.hostname} → ${redirectUrl.hostname}`,
+    )
+  }
+
+  // Block embedded credentials
+  if (redirectUrl.username !== '' || redirectUrl.password !== '') {
+    throw new SsrfError('Redirect to URL with embedded credentials blocked')
+  }
+
+  // Block private/reserved IP literals (bypasses socket lookup hook)
+  const host = unbracket(redirectUrl.hostname)
+  if (isIP(host) && isPrivateAddress(host)) {
+    throw new SsrfError(`Redirect to private or reserved address blocked: ${host}`)
   }
 }
 

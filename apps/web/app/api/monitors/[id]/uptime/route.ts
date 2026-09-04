@@ -5,7 +5,7 @@
  * Defaults to 24h when no period is supplied.
  *
  * Response:
- *   { total: number, up: number, down: number, uptimePercent: number }
+ *   { total, up, down, uptimePercent, avgLatencyMs, p95LatencyMs }
  */
 
 import { NextResponse } from 'next/server'
