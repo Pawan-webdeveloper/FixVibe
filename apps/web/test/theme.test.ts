@@ -4,13 +4,27 @@
  * Two layers are tested here. The pure rule (resolveTheme) covers every
  * combination of preference and OS setting, because a wrong priority there
  * means a user's explicit choice silently loses to their operating system.
- * The inline init script is EXECUTED against a stubbed browser, because it
- * duplicates that rule in plain JS (an inline script cannot import a module) —
- * running it is the only way to prove the copy has not drifted, the classes
- * land on <html>, and a stale class from a previous choice is removed rather
- * than left to fight the new one.
+ * The inline init script is EXECUTED, because it duplicates that rule in
+ * plain JS (an inline script cannot import a module) — running it is the only
+ * way to prove the copy has not drifted, the classes land on <html>, and a
+ * stale class from a previous choice is removed rather than left to fight
+ * the new one.
+ *
+ * ## Why the script runs in a vm sandbox
+ *
+ * The init script reads the BARE `localStorage` identifier. Recent Node ships
+ * its own experimental `localStorage` global, and on some versions that
+ * built-in is an accessor that cannot be overwritten on globalThis — so a
+ * test harness that reassigns `globalThis.localStorage` throws before the
+ * script even runs, on some machines but not others. `vm.runInNewContext`
+ * gives the script its own global object where bare identifiers resolve to
+ * our stubs, sidestepping the host's globals entirely. The lib functions
+ * never use the bare identifier (they go through `window.localStorage`), so
+ * they are tested under plain globalThis stubs for `window` and `document`
+ * only.
  */
 
+import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import {
   THEME_KEY,
@@ -30,57 +44,94 @@ interface BrowserConfig {
   /** What localStorage holds under THEME_KEY: a value, or absent. */
   stored?: string
   systemDark: boolean
-  /** Classes already on <html> before the script runs. */
+  /** Classes already on <html> before the code under test runs. */
   initialClasses?: string[]
 }
 
-/**
- * Installs just enough browser on globalThis for lib/theme.ts and the init
- * script to run under the node test environment, and restores whatever was
- * there afterwards — the node process may have its own globals under these
- * names, and vitest workers share them across test files.
- */
-function withBrowser<T>(config: BrowserConfig, run: () => T): T {
-  const classes = new Set(config.initialClasses)
-  const store = new Map<string, string>(config.stored === undefined ? [] : [[THEME_KEY, config.stored]])
+/** What a test can read back: the storage contents and <html>'s classes. */
+interface BrowserCtx {
+  store: Map<string, string>
+  classes: Set<string>
+}
 
-  const document = { documentElement: { classList: {
+function classListStub(classes: Set<string>) {
+  return {
     add: (...names: string[]) => names.forEach((n) => classes.add(n)),
     remove: (...names: string[]) => names.forEach((n) => classes.delete(n)),
     contains: (name: string) => classes.has(name),
-  } } }
-  const localStorage = {
+  }
+}
+
+function storageStub(store: Map<string, string>) {
+  return {
     getItem: (key: string) => store.get(key) ?? null,
     setItem: (key: string, value: string) => void store.set(key, value),
   }
-  const matchMedia = () => ({ matches: config.systemDark })
-  const window = { localStorage, matchMedia }
+}
 
-  const originals = {
-    document: globalThis.document,
-    localStorage: (globalThis as Record<string, unknown>).localStorage,
-    window: (globalThis as Record<string, unknown>).window,
-    matchMedia: (globalThis as Record<string, unknown>).matchMedia,
+function makeBrowser(config: BrowserConfig): BrowserCtx {
+  const store = new Map<string, string>(
+    config.stored === undefined ? [] : [[THEME_KEY, config.stored]],
+  )
+  return { store, classes: new Set(config.initialClasses) }
+}
+
+/**
+ * Installs the lib-side stubs — `window` and `document` only, because those
+ * are the only globals lib/theme.ts names. Node has no built-ins under these
+ * names in the node test environment, but the installation is defensive
+ * anyway: if a future environment owns one of them immutably, plain
+ * assignment is tried before giving up, and everything is restored after.
+ */
+function withBrowser<T>(config: BrowserConfig, run: (ctx: BrowserCtx) => T): T {
+  const ctx = makeBrowser(config)
+  const window = {
+    localStorage: storageStub(ctx.store),
+    matchMedia: () => ({ matches: config.systemDark }),
   }
-  Object.assign(globalThis, { document, localStorage, window, matchMedia })
+  const document = { documentElement: { classList: classListStub(ctx.classes) } }
+
+  const originals = new Map<string, PropertyDescriptor | undefined>()
+  for (const [name, value] of Object.entries({ window, document })) {
+    originals.set(name, Object.getOwnPropertyDescriptor(globalThis, name))
+    try {
+      Object.defineProperty(globalThis, name, {
+        value,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      })
+    } catch {
+      ;(globalThis as Record<string, unknown>)[name] = value
+    }
+  }
 
   try {
-    return run()
+    return run(ctx)
   } finally {
-    Object.assign(globalThis, originals)
+    for (const [name, descriptor] of originals) {
+      if (descriptor === undefined) delete (globalThis as Record<string, unknown>)[name]
+      else Object.defineProperty(globalThis, name, descriptor)
+    }
   }
 }
 
-/* Read <html>'s classes back through the stub. */
-function hasClass(name: string): boolean {
-  const doc = globalThis.document as unknown as { documentElement: { classList: { contains(n: string): boolean } } }
-  return doc.documentElement.classList.contains(name)
-}
-
-function runInitScript(): void {
-  // The script is authored as a string for inlining; new Function is the
-  // smallest way to execute exactly those bytes in the test process.
-  new Function(themeInitScript)()
+/**
+ * Runs the init script EXACTLY as shipped, in a context whose globals are our
+ * stubs — see the module note on why this does not touch globalThis.
+ */
+function runInitScript(config: BrowserConfig): Set<string> {
+  const ctx = makeBrowser(config)
+  const sandbox: Record<string, unknown> = {
+    localStorage: storageStub(ctx.store),
+    window: {
+      localStorage: storageStub(ctx.store),
+      matchMedia: () => ({ matches: config.systemDark }),
+    },
+    document: { documentElement: { classList: classListStub(ctx.classes) } },
+  }
+  runInNewContext(themeInitScript, sandbox)
+  return ctx.classes
 }
 
 /* -------------------------------------------------------------------------- */
@@ -144,9 +195,9 @@ describe('readStoredPreference', () => {
 
 describe('storePreference', () => {
   it('writes the choice under the one key the init script reads', () => {
-    withBrowser({ systemDark: false }, () => {
+    withBrowser({ systemDark: false }, ({ store }) => {
       storePreference('dark')
-      expect(globalThis.localStorage.getItem(THEME_KEY)).toBe('dark')
+      expect(store.get(THEME_KEY)).toBe('dark')
     })
   })
 })
@@ -157,29 +208,29 @@ describe('storePreference', () => {
 
 describe('applyTheme', () => {
   it('puts exactly one theme class on <html>, never both', () => {
-    withBrowser({ systemDark: false, initialClasses: ['dark'] }, () => {
+    withBrowser({ systemDark: false, initialClasses: ['dark'] }, ({ classes }) => {
       applyTheme('light')
-      expect(hasClass('light')).toBe(true)
-      expect(hasClass('dark')).toBe(false)
+      expect(classes.has('light')).toBe(true)
+      expect(classes.has('dark')).toBe(false)
     })
   })
 
   it('resolves system against the OS at the moment it is applied', () => {
-    withBrowser({ systemDark: true }, () => {
+    withBrowser({ systemDark: true }, ({ classes }) => {
       applyTheme('system')
-      expect(hasClass('dark')).toBe(true)
-      expect(hasClass('light')).toBe(false)
+      expect(classes.has('dark')).toBe(true)
+      expect(classes.has('light')).toBe(false)
     })
-    withBrowser({ systemDark: false }, () => {
+    withBrowser({ systemDark: false }, ({ classes }) => {
       applyTheme('system')
-      expect(hasClass('light')).toBe(true)
+      expect(classes.has('light')).toBe(true)
     })
   })
 
   it('an explicit dark beats a light OS', () => {
-    withBrowser({ systemDark: false }, () => {
+    withBrowser({ systemDark: false }, ({ classes }) => {
       applyTheme('dark')
-      expect(hasClass('dark')).toBe(true)
+      expect(classes.has('dark')).toBe(true)
     })
   })
 })
@@ -195,66 +246,58 @@ describe('themeInitScript', () => {
   })
 
   it('dark stored choice is on <html> before paint, even on a light OS', () => {
-    withBrowser({ stored: 'dark', systemDark: false }, () => {
-      runInitScript()
-      expect(hasClass('dark')).toBe(true)
-      expect(hasClass('light')).toBe(false)
-    })
+    const classes = runInitScript({ stored: 'dark', systemDark: false })
+    expect(classes.has('dark')).toBe(true)
+    expect(classes.has('light')).toBe(false)
   })
 
   it('light stored choice survives a dark OS', () => {
-    withBrowser({ stored: 'light', systemDark: true }, () => {
-      runInitScript()
-      expect(hasClass('light')).toBe(true)
-      expect(hasClass('dark')).toBe(false)
-    })
+    const classes = runInitScript({ stored: 'light', systemDark: true })
+    expect(classes.has('light')).toBe(true)
+    expect(classes.has('dark')).toBe(false)
   })
 
   it('system mode follows the OS at first paint', () => {
-    withBrowser({ stored: 'system', systemDark: true }, () => {
-      runInitScript()
-      expect(hasClass('dark')).toBe(true)
-    })
-    withBrowser({ stored: 'system', systemDark: false }, () => {
-      runInitScript()
-      expect(hasClass('light')).toBe(true)
-    })
+    expect(runInitScript({ stored: 'system', systemDark: true }).has('dark')).toBe(true)
+    expect(runInitScript({ stored: 'system', systemDark: false }).has('light')).toBe(true)
   })
 
   it('no stored value behaves as system', () => {
-    withBrowser({ systemDark: true }, () => {
-      runInitScript()
-      expect(hasClass('dark')).toBe(true)
-    })
+    expect(runInitScript({ systemDark: true }).has('dark')).toBe(true)
   })
 
   it('a corrupt stored value behaves as system, not as a crash', () => {
-    withBrowser({ stored: 'shiny', systemDark: false }, () => {
-      runInitScript()
-      expect(hasClass('light')).toBe(true)
-    })
+    expect(runInitScript({ stored: 'shiny', systemDark: false }).has('light')).toBe(true)
   })
 
   it('removes a stale class instead of leaving both on <html>', () => {
-    withBrowser({ stored: 'dark', systemDark: false, initialClasses: ['light'] }, () => {
-      runInitScript()
-      expect(hasClass('dark')).toBe(true)
-      expect(hasClass('light')).toBe(false)
+    const classes = runInitScript({
+      stored: 'dark',
+      systemDark: false,
+      initialClasses: ['light'],
     })
+    expect(classes.has('dark')).toBe(true)
+    expect(classes.has('light')).toBe(false)
   })
 
   it('a throwing localStorage leaves the page on its current theme', () => {
-    withBrowser({ systemDark: true }, () => {
-      // A storage that refuses to read: private mode, blocked partition.
-      Object.defineProperty(globalThis, 'localStorage', {
-        configurable: true,
-        get() {
+    // Private mode or a blocked partition: reads refuse. The script's own
+    // try/catch must swallow that and change nothing.
+    const classes = new Set(['light'])
+    const document = { documentElement: { classList: classListStub(classes) } }
+    const window = {
+      matchMedia: () => ({ matches: true }),
+    }
+    expect(() =>
+      runInNewContext(themeInitScript, {
+        localStorage: { getItem: () => {
           throw new Error('blocked')
-        },
-      })
-      expect(() => runInitScript()).not.toThrow()
-      expect(hasClass('light')).toBe(false)
-      expect(hasClass('dark')).toBe(false)
-    })
+        } },
+        window,
+        document,
+      }),
+    ).not.toThrow()
+    expect(classes.has('light')).toBe(true)
+    expect(classes.has('dark')).toBe(false)
   })
 })
